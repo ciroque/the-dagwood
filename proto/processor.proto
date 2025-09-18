@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package processor.v1;
+
+// Request envelope for processors
+message ProcessorRequest {
+  bytes payload = 1;                  // opaque data (engine-defined)
+  map<string, string> metadata = 2;   // tracing, auth, schema version, etc.
+}
+
+// Structured error for uniform handling
+message ErrorDetail {
+  int32 code = 1;                     // app-specific error code
+  string message = 2;                 // human-readable description
+}
+
+// Response envelope for processors
+message ProcessorResponse {
+  oneof outcome {
+    bytes next_payload = 1;           // success result
+    ErrorDetail error = 2;            // error result
+  }
+}
+
+// Canonical processor service definition
+service Processor {
+  rpc Process(ProcessorRequest) returns (ProcessorResponse);
+}

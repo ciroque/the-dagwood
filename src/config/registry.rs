@@ -4,6 +4,7 @@ use std::sync::Arc;
 use crate::traits::Processor;
 use crate::config::{Config, BackendType};
 use crate::backends::stub::StubProcessor;
+use crate::backends::local::LocalProcessorFactory;
 
 
 /// Resolves processors from config into runtime instances
@@ -13,8 +14,13 @@ pub fn build_registry(cfg: &Config) -> HashMap<String, Arc<dyn Processor>> {
     for p in &cfg.processors {
         let processor: Arc<dyn Processor> = match p.backend {
             BackendType::Local => {
-                // TODO: load from impl_/plugins directory
-                Arc::new(StubProcessor::new(p.id.clone()))
+                match LocalProcessorFactory::create_processor(p) {
+                    Ok(processor) => processor,
+                    Err(e) => {
+                        eprintln!("Warning: Failed to create local processor '{}': {}. Using stub instead.", p.id, e);
+                        Arc::new(StubProcessor::new(p.id.clone()))
+                    }
+                }
             }
             BackendType::Loadable => {
                 // TODO: dynamic library loading

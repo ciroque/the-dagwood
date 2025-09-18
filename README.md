@@ -69,6 +69,63 @@ processors:
 
 ---
 
+## Repository Structure
+
+```
+the-dagwood/
+├── Cargo.toml               # Workspace root manifest
+├── build.rs                 # Protobuf compilation entrypoint
+├── proto/                   # Protobuf definitions (public plugin API)
+│   └── processor.proto
+├── examples/                # Small runnable demos
+│   ├── basic_pipeline.yaml
+│   └── basic_pipeline.rs
+├── configs/                 # Sample configurations (realistic flows)
+│   └── demo.yaml
+├── src/
+│   ├── lib.rs               # Crate entrypoint (re-exports modules)
+│   │
+│   ├── engine/              # Core DAG execution engine
+│   │   ├── mod.rs
+│   │   ├── executor.rs      # DAG executor trait + pluggable strategies
+│   │   ├── work_queue.rs    # Work-queue + dependency-counted impl
+│   │   ├── level.rs         # Level-by-level executor
+│   │   ├── reactive.rs      # Event-driven executor
+│   │   └── hybrid.rs        # Scheduler/DAG split executor
+│   │
+│   ├── backends/            # Execution backends (local, RPC, WASM)
+│   │   ├── mod.rs
+│   │   ├── local.rs         # In-process processors & loadable libs
+│   │   ├── rpc.rs           # gRPC/HTTP clients
+│   │   └── wasm.rs          # Wasmtime/Extism adapter
+│   │
+│   ├── config/              # Config & registry
+│   │   ├── mod.rs
+│   │   ├── loader.rs        # YAML/TOML parsing, env interpolation
+│   │   ├── schema.rs        # Validation (JSON Schema / Schemars)
+│   │   └── registry.rs      # ProcessorResolver (id → Processor impl)
+│   │
+│   ├── proto/               # Generated Rust code from Protobuf
+│   │   └── processor.v1.rs
+│   │
+│   ├── traits/              # Unified abstractions
+│   │   └── processor.rs     # Processor trait (unified interface)
+│   │
+│   ├── errors.rs            # Error model & classification
+│   ├── observability.rs     # Logging/tracing/metrics hooks (stubbed for POC)
+│   └── main.rs              # CLI entrypoint (optional for running flows)
+│
+├── plugins/                 # Directory for loadable libraries (dynamic .so/.dll)
+├── tests/                   # Integration tests
+│   ├── pipeline_end_to_end.rs
+│   └── wasm_integration.rs
+└── docs/
+    ├── ADRs/                # Architecture Decision Records
+    └── overview.md          # High-level system overview
+```
+
+---
+
 ## Roadmap
 
 * [x] ADRs for architecture decisions

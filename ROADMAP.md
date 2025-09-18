@@ -16,10 +16,21 @@ This roadmap outlines a **hybrid iteration approach** for building The DAGwood: 
 
 ## Phase 2: First Demo (Bottom-up prototype)
 
-* [ ] Implement the **Local backend** with hard-coded processors (e.g., Logger, Sanitizer).
+* [ ] Implement the **Local backend** with hard-coded processors (see table below).
 * [ ] Implement the **Work Queue executor** (dependency-counted).
-* [ ] Run a trivial pipeline: `logger → sanitizer`.
+* [ ] Run a trivial pipeline: `change text case -> reverse text`.
 * [ ] Add basic error handling (short-circuit on failure).
+
+The following processors will be completed for this phase:
+
+| Processor                | Description                          | Recommended Type | Why                                                                |
+| ------------------------ | ------------------------------------ | ---------------- | ------------------------------------------------------------------ |
+| Change Text Case         | Upper/lower/proper/title casing      | **Local**        | Trivial string transform, great for chaining.                      |
+| Token Counter            | Count chars/words                    | **Local**        | Simple, fast, no external deps.                                    |
+| Word Frequency Analyzer  | Histogram of words                   | **Local**        | Easy to implement, nice “non-trivial but local” example.           |
+| Reverse Text             | Reverse input string                 | **Local**        | Dead simple sanity check processor.                                |
+| Prefix/Suffix Adder      | Add prefix/suffix around string      | **Local**        | Shows off config-driven behavior.                                  |
+
 
 ---
 
@@ -29,6 +40,16 @@ This roadmap outlines a **hybrid iteration approach** for building The DAGwood: 
 * [ ] Add **RPC adapter** (gRPC client via tonic).
 * [ ] Add support for loadable shared libraries in the Local backend.
 * [ ] Support configurable payload size limits.
+
+The following processors will be completed for this phase:
+
+| Processor                | Description                          | Recommended Type | Why                                                                |
+| ------------------------ | ------------------------------------ | ---------------- | ------------------------------------------------------------------ |
+| Regex Replacer           | Replace text via regex pattern       | **Local**        | Demonstrates use of external crate (`regex`), still simple.        |
+| JSON Path Extractor      | Extract fields from JSON             | **Local**        | Structured parsing demo, good to show config-driven selects.       |
+| Sentiment Analyzer (toy) | Naive positive/negative word check   | **gRPC**         | Good to show off remote service integration (can be in Go/Python). |
+| Language Detector (toy)  | Detect language by stopwords/charset | **HTTP**         | Another external API style demo, e.g., wrap a tiny HTTP service.   |
+| WASM Hello World         | Append “-wasm” to string             | **WASM**         | Proves WASM sandbox execution, even with trivial logic.            |
 
 ---
 

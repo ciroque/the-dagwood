@@ -1,0 +1,79 @@
+# DAG execution strategy: pick how the executor runs
+# Options: work_queue, level, reactive, hybrid
+strategy: work_queue
+
+# Processor definitions: each processor declares type, config, and dependencies
+processors:
+  # Trivial string transforms (Local backends)
+  - id: case_change
+    type: local
+    impl: CaseChanger         # implements Change Text Case
+    options:
+      mode: upper             # upper | lower | proper | title
+    depends_on: []
+
+  - id: token_counter
+    type: local
+    impl: TokenCounter        # counts characters or words
+    options:
+      mode: words
+    depends_on: [case_change]
+
+  - id: word_frequency
+    type: local
+    impl: WordFrequency       # builds histogram of word frequencies
+    depends_on: [case_change]
+
+  - id: reverse_text
+    type: local
+    impl: Reverser            # reverses string content
+    depends_on: [case_change]
+
+  - id: prefix_suffix
+    type: local
+    impl: PrefixSuffix        # adds prefix/suffix
+    options:
+      prefix: ">>> "
+      suffix: " <<<"
+    depends_on: [reverse_text]
+
+  - id: regex_replacer
+    type: local
+    impl: RegexReplacer       # performs regex substitutions
+    options:
+      pattern: "\\d+"         # replace digits with #
+      replacement: "#"
+    depends_on: [case_change]
+
+  - id: json_extractor
+    type: local
+    impl: JsonExtractor       # extracts fields from JSON strings
+    options:
+      path: "$.user.name"
+    depends_on: [regex_replacer]
+
+  # Non-local backends (substantial demos)
+  - id: sentiment
+    type: grpc
+    endpoint: "http://localhost:50051" # toy sentiment analyzer service
+    depends_on: [word_frequency]
+
+  - id: lang_detect
+    type: http
+    endpoint: "http://localhost:5000/detect" # toy HTTP service for language detection
+    options:
+      languages: ["en", "es", "fr"]
+    depends_on: [token_counter]
+
+  - id: wasm_hello
+    type: wasm
+    module: "./plugins/hello.wasm" # appends "-wasm" to input string
+    depends_on: [json_extractor]
+
+# Flow illustration:
+# case_change fans out into several local processors:
+#   - token_counter → lang_detect
+#   - word_frequency → sentiment
+#   - regex_replacer → json_extractor → wasm_hello
+#   - reverse_text → prefix_suffix
+# All branches run in parallel where dependencies allow.

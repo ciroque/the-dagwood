@@ -1,21 +1,30 @@
 use std::collections::HashMap;
-use the_dagwood::backends::local::LocalProcessorRegistry;
+use the_dagwood::backends::local::LocalProcessorFactory;
+use the_dagwood::config::{ProcessorConfig, BackendType};
 use the_dagwood::proto::processor_v1::ProcessorRequest;
 
 /// Demo showing a simple pipeline: change text case -> reverse text
 async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== DAGwood Local Backend Pipeline Demo ===\n");
     
-    // Create the local processor registry
-    let registry = LocalProcessorRegistry::new();
+    // Helper function to create a processor config
+    let create_config = |id: &str, impl_name: &str| ProcessorConfig {
+        id: id.to_string(),
+        backend: BackendType::Local,
+        impl_: Some(impl_name.to_string()),
+        endpoint: None,
+        module: None,
+        depends_on: vec![],
+    };
     
     // Input text for our pipeline
     let input_text = "Hello, World! This is a test.";
     println!("Input: '{}'", input_text);
     
     // Step 1: Change text case to uppercase
-    let uppercase_processor = registry.get("change_text_case_upper")
-        .ok_or("Uppercase processor not found")?;
+    let uppercase_config = create_config("uppercase", "change_text_case_upper");
+    let uppercase_processor = LocalProcessorFactory::create_processor(&uppercase_config)
+        .map_err(|e| format!("Failed to create uppercase processor: {}", e))?;
     
     let request1 = ProcessorRequest {
         payload: input_text.as_bytes().to_vec(),
@@ -36,8 +45,9 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
     println!("After uppercase: '{}'", uppercase_result);
     
     // Step 2: Reverse the text
-    let reverse_processor = registry.get("reverse_text")
-        .ok_or("Reverse processor not found")?;
+    let reverse_config = create_config("reverse", "reverse_text");
+    let reverse_processor = LocalProcessorFactory::create_processor(&reverse_config)
+        .map_err(|e| format!("Failed to create reverse processor: {}", e))?;
     
     let request2 = ProcessorRequest {
         payload: uppercase_result.as_bytes().to_vec(),
@@ -61,8 +71,9 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n=== Other Processor Demos ===");
     
     // Token Counter
-    let token_counter = registry.get("token_counter")
-        .ok_or("Token counter not found")?;
+    let token_config = create_config("token_counter", "token_counter");
+    let token_counter = LocalProcessorFactory::create_processor(&token_config)
+        .map_err(|e| format!("Failed to create token counter: {}", e))?;
     
     let token_request = ProcessorRequest {
         payload: input_text.as_bytes().to_vec(),
@@ -76,8 +87,9 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
     }
     
     // Word Frequency Analyzer
-    let word_freq = registry.get("word_frequency_analyzer")
-        .ok_or("Word frequency analyzer not found")?;
+    let word_freq_config = create_config("word_freq", "word_frequency_analyzer");
+    let word_freq = LocalProcessorFactory::create_processor(&word_freq_config)
+        .map_err(|e| format!("Failed to create word frequency analyzer: {}", e))?;
     
     let freq_request = ProcessorRequest {
         payload: input_text.as_bytes().to_vec(),
@@ -90,9 +102,10 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
         println!("Word frequency result: {}", freq_result);
     }
     
-    // Prefix/Suffix Adder
-    let bracket_adder = registry.get("add_brackets")
-        .ok_or("Bracket adder not found")?;
+    // Prefix/Suffix Adder (creates with default brackets)
+    let bracket_config = create_config("bracket_adder", "prefix_suffix_adder");
+    let bracket_adder = LocalProcessorFactory::create_processor(&bracket_config)
+        .map_err(|e| format!("Failed to create bracket adder: {}", e))?;
     
     let bracket_request = ProcessorRequest {
         payload: "test".as_bytes().to_vec(),
@@ -105,10 +118,10 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
         println!("Bracket adder result: '{}'", bracket_result);
     }
     
-    println!("\n=== Available Processors ===");
-    let processors = registry.list_processors();
-    for processor_id in processors {
-        println!("- {}", processor_id);
+    println!("\n=== Available Processor Implementations ===");
+    let implementations = LocalProcessorFactory::list_available_implementations();
+    for impl_name in implementations {
+        println!("- {}", impl_name);
     }
     
     println!("\nDemo completed successfully!");

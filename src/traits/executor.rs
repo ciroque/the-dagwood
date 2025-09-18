@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use crate::traits::processor::Processor;
-use crate::proto::processor::v1::{ProcessorRequest, ProcessorResponse};
+use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use std::sync::Arc;
 use std::collections::HashMap;
 

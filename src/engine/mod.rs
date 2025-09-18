@@ -1,3 +1,5 @@
-// pub mod executor;
-//
-// pub use executor::DagExecutor;
+pub mod work_queue;
+#[cfg(test)]
+pub mod integration_tests;
+
+pub use work_queue::WorkQueueExecutor;

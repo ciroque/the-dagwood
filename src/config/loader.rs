@@ -109,6 +109,27 @@ pub fn load_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::error
     Ok(cfg)
 }
 
+/// Load and validate a config from a YAML file
+/// 
+/// This function loads the configuration and validates the dependency graph
+/// to ensure it's acyclic and all references are resolved.
+pub fn load_and_validate_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::error::Error>> {
+    let cfg = load_config(path)?;
+    
+    // Validate the dependency graph
+    if let Err(validation_errors) = crate::config::validate_dependency_graph(&cfg) {
+        // Convert validation errors into a single error message
+        let error_messages: Vec<String> = validation_errors
+            .iter()
+            .map(|e| e.to_string())
+            .collect();
+        let combined_error = format!("Configuration validation failed:\n{}", error_messages.join("\n"));
+        return Err(combined_error.into());
+    }
+    
+    Ok(cfg)
+}
+
 
 
 #[cfg(test)]
@@ -134,5 +155,92 @@ processors:
         assert_eq!(matches!(cfg.strategy, Strategy::WorkQueue), true);
         assert_eq!(cfg.processors.len(), 2);
         assert_eq!(cfg.processors[1].depends_on, vec!["logger"]);
+    }
+
+    #[test]
+    fn test_load_and_validate_valid_config() {
+        let yaml = r#"
+strategy: work_queue
+processors:
+  - id: logger
+    type: local
+    impl_: Logger
+  - id: auth
+    type: grpc
+    endpoint: https://auth-service:50051
+    depends_on: [logger]
+  - id: processor
+    type: wasm
+    module: processor.wasm
+    depends_on: [auth]
+"#;
+        
+        // Create a temporary file
+        let temp_dir = std::env::temp_dir();
+        let temp_file = temp_dir.join("test_config.yaml");
+        std::fs::write(&temp_file, yaml).unwrap();
+        
+        // Test that validation passes
+        let result = load_and_validate_config(&temp_file);
+        assert!(result.is_ok());
+        
+        // Clean up
+        std::fs::remove_file(&temp_file).unwrap();
+    }
+
+    #[test]
+    fn test_load_and_validate_cyclic_config() {
+        let yaml = r#"
+strategy: work_queue
+processors:
+  - id: a
+    type: local
+    impl_: ProcessorA
+    depends_on: [b]
+  - id: b
+    type: local
+    impl_: ProcessorB
+    depends_on: [a]
+"#;
+        
+        // Create a temporary file
+        let temp_dir = std::env::temp_dir();
+        let temp_file = temp_dir.join("test_cyclic_config.yaml");
+        std::fs::write(&temp_file, yaml).unwrap();
+        
+        // Test that validation fails
+        let result = load_and_validate_config(&temp_file);
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Cyclic dependency detected"));
+        
+        // Clean up
+        std::fs::remove_file(&temp_file).unwrap();
+    }
+
+    #[test]
+    fn test_load_and_validate_unresolved_dependency() {
+        let yaml = r#"
+strategy: work_queue
+processors:
+  - id: processor
+    type: local
+    impl_: Processor
+    depends_on: [nonexistent]
+"#;
+        
+        // Create a temporary file
+        let temp_dir = std::env::temp_dir();
+        let temp_file = temp_dir.join("test_unresolved_config.yaml");
+        std::fs::write(&temp_file, yaml).unwrap();
+        
+        // Test that validation fails
+        let result = load_and_validate_config(&temp_file);
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("depends on 'nonexistent' which does not exist"));
+        
+        // Clean up
+        std::fs::remove_file(&temp_file).unwrap();
     }
 }

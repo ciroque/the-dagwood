@@ -10,7 +10,7 @@ This roadmap outlines a **hybrid iteration approach** for building The DAGwood: 
 * [X] Define the **`DagExecutor` trait** (pluggable execution strategies).
 * [X] Implement config parsing into strongly typed structs.
 * [X] Build the **registry** that resolves processors from config into runtime instances.
-* [ ] Validate dependency graphs (acyclic, all references resolved).
+* [X] Validate dependency graphs (acyclic, all references resolved).
 
 ---
 

@@ -1,0 +1,28 @@
+# DAG execution strategy: choose how the pipeline runs (work_queue, level, reactive, hybrid)
+strategy: work_queue
+
+# Processor definitions: each processor declares its type, config, and dependencies
+processors:
+  - id: logger
+    type: local
+    impl: Logger
+
+  - id: auth
+    type: grpc
+    endpoint: https://auth-service:50051
+    dependsOn: [logger]
+
+  - id: metrics
+    type: local
+    impl: MetricsCollector
+    dependsOn: [logger]
+
+  - id: audit
+    type: grpc
+    endpoint: https://audit-service:50052
+    dependsOn: [auth, metrics]
+
+  - id: sanitizer
+    type: wasm
+    module: ./plugins/sanitize.wasm
+    dependsOn: [auth]

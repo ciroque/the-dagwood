@@ -1,0 +1,40 @@
+# Compiled artifacts
+/target/
+/Cargo.lock
+
+# Build script output
+src/proto/*.rs
+
+# IDE/editor junk
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# JetBrains (CLion, IntelliJ, etc.)
+.idea/
+
+# Logs and dumps
+*.log
+*.tmp
+*.bak
+*.old
+*.dmp
+
+# Generated coverage/debugging
+coverage/
+.profraw
+.profdata
+
+# Plugins and WASM build outputs
+plugins/*.so
+plugins/*.dll
+plugins/*.dylib
+plugins/*.wasm
+
+# Node modules (if frontend/demo sneaks in)
+node_modules/

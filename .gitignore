@@ -2,8 +2,9 @@
 /target/
 /Cargo.lock
 
-# Build script output
+# Build script output - ignore generated proto files but keep mod.rs
 src/proto/*.rs
+!src/proto/mod.rs
 
 # IDE/editor junk
 *.swp

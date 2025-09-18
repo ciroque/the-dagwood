@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use crate::proto::processor::v1::{ProcessorRequest, ProcessorResponse};
+
+use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 
 #[async_trait]
 pub trait Processor: Send + Sync {

@@ -3,26 +3,26 @@ strategy: work_queue
 
 # Processor definitions: each processor declares its type, config, and dependencies
 processors:
-  - id: logger
+  - id: caser
     type: local
-    impl: Logger
+    impl: Caser
 
-  - id: auth
+  - id: token-counter
     type: grpc
     endpoint: https://auth-service:50051
-    dependsOn: [logger]
+    depends_on: [ capitalizer]
 
-  - id: metrics
+  - id: character-
     type: local
     impl: MetricsCollector
-    dependsOn: [logger]
+    depends_on: [logger]
 
   - id: audit
     type: grpc
     endpoint: https://audit-service:50052
-    dependsOn: [auth, metrics]
+    depends_on: [auth, metrics]
 
   - id: sanitizer
     type: wasm
     module: ./plugins/sanitize.wasm
-    dependsOn: [auth]
+    depends_on: [auth]

@@ -6,8 +6,8 @@ This roadmap outlines a **hybrid iteration approach** for building The DAGwood: 
 
 ## Phase 1: Foundations (Top-down stubs)
 
-* [ ] Define the **`Processor` trait** (Unified Abstraction Layer).
-* [ ] Define the **`DagExecutor` trait** (pluggable execution strategies).
+* [X] Define the **`Processor` trait** (Unified Abstraction Layer).
+* [X] Define the **`DagExecutor` trait** (pluggable execution strategies).
 * [ ] Implement config parsing into strongly typed structs.
 * [ ] Build the **registry** that resolves processors from config into runtime instances.
 * [ ] Validate dependency graphs (acyclic, all references resolved).

@@ -39,3 +39,5 @@ plugins/*.wasm
 
 # Node modules (if frontend/demo sneaks in)
 node_modules/
+
+**/target/

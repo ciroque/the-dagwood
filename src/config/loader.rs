@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -59,6 +60,8 @@ pub enum Strategy {
 /// * `endpoint` - Network endpoint (for RPC backends)
 /// * `module` - WASM module path (for WASM backends)
 /// * `depends_on` - List of processor IDs that this processor depends on
+/// * `collection_strategy` - Strategy for combining multiple dependency outputs
+/// * `options` - Additional processor-specific configuration options
 ///
 /// # Example
 /// ```yaml
@@ -66,6 +69,10 @@ pub enum Strategy {
 /// type: local
 /// impl_: "DataProcessor"
 /// depends_on: ["input_validator"]
+/// collection_strategy:
+///   type: merge_metadata
+///   primary_source: "validator"
+///   metadata_sources: ["analyzer"]
 /// ```
 #[derive(Debug, Deserialize)]
 pub struct ProcessorConfig {
@@ -77,6 +84,10 @@ pub struct ProcessorConfig {
     pub module: Option<String>,      // for wasm
     #[serde(default)]
     pub depends_on: Vec<String>,     // defaults empty
+    #[serde(default)]
+    pub collection_strategy: Option<CollectionStrategy>, // for result collection
+    #[serde(default)]
+    pub options: HashMap<String, serde_yaml::Value>, // processor-specific options
 }
 
 /// Backend implementation type for processors.
@@ -99,6 +110,55 @@ pub enum BackendType {
     Grpc,
     Http,
     Wasm,
+}
+
+/// Collection strategy for handling multiple dependency outputs.
+///
+/// Defines how a processor should combine inputs from multiple dependencies
+/// when they run in parallel. This addresses non-deterministic behavior
+/// in parallel execution scenarios.
+///
+/// # Variants
+/// * `FirstAvailable` - Use the first dependency output that becomes available (current behavior)
+/// * `MergeMetadata` - Use one dependency as primary payload, others as metadata
+/// * `Concatenate` - Combine all dependency outputs into a single payload
+/// * `JsonMerge` - Intelligently merge JSON outputs from dependencies
+/// * `Custom` - Use a custom combiner implementation
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum CollectionStrategy {
+    FirstAvailable,
+    MergeMetadata {
+        primary_source: String,
+        metadata_sources: Vec<String>,
+    },
+    Concatenate {
+        separator: Option<String>,
+    },
+    JsonMerge {
+        merge_arrays: bool,
+        conflict_resolution: ConflictResolution,
+    },
+    Custom {
+        combiner_impl: String,
+    },
+}
+
+/// Strategy for resolving conflicts when merging JSON data.
+///
+/// Used by the JsonMerge collection strategy to determine how to handle
+/// conflicting keys when combining JSON outputs from multiple dependencies.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConflictResolution {
+    /// Take the value from the first dependency
+    TakeFirst,
+    /// Take the value from the last dependency
+    TakeLast,
+    /// Attempt to merge values (arrays concatenated, objects merged recursively)
+    Merge,
+    /// Return an error if conflicts are detected
+    Error,
 }
 
 /// Load a config from a YAML file
@@ -242,5 +302,106 @@ processors:
         
         // Clean up
         std::fs::remove_file(&temp_file).unwrap();
+    }
+
+    #[test]
+    fn test_parse_collection_strategy_merge_metadata() {
+        let yaml = r#"
+strategy: work_queue
+processors:
+  - id: collector
+    type: local
+    impl_: ResultCollector
+    depends_on: [token_counter, word_frequency]
+    collection_strategy:
+      type: merge_metadata
+      primary_source: token_counter
+      metadata_sources: [word_frequency]
+"#;
+
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(cfg.processors.len(), 1);
+        
+        let processor = &cfg.processors[0];
+        assert_eq!(processor.id, "collector");
+        assert!(processor.collection_strategy.is_some());
+        
+        if let Some(CollectionStrategy::MergeMetadata { primary_source, metadata_sources }) = &processor.collection_strategy {
+            assert_eq!(primary_source, "token_counter");
+            assert_eq!(metadata_sources, &vec!["word_frequency"]);
+        } else {
+            panic!("Expected MergeMetadata collection strategy");
+        }
+    }
+
+    #[test]
+    fn test_parse_collection_strategy_concatenate() {
+        let yaml = r#"
+strategy: work_queue
+processors:
+  - id: concatenator
+    type: local
+    impl_: ResultCollector
+    collection_strategy:
+      type: concatenate
+      separator: "\n---\n"
+"#;
+
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        let processor = &cfg.processors[0];
+        
+        if let Some(CollectionStrategy::Concatenate { separator }) = &processor.collection_strategy {
+            assert_eq!(separator.as_ref().unwrap(), "\n---\n");
+        } else {
+            panic!("Expected Concatenate collection strategy");
+        }
+    }
+
+    #[test]
+    fn test_parse_collection_strategy_json_merge() {
+        let yaml = r#"
+strategy: work_queue
+processors:
+  - id: json_merger
+    type: local
+    impl_: ResultCollector
+    collection_strategy:
+      type: json_merge
+      merge_arrays: true
+      conflict_resolution: merge
+"#;
+
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        let processor = &cfg.processors[0];
+        
+        if let Some(CollectionStrategy::JsonMerge { merge_arrays, conflict_resolution }) = &processor.collection_strategy {
+            assert_eq!(*merge_arrays, true);
+            assert!(matches!(conflict_resolution, ConflictResolution::Merge));
+        } else {
+            panic!("Expected JsonMerge collection strategy");
+        }
+    }
+
+    #[test]
+    fn test_parse_processor_with_options() {
+        let yaml = r#"
+strategy: work_queue
+processors:
+  - id: processor_with_options
+    type: local
+    impl_: SomeProcessor
+    options:
+      mode: upper
+      timeout: 30
+      enabled: true
+"#;
+
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        let processor = &cfg.processors[0];
+        
+        assert_eq!(processor.options.len(), 3);
+        assert!(processor.options.contains_key("mode"));
+        assert!(processor.options.contains_key("timeout"));
+        assert!(processor.options.contains_key("enabled"));
     }
 }

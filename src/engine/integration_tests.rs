@@ -25,6 +25,8 @@ mod tests {
             endpoint: None,
             module: None,
             depends_on: vec![],
+            collection_strategy: None,
+            options: HashMap::new(),
         };
         
         let reverse_config = ProcessorConfig {
@@ -34,6 +36,8 @@ mod tests {
             endpoint: None,
             module: None,
             depends_on: vec!["uppercase".to_string()],
+            collection_strategy: None,
+            options: HashMap::new(),
         };
         
         // Create processors using the factory
@@ -96,6 +100,8 @@ mod tests {
                 endpoint: None,
                 module: None,
                 depends_on: vec![],
+                collection_strategy: None,
+                options: HashMap::new(),
             },
             ProcessorConfig {
                 id: "lowercase".to_string(),
@@ -104,6 +110,8 @@ mod tests {
                 endpoint: None,
                 module: None,
                 depends_on: vec![],
+                collection_strategy: None,
+                options: HashMap::new(),
             },
             ProcessorConfig {
                 id: "token_counter".to_string(),
@@ -112,6 +120,8 @@ mod tests {
                 endpoint: None,
                 module: None,
                 depends_on: vec!["uppercase".to_string(), "lowercase".to_string()],
+                collection_strategy: None,
+                options: HashMap::new(),
             },
             ProcessorConfig {
                 id: "word_frequency".to_string(),
@@ -120,6 +130,8 @@ mod tests {
                 endpoint: None,
                 module: None,
                 depends_on: vec!["token_counter".to_string()],
+                collection_strategy: None,
+                options: HashMap::new(),
             },
         ];
         
@@ -217,6 +229,105 @@ mod tests {
             assert_eq!(String::from_utf8(payload.clone()).unwrap(), "[START] Hello World [END]");
         } else {
             panic!("Expected NextPayload outcome for final processor");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_parallel_collection_with_first_available_strategy() {
+        // Test the new parallel collection functionality
+        // Create a DAG where a processor depends on multiple parallel processors
+        let executor = WorkQueueExecutor::new(4);
+        
+        // Two parallel processors that both process the same input
+        let upper_case = LocalProcessorFactory::create_processor(&ProcessorConfig {
+            id: "upper_case".to_string(),
+            backend: BackendType::Local,
+            impl_: Some("change_text_case_upper".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec![],
+            collection_strategy: None,
+            options: HashMap::new(),
+        }).unwrap();
+        
+        let lower_case = LocalProcessorFactory::create_processor(&ProcessorConfig {
+            id: "lower_case".to_string(),
+            backend: BackendType::Local,
+            impl_: Some("change_text_case_lower".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec![],
+            collection_strategy: None,
+            options: HashMap::new(),
+        }).unwrap();
+        
+        // A processor that depends on both parallel processors
+        // This will trigger the ResultCollector with FirstAvailable strategy
+        let reverse_text = LocalProcessorFactory::create_processor(&ProcessorConfig {
+            id: "reverse_text".to_string(),
+            backend: BackendType::Local,
+            impl_: Some("reverse_text".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec!["upper_case".to_string(), "lower_case".to_string()],
+            collection_strategy: None,
+            options: HashMap::new(),
+        }).unwrap();
+        
+        let mut processors = HashMap::new();
+        processors.insert("upper_case".to_string(), upper_case);
+        processors.insert("lower_case".to_string(), lower_case);
+        processors.insert("reverse_text".to_string(), reverse_text);
+        
+        // Build dependency graph
+        let graph = HashMap::from([
+            ("upper_case".to_string(), vec!["reverse_text".to_string()]),
+            ("lower_case".to_string(), vec!["reverse_text".to_string()]),
+            ("reverse_text".to_string(), vec![]),
+        ]);
+        
+        let entrypoints = vec!["upper_case".to_string(), "lower_case".to_string()];
+        let input = ProcessorRequest {
+            payload: "Hello World".as_bytes().to_vec(),
+            metadata: HashMap::new(),
+        };
+        
+        let results = executor.execute(processors, graph, entrypoints, input).await;
+        
+        // Verify all processors executed successfully
+        assert!(results.contains_key("upper_case"));
+        assert!(results.contains_key("lower_case"));
+        assert!(results.contains_key("reverse_text"));
+        
+        // Check that upper_case and lower_case both produced results
+        let upper_result = results.get("upper_case").unwrap();
+        let lower_result = results.get("lower_case").unwrap();
+        
+        if let Some(Outcome::NextPayload(payload)) = &upper_result.outcome {
+            let upper_str = String::from_utf8(payload.clone()).unwrap();
+            assert_eq!(upper_str, "HELLO WORLD");
+        } else {
+            panic!("Expected successful outcome from upper_case");
+        }
+        
+        if let Some(Outcome::NextPayload(payload)) = &lower_result.outcome {
+            let lower_str = String::from_utf8(payload.clone()).unwrap();
+            assert_eq!(lower_str, "hello world");
+        } else {
+            panic!("Expected successful outcome from lower_case");
+        }
+        
+        // Check that reverse_text received input from ResultCollector and processed it
+        let reverse_result = results.get("reverse_text").unwrap();
+        if let Some(Outcome::NextPayload(payload)) = &reverse_result.outcome {
+            let reverse_str = String::from_utf8(payload.clone()).unwrap();
+            // The ResultCollector should have used FirstAvailable strategy
+            // So reverse_text should have received either "HELLO WORLD" or "hello world"
+            // and reversed it
+            assert!(reverse_str == "DLROW OLLEH" || reverse_str == "dlrow olleh");
+            println!("Parallel collection result: {}", reverse_str);
+        } else {
+            panic!("Expected successful outcome from reverse_text");
         }
     }
 }

@@ -2,11 +2,14 @@ use async_trait::async_trait;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use serde_json;
 
 use crate::traits::executor::DagExecutor;
 use crate::traits::processor::Processor;
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
+use crate::config::CollectionStrategy;
+use crate::backends::local::processors::{ResultCollectorProcessor, CollectableResult};
 
 /// Work Queue executor that uses dependency counting to manage DAG execution.
 /// 
@@ -55,6 +58,7 @@ impl WorkQueueExecutor {
     }
 
     /// Build a reverse dependency map: processor_id -> list of processors it depends on
+    /// TODO(steve): Should this be done while the registry is being created and provided then?
     fn build_reverse_dependencies(&self, graph: &HashMap<String, Vec<String>>) -> HashMap<String, Vec<String>> {
         let mut reverse_deps = HashMap::new();
         
@@ -76,11 +80,80 @@ impl WorkQueueExecutor {
     }
 
     /// Find processors that are ready to execute (have no unresolved dependencies)
+    #[cfg(test)]
     fn find_ready_processors(&self, dependency_counts: &HashMap<String, usize>) -> Vec<String> {
         dependency_counts
             .iter()
             .filter_map(|(id, &count)| if count == 0 { Some(id.clone()) } else { None })
             .collect()
+    }
+
+    /// Combine results from multiple dependencies using collection strategy
+    async fn combine_dependency_results(
+        dependencies: &[String],
+        results_guard: &HashMap<String, ProcessorResponse>,
+        fallback_input: ProcessorRequest,
+    ) -> ProcessorRequest {
+        // Convert ProcessorResponse to CollectableResult for each dependency
+        let mut dependency_results = HashMap::new();
+        
+        for dep_id in dependencies {
+            if let Some(dep_response) = results_guard.get(dep_id) {
+                let collectable_result = match &dep_response.outcome {
+                    Some(Outcome::NextPayload(payload)) => CollectableResult {
+                        success: true,
+                        payload: Some(payload.clone()),
+                        error_code: None,
+                        error_message: None,
+                    },
+                    Some(Outcome::Error(error)) => CollectableResult {
+                        success: false,
+                        payload: None,
+                        error_code: Some(error.code),
+                        error_message: Some(error.message.clone()),
+                    },
+                    None => CollectableResult {
+                        success: false,
+                        payload: None,
+                        error_code: Some(500),
+                        error_message: Some("No outcome in processor response".to_string()),
+                    },
+                };
+                dependency_results.insert(dep_id.clone(), collectable_result);
+            }
+        }
+
+        // If we have no successful dependency results, fallback to original input
+        if dependency_results.is_empty() {
+            return fallback_input;
+        }
+
+        // Use FirstAvailable strategy as default for now
+        // TODO: In the future, this should be configurable per processor
+        let collector = ResultCollectorProcessor::new(CollectionStrategy::FirstAvailable);
+        
+        // Serialize dependency results for the collector
+        match serde_json::to_vec(&dependency_results) {
+            Ok(serialized_deps) => {
+                let collector_request = ProcessorRequest {
+                    payload: serialized_deps,
+                    metadata: fallback_input.metadata.clone(),
+                };
+                
+                // Process the collection
+                let collector_response = collector.process(collector_request).await;
+                
+                // Extract the combined result
+                match collector_response.outcome {
+                    Some(Outcome::NextPayload(combined_payload)) => ProcessorRequest {
+                        payload: combined_payload,
+                        metadata: fallback_input.metadata,
+                    },
+                    _ => fallback_input, // Fallback on collection failure
+                }
+            },
+            Err(_) => fallback_input, // Fallback on serialization failure
+        }
     }
 }
 
@@ -169,21 +242,12 @@ impl DagExecutor for WorkQueueExecutor {
                                         input_clone // Fallback to original input
                                     }
                                 } else {
-                                    // Multiple dependencies: for now, use the first dependency's output
-                                    // TODO: Implement proper input combination strategy for multiple dependencies
-                                    let dep_id = &dependencies[0];
-                                    if let Some(dep_response) = results_guard.get(dep_id) {
-                                        if let Some(Outcome::NextPayload(payload)) = &dep_response.outcome {
-                                            ProcessorRequest {
-                                                payload: payload.clone(),
-                                                ..input_clone
-                                            }
-                                        } else {
-                                            input_clone // Fallback to original input
-                                        }
-                                    } else {
-                                        input_clone // Fallback to original input
-                                    }
+                                    // Multiple dependencies: use collection strategy to combine results
+                                    Self::combine_dependency_results(
+                                        &dependencies,
+                                        &results_guard,
+                                        input_clone
+                                    ).await
                                 }
                             }
                         } else {
@@ -255,15 +319,13 @@ mod tests {
 
     // Mock processor for testing
     struct MockProcessor {
-        name: String,
         delay_ms: u64,
         output_suffix: String,
     }
 
     impl MockProcessor {
-        fn new(name: &str, delay_ms: u64, output_suffix: &str) -> Self {
+        fn new(_name: &str, delay_ms: u64, output_suffix: &str) -> Self {
             Self {
-                name: name.to_string(),
                 delay_ms,
                 output_suffix: output_suffix.to_string(),
             }

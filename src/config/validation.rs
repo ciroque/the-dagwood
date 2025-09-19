@@ -159,6 +159,8 @@ mod tests {
             endpoint: None,
             module: None,
             depends_on: depends_on.iter().map(|s| s.to_string()).collect(),
+            collection_strategy: None,
+            options: std::collections::HashMap::new(),
         }
     }
 

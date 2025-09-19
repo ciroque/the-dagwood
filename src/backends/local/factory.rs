@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::traits::Processor;
-use crate::config::ProcessorConfig;
+use crate::config::{ProcessorConfig, CollectionStrategy};
 use super::processors::*;
 
 /// Factory for creating local (in-process) processor instances
@@ -46,6 +46,13 @@ impl LocalProcessorFactory {
                 )))
             },
             
+            // Result collection processor
+            "result_collector" => {
+                let strategy = config.collection_strategy.clone()
+                    .unwrap_or(CollectionStrategy::FirstAvailable);
+                Ok(Arc::new(ResultCollectorProcessor::new(strategy)))
+            },
+            
             // Add more processors here as they're implemented
             _ => Err(format!("Unknown local processor implementation: '{}'", impl_name)),
         }
@@ -62,6 +69,7 @@ impl LocalProcessorFactory {
             "token_counter",
             "word_frequency_analyzer",
             "prefix_suffix_adder",
+            "result_collector",
         ]
     }
 
@@ -86,6 +94,8 @@ mod tests {
             endpoint: None,
             module: None,
             depends_on: vec![],
+            collection_strategy: None,
+            options: HashMap::new(),
         }
     }
 

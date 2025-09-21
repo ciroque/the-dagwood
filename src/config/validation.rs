@@ -168,6 +168,8 @@ mod tests {
     fn test_valid_empty_config() {
         let config = Config {
             strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![],
         };
         
@@ -178,6 +180,8 @@ mod tests {
     fn test_valid_single_processor() {
         let config = Config {
             strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![create_test_processor("a", vec![])],
         };
         
@@ -188,6 +192,8 @@ mod tests {
     fn test_valid_linear_chain() {
         let config = Config {
             strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![
                 create_test_processor("a", vec![]),
                 create_test_processor("b", vec!["a"]),
@@ -202,6 +208,8 @@ mod tests {
     fn test_valid_diamond_dependency() {
         let config = Config {
             strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![
                 create_test_processor("a", vec![]),
                 create_test_processor("b", vec!["a"]),
@@ -217,6 +225,8 @@ mod tests {
     fn test_duplicate_processor_ids() {
         let config = Config {
             strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![
                 create_test_processor("a", vec![]),
                 create_test_processor("a", vec![]), // Duplicate
@@ -237,6 +247,8 @@ mod tests {
     fn test_unresolved_dependency() {
         let config = Config {
             strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![
                 create_test_processor("a", vec![]),
                 create_test_processor("b", vec!["nonexistent"]),
@@ -257,6 +269,8 @@ mod tests {
     fn test_simple_cycle() {
         let config = Config {
             strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![
                 create_test_processor("a", vec!["b"]),
                 create_test_processor("b", vec!["a"]),
@@ -277,6 +291,8 @@ mod tests {
     fn test_self_dependency_cycle() {
         let config = Config {
             strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![create_test_processor("a", vec!["a"])],
         };
         
@@ -294,6 +310,8 @@ mod tests {
     fn test_complex_cycle() {
         let config = Config {
             strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![
                 create_test_processor("a", vec!["b"]),
                 create_test_processor("b", vec!["c"]),
@@ -316,6 +334,8 @@ mod tests {
     fn test_multiple_errors() {
         let config = Config {
             strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![
                 create_test_processor("a", vec!["nonexistent"]),
                 create_test_processor("a", vec![]), // Duplicate ID

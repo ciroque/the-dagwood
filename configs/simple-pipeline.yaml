@@ -1,0 +1,21 @@
+# Simple pipeline demonstrating Phase 2, Step 3: change text case -> reverse text
+# This is the trivial pipeline mentioned in the roadmap
+
+strategy: work_queue
+failure_strategy: fail_fast
+executor_options:
+  max_concurrency: 2
+
+processors:
+  - id: uppercase
+    type: local
+    impl: change_text_case_upper
+    depends_on: []
+
+  - id: reverse
+    type: local  
+    impl: reverse_text
+    depends_on: [uppercase]
+
+# Flow: input -> uppercase -> reverse -> output
+# Example: "hello world" -> "HELLO WORLD" -> "DLROW OLLEH"

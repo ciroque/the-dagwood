@@ -74,7 +74,8 @@ impl std::fmt::Display for ExecutionError {
 impl std::error::Error for ExecutionError {}
 
 /// Strategy for handling processor failures during DAG execution
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum FailureStrategy {
     /// Stop entire DAG execution on first processor failure (default)
     FailFast,

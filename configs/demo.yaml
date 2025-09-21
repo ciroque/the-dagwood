@@ -2,6 +2,16 @@
 # Options: work_queue, level, reactive, hybrid
 strategy: work_queue
 
+# Failure handling strategy: how to handle processor failures
+# Options: fail_fast (default), continue_on_error, best_effort
+failure_strategy: fail_fast
+
+# Executor-specific configuration options
+executor_options:
+  max_concurrency: 4        # Maximum concurrent processor executions
+  timeout_seconds: 30       # Timeout for individual processors (future use)
+  retry_attempts: 1         # Number of retry attempts (future use)
+
 # Processor definitions: each processor declares type, config, and dependencies
 processors:
   # Trivial string transforms (Local backends)

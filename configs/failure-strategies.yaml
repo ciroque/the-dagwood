@@ -1,0 +1,41 @@
+# Example demonstrating different failure strategies
+# This configuration shows how to handle processor failures
+
+strategy: work_queue
+failure_strategy: continue_on_error  # Continue executing even if some processors fail
+executor_options:
+  max_concurrency: 3
+
+processors:
+  - id: input_processor
+    type: local
+    impl: change_text_case_upper
+    depends_on: []
+
+  # This processor will fail (non-existent implementation)
+  - id: failing_processor
+    type: local
+    impl: non_existent_processor
+    depends_on: [input_processor]
+
+  # This processor should still execute despite the failure above
+  - id: independent_processor
+    type: local
+    impl: reverse_text
+    depends_on: [input_processor]
+
+  # This processor depends on the failing one, so it should be blocked
+  - id: dependent_on_failure
+    type: local
+    impl: token_counter_words
+    depends_on: [failing_processor]
+
+# Flow demonstration:
+# input_processor -> failing_processor (FAILS) -> dependent_on_failure (BLOCKED)
+#                 -> independent_processor (CONTINUES)
+# 
+# With continue_on_error strategy:
+# - input_processor executes successfully
+# - failing_processor fails but doesn't stop execution
+# - independent_processor continues and completes
+# - dependent_on_failure is blocked due to failed dependency

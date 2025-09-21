@@ -2,6 +2,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use crate::errors::FailureStrategy;
 
 /// Main configuration structure for the DAG execution engine.
 ///
@@ -11,11 +12,17 @@ use std::path::Path;
 ///
 /// # Fields
 /// * `strategy` - The execution strategy to use for the DAG
+/// * `failure_strategy` - How to handle processor failures (optional, defaults to FailFast)
+/// * `executor_options` - Executor-specific configuration options (optional)
 /// * `processors` - Vector of processor configurations that define the DAG nodes
 ///
 /// # Example
 /// ```yaml
 /// strategy: work_queue
+/// failure_strategy: fail_fast
+/// executor_options:
+///   max_concurrency: 4
+///   timeout_seconds: 30
 /// processors:
 ///   - id: "processor1"
 ///     type: local
@@ -24,6 +31,10 @@ use std::path::Path;
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub strategy: Strategy,
+    #[serde(default)]
+    pub failure_strategy: FailureStrategy,
+    #[serde(default)]
+    pub executor_options: ExecutorOptions,
     pub processors: Vec<ProcessorConfig>,
 }
 
@@ -38,13 +49,42 @@ pub struct Config {
 /// * `Level` - Executes processors level by level based on dependency depth
 /// * `Reactive` - Event-driven execution based on data availability
 /// * `Hybrid` - Combines multiple strategies for optimal performance
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Strategy {
     WorkQueue,
     Level,
     Reactive,
     Hybrid,
+}
+
+/// Executor-specific configuration options.
+///
+/// These options control how the DAG executor behaves during execution.
+/// Different executors may use different subsets of these options.
+///
+/// # Fields
+/// * `max_concurrency` - Maximum number of concurrent processor executions (optional)
+/// * `timeout_seconds` - Timeout for individual processor execution in seconds (optional)
+/// * `retry_attempts` - Number of retry attempts for failed processors (optional)
+/// * `batch_size` - Batch size for batch processing executors (optional)
+#[derive(Debug, Deserialize)]
+pub struct ExecutorOptions {
+    pub max_concurrency: Option<usize>,
+    pub timeout_seconds: Option<u64>,
+    pub retry_attempts: Option<u32>,
+    pub batch_size: Option<usize>,
+}
+
+impl Default for ExecutorOptions {
+    fn default() -> Self {
+        Self {
+            max_concurrency: None,
+            timeout_seconds: None,
+            retry_attempts: None,
+            batch_size: None,
+        }
+    }
 }
 
 /// Configuration for a single processor in the DAG.

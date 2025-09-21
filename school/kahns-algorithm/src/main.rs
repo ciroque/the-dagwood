@@ -234,7 +234,16 @@ fn main() {
 
     let wtf = g1.topological_sort();
 
+    match wtf {
+        Ok(sorted_nodes) => {
+            println!("Topological sort result: {:?}", sorted_nodes);
+        }
+        Err(error) => {
+            println!("Error: {}", error);
+        }
+    }
     println!("{}", g1);
     g1.visual_display();
     g1.show_diamonds();
+    
 }

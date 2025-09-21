@@ -10,6 +10,7 @@ use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::config::CollectionStrategy;
 use crate::backends::local::processors::{ResultCollectorProcessor, CollectableResult};
+use crate::errors::{ExecutionError, FailureStrategy};
 
 /// Work Queue executor that uses dependency counting to manage DAG execution.
 /// 
@@ -159,13 +160,20 @@ impl WorkQueueExecutor {
 
 #[async_trait]
 impl DagExecutor for WorkQueueExecutor {
-    async fn execute(
+    async fn execute_with_strategy(
         &self,
         processors: HashMap<String, Arc<dyn Processor>>,
         graph: HashMap<String, Vec<String>>,
         entrypoints: Vec<String>,
         input: ProcessorRequest,
-    ) -> HashMap<String, ProcessorResponse> {
+        failure_strategy: FailureStrategy,
+    ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError> {
+        // Validate all processors exist in registry
+        for processor_id in graph.keys() {
+            if !processors.contains_key(processor_id) {
+                return Err(ExecutionError::ProcessorNotFound(processor_id.clone()));
+            }
+        }
         let _results: HashMap<String, ProcessorResponse> = HashMap::new();
         let dependency_counts = self.build_dependency_counts(&graph);
         let reverse_dependencies = self.build_reverse_dependencies(&graph);
@@ -181,16 +189,56 @@ impl DagExecutor for WorkQueueExecutor {
         let results_mutex = Arc::new(Mutex::new(HashMap::<String, ProcessorResponse>::new()));
         let dependency_counts_mutex = Arc::new(Mutex::new(dependency_counts));
         let work_queue_mutex = Arc::new(Mutex::new(work_queue));
+        let failed_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
+        let blocked_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
         
         // Process the work queue until all processors are complete
         loop {
             let next_processor_id = {
                 let mut queue = work_queue_mutex.lock().await;
                 let active_count = *active_tasks.lock().await;
+                let failed = failed_processors.lock().await;
+                
+                // Check failure strategy
+                match failure_strategy {
+                    FailureStrategy::FailFast => {
+                        if !failed.is_empty() {
+                            // Return the first failure immediately
+                            let first_failed = failed.iter().next().unwrap().clone();
+                            return Err(ExecutionError::ProcessorFailed {
+                                processor_id: first_failed,
+                                error: "Processor execution failed".to_string(),
+                            });
+                        }
+                    }
+                    _ => {
+                        // For ContinueOnError and BestEffort, we continue processing
+                        // but skip blocked processors
+                    }
+                }
                 
                 // Check if we can start more tasks and have work to do
                 if active_count < self.max_concurrency && !queue.is_empty() {
-                    queue.pop_front()
+                    // Find a processor that isn't blocked
+                    let blocked = blocked_processors.lock().await;
+                    let mut next_id = None;
+                    let mut remaining_queue = VecDeque::new();
+                    
+                    while let Some(id) = queue.pop_front() {
+                        if !blocked.contains(&id) {
+                            next_id = Some(id);
+                            break;
+                        } else {
+                            remaining_queue.push_back(id);
+                        }
+                    }
+                    
+                    // Put back the blocked processors
+                    while let Some(id) = remaining_queue.pop_front() {
+                        queue.push_back(id);
+                    }
+                    
+                    next_id
                 } else {
                     None
                 }
@@ -205,7 +253,12 @@ impl DagExecutor for WorkQueueExecutor {
                     }
                     
                     // Clone necessary data for the async task
-                    let processor = processors.get(&processor_id).unwrap().clone();
+                    let processor = match processors.get(&processor_id) {
+                        Some(p) => p.clone(),
+                        None => {
+                            return Err(ExecutionError::ProcessorNotFound(processor_id));
+                        }
+                    };
                     let processor_id_clone = processor_id.clone();
                     let input_clone = input.clone();
                     let graph_clone = graph.clone();
@@ -214,9 +267,31 @@ impl DagExecutor for WorkQueueExecutor {
                     let results_mutex_clone = results_mutex.clone();
                     let dependency_counts_mutex_clone = dependency_counts_mutex.clone();
                     let work_queue_mutex_clone = work_queue_mutex.clone();
+                    let failed_processors_clone = failed_processors.clone();
+                    let blocked_processors_clone = blocked_processors.clone();
                     
                     // Spawn async task to execute the processor
                     tokio::spawn(async move {
+                        // Check if any dependencies failed
+                        let should_block = if let Some(dependencies) = reverse_dependencies_clone.get(&processor_id_clone) {
+                            let failed = failed_processors_clone.lock().await;
+                            dependencies.iter().any(|dep| failed.contains(dep))
+                        } else {
+                            false
+                        };
+                        
+                        if should_block {
+                            // Mark this processor as blocked due to failed dependency
+                            let mut blocked = blocked_processors_clone.lock().await;
+                            blocked.insert(processor_id_clone.clone());
+                            
+                            // Also block all dependents of this processor
+                            if let Some(dependents) = graph_clone.get(&processor_id_clone) {
+                                for dependent in dependents {
+                                    blocked.insert(dependent.clone());
+                                }
+                            }
+                        } else {
                         // Determine the input for this processor
                         let processor_input = if let Some(dependencies) = reverse_dependencies_clone.get(&processor_id_clone) {
                             if dependencies.is_empty() {
@@ -255,27 +330,49 @@ impl DagExecutor for WorkQueueExecutor {
                             input_clone
                         };
                         
-                        // Execute the processor
-                        let response = processor.process(processor_input).await;
-                        
-                        // Store the result
-                        {
-                            let mut results = results_mutex_clone.lock().await;
-                            results.insert(processor_id_clone.clone(), response);
-                        }
-                        
-                        // Update dependency counts for dependents
-                        if let Some(dependents) = graph_clone.get(&processor_id_clone) {
-                            let mut dependency_counts = dependency_counts_mutex_clone.lock().await;
-                            let mut work_queue = work_queue_mutex_clone.lock().await;
+                            // Execute the processor
+                            let response = processor.process(processor_input).await;
                             
-                            for dependent_id in dependents {
-                                if let Some(count) = dependency_counts.get_mut(dependent_id) {
-                                    *count -= 1;
+                            // Check if the processor execution was successful
+                            let execution_successful = match &response.outcome {
+                                Some(Outcome::NextPayload(_)) => true,
+                                Some(_) => false, // Other outcomes might indicate failure
+                                None => false, // No outcome indicates failure
+                            };
+                            
+                            if !execution_successful {
+                                // Mark processor as failed
+                                let mut failed = failed_processors_clone.lock().await;
+                                failed.insert(processor_id_clone.clone());
+                                
+                                // Block all dependents of this processor
+                                if let Some(dependents) = graph_clone.get(&processor_id_clone) {
+                                    let mut blocked = blocked_processors_clone.lock().await;
+                                    for dependent in dependents {
+                                        blocked.insert(dependent.clone());
+                                    }
+                                }
+                            } else {
+                                // Store the successful result
+                                {
+                                    let mut results = results_mutex_clone.lock().await;
+                                    results.insert(processor_id_clone.clone(), response);
+                                }
+                                
+                                // Update dependency counts for dependents
+                                if let Some(dependents) = graph_clone.get(&processor_id_clone) {
+                                    let mut dependency_counts = dependency_counts_mutex_clone.lock().await;
+                                    let mut work_queue = work_queue_mutex_clone.lock().await;
                                     
-                                    // If dependency count reaches zero, add to work queue
-                                    if *count == 0 {
-                                        work_queue.push_back(dependent_id.clone());
+                                    for dependent_id in dependents {
+                                        if let Some(count) = dependency_counts.get_mut(dependent_id) {
+                                            *count -= 1;
+                                            
+                                            // If dependency count reaches zero, add to work queue
+                                            if *count == 0 {
+                                                work_queue.push_back(dependent_id.clone());
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -292,10 +389,46 @@ impl DagExecutor for WorkQueueExecutor {
                     // No work available, check if we're done
                     let active_count = *active_tasks.lock().await;
                     let queue_empty = work_queue_mutex.lock().await.is_empty();
+                    let failed = failed_processors.lock().await;
                     
                     if active_count == 0 && queue_empty {
-                        // All work is complete
-                        break;
+                        // All work is complete, check for failures
+                        match failure_strategy {
+                            FailureStrategy::FailFast => {
+                                // Should have already returned on first failure
+                                break;
+                            }
+                            FailureStrategy::ContinueOnError | FailureStrategy::BestEffort => {
+                                if !failed.is_empty() {
+                                    // Collect all failures
+                                    let failures: Vec<ExecutionError> = failed.iter()
+                                        .map(|id| ExecutionError::ProcessorFailed {
+                                            processor_id: id.clone(),
+                                            error: "Processor execution failed".to_string(),
+                                        })
+                                        .collect();
+                                    
+                                    return Err(ExecutionError::MultipleFailed { failures });
+                                }
+                                break;
+                            }
+                        }
+                    } else if active_count == 0 && !queue_empty {
+                        // We have work but can't proceed - likely all remaining processors are blocked
+                        let blocked = blocked_processors.lock().await;
+                        let queue = work_queue_mutex.lock().await;
+                        
+                        if queue.iter().all(|id| blocked.contains(id)) {
+                            // All remaining processors are blocked due to failed dependencies
+                            let failures: Vec<ExecutionError> = failed.iter()
+                                .map(|id| ExecutionError::ProcessorFailed {
+                                    processor_id: id.clone(),
+                                    error: "Processor execution failed".to_string(),
+                                })
+                                .collect();
+                            
+                            return Err(ExecutionError::MultipleFailed { failures });
+                        }
                     } else {
                         // Wait a bit before checking again
                         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
@@ -306,7 +439,7 @@ impl DagExecutor for WorkQueueExecutor {
         
         // Extract final results
         let final_results = results_mutex.lock().await;
-        final_results.clone()
+        Ok(final_results.clone())
     }
 }
 
@@ -368,7 +501,7 @@ mod tests {
             ..Default::default()
         };
         
-        let results = executor.execute(processors, graph, entrypoints, input).await;
+        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
         
         assert_eq!(results.len(), 1);
         let response = results.get("proc1").unwrap();
@@ -400,7 +533,7 @@ mod tests {
             ..Default::default()
         };
         
-        let results = executor.execute(processors, graph, entrypoints, input).await;
+        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
         
         assert_eq!(results.len(), 3);
         let response1 = results.get("proc1").unwrap();
@@ -446,7 +579,7 @@ mod tests {
             ..Default::default()
         };
         
-        let results = executor.execute(processors, graph, entrypoints, input).await;
+        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
         
         assert_eq!(results.len(), 4);
         let response_root = results.get("root").unwrap();
@@ -499,7 +632,7 @@ mod tests {
             ..Default::default()
         };
         
-        let results = executor.execute(processors, graph, entrypoints, input).await;
+        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
         
         assert_eq!(results.len(), 3);
         let response_entry1 = results.get("entry1").unwrap();
@@ -559,5 +692,213 @@ mod tests {
         ready.sort(); // For deterministic testing
         
         assert_eq!(ready, vec!["a", "c"]);
+    }
+
+    #[tokio::test]
+    async fn test_processor_not_found_error() {
+        let executor = WorkQueueExecutor::new(2);
+        
+        // Create processors but don't include one referenced in the graph
+        let processors = HashMap::from([
+            ("proc1".to_string(), Arc::new(MockProcessor::new("proc1", 0, "-1")) as Arc<dyn Processor>),
+        ]);
+        
+        // Graph references a processor that doesn't exist
+        let graph = HashMap::from([
+            ("proc1".to_string(), vec!["proc2".to_string()]),
+            ("proc2".to_string(), vec![]), // proc2 not in processors map
+        ]);
+        
+        let entrypoints = vec!["proc1".to_string()];
+        let input = ProcessorRequest {
+            payload: "test".to_string().into_bytes(),
+            ..Default::default()
+        };
+        
+        let result = executor.execute(processors, graph, entrypoints, input).await;
+        
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ExecutionError::ProcessorNotFound(id) => {
+                assert_eq!(id, "proc2");
+            }
+            _ => panic!("Expected ProcessorNotFound error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_processor_failure_with_fail_fast_strategy() {
+        let executor = WorkQueueExecutor::new(2);
+        
+        // Create a failing processor (returns None outcome)
+        struct FailingProcessor;
+        
+        #[async_trait]
+        impl Processor for FailingProcessor {
+            async fn process(&self, _req: ProcessorRequest) -> ProcessorResponse {
+                ProcessorResponse {
+                    outcome: None, // This indicates failure
+                }
+            }
+            
+            fn name(&self) -> &'static str {
+                "failing_processor"
+            }
+        }
+        
+        let processors = HashMap::from([
+            ("failing".to_string(), Arc::new(FailingProcessor) as Arc<dyn Processor>),
+            ("dependent".to_string(), Arc::new(MockProcessor::new("dependent", 0, "-dep")) as Arc<dyn Processor>),
+        ]);
+        
+        let graph = HashMap::from([
+            ("failing".to_string(), vec!["dependent".to_string()]),
+            ("dependent".to_string(), vec![]),
+        ]);
+        
+        let entrypoints = vec!["failing".to_string()];
+        let input = ProcessorRequest {
+            payload: "test".to_string().into_bytes(),
+            ..Default::default()
+        };
+        
+        let result = executor.execute_with_strategy(
+            processors, 
+            graph, 
+            entrypoints, 
+            input, 
+            FailureStrategy::FailFast
+        ).await;
+        
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ExecutionError::ProcessorFailed { processor_id, .. } => {
+                assert_eq!(processor_id, "failing");
+            }
+            _ => panic!("Expected ProcessorFailed error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_processor_failure_with_continue_on_error_strategy() {
+        let executor = WorkQueueExecutor::new(2);
+        
+        // Create a failing processor and an independent successful processor
+        struct FailingProcessor;
+        
+        #[async_trait]
+        impl Processor for FailingProcessor {
+            async fn process(&self, _req: ProcessorRequest) -> ProcessorResponse {
+                ProcessorResponse {
+                    outcome: None, // This indicates failure
+                }
+            }
+            
+            fn name(&self) -> &'static str {
+                "failing_processor"
+            }
+        }
+        
+        let processors = HashMap::from([
+            ("failing".to_string(), Arc::new(FailingProcessor) as Arc<dyn Processor>),
+            ("dependent".to_string(), Arc::new(MockProcessor::new("dependent", 0, "-dep")) as Arc<dyn Processor>),
+            ("independent".to_string(), Arc::new(MockProcessor::new("independent", 0, "-ind")) as Arc<dyn Processor>),
+        ]);
+        
+        let graph = HashMap::from([
+            ("failing".to_string(), vec!["dependent".to_string()]),
+            ("dependent".to_string(), vec![]),
+            ("independent".to_string(), vec![]),
+        ]);
+        
+        let entrypoints = vec!["failing".to_string(), "independent".to_string()];
+        let input = ProcessorRequest {
+            payload: "test".to_string().into_bytes(),
+            ..Default::default()
+        };
+        
+        let result = executor.execute_with_strategy(
+            processors, 
+            graph, 
+            entrypoints, 
+            input, 
+            FailureStrategy::ContinueOnError
+        ).await;
+        
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ExecutionError::MultipleFailed { failures } => {
+                assert_eq!(failures.len(), 1);
+                match &failures[0] {
+                    ExecutionError::ProcessorFailed { processor_id, .. } => {
+                        assert_eq!(processor_id, "failing");
+                    }
+                    _ => panic!("Expected ProcessorFailed error in failures list"),
+                }
+            }
+            _ => panic!("Expected MultipleFailed error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_dependency_blocking_on_failure() {
+        let executor = WorkQueueExecutor::new(2);
+        
+        // Create a chain where the first processor fails
+        struct FailingProcessor;
+        
+        #[async_trait]
+        impl Processor for FailingProcessor {
+            async fn process(&self, _req: ProcessorRequest) -> ProcessorResponse {
+                ProcessorResponse {
+                    outcome: None, // This indicates failure
+                }
+            }
+            
+            fn name(&self) -> &'static str {
+                "failing_processor"
+            }
+        }
+        
+        let processors = HashMap::from([
+            ("first".to_string(), Arc::new(FailingProcessor) as Arc<dyn Processor>),
+            ("second".to_string(), Arc::new(MockProcessor::new("second", 0, "-2nd")) as Arc<dyn Processor>),
+            ("third".to_string(), Arc::new(MockProcessor::new("third", 0, "-3rd")) as Arc<dyn Processor>),
+        ]);
+        
+        let graph = HashMap::from([
+            ("first".to_string(), vec!["second".to_string()]),
+            ("second".to_string(), vec!["third".to_string()]),
+            ("third".to_string(), vec![]),
+        ]);
+        
+        let entrypoints = vec!["first".to_string()];
+        let input = ProcessorRequest {
+            payload: "test".to_string().into_bytes(),
+            ..Default::default()
+        };
+        
+        let result = executor.execute_with_strategy(
+            processors, 
+            graph, 
+            entrypoints, 
+            input, 
+            FailureStrategy::BestEffort
+        ).await;
+        
+        // Should fail because the entire chain is blocked by the first processor failure
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ExecutionError::MultipleFailed { failures } => {
+                assert_eq!(failures.len(), 1);
+                match &failures[0] {
+                    ExecutionError::ProcessorFailed { processor_id, .. } => {
+                        assert_eq!(processor_id, "first");
+                    }
+                    _ => panic!("Expected ProcessorFailed error in failures list"),
+                }
+            }
+            _ => panic!("Expected MultipleFailed error"),
+        }
     }
 }

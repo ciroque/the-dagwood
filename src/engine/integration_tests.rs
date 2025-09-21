@@ -64,7 +64,7 @@ mod tests {
         };
         
         // Execute the DAG
-        let results = executor.execute(processors, graph, entrypoints, input).await;
+        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
         
         // Verify results
         assert_eq!(results.len(), 2);
@@ -158,7 +158,7 @@ mod tests {
         };
         
         // Execute the DAG
-        let results = executor.execute(processors, graph, entrypoints, input).await;
+        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
         
         // Verify all processors executed
         assert_eq!(results.len(), 4);
@@ -218,7 +218,7 @@ mod tests {
         };
         
         // Execute the DAG
-        let results = executor.execute(processors, graph, entrypoints, input).await;
+        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
         
         // Verify results
         assert_eq!(results.len(), 2);
@@ -292,7 +292,7 @@ mod tests {
             metadata: HashMap::new(),
         };
         
-        let results = executor.execute(processors, graph, entrypoints, input).await;
+        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
         
         // Verify all processors executed successfully
         assert!(results.contains_key("upper_case"));

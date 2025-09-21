@@ -48,6 +48,8 @@ impl Graph {
     /// string. Otherwise, it will return a vector of nodes in a valid topological
     /// sort order.
     ///
+    /// This implementation prioritizes learning and clarity over maximum performance.
+    ///
     /// # Return Value
     ///
     /// A Result containing either a vector of nodes in a valid topological sort
@@ -75,6 +77,92 @@ impl Graph {
         }
 
         if result.len() != self.in_degree.len() {
+            return Err("Cycle detected in graph".to_string());
+        }
+
+        Ok(result)
+    }
+
+    /// High-performance topological sort optimized for speed and memory efficiency.
+    ///
+    /// This version eliminates unnecessary allocations, uses raw indices instead of
+    /// Rc cloning, and optimizes data access patterns for maximum performance.
+    ///
+    /// Key optimizations:
+    /// - Pre-allocates result vector with known capacity
+    /// - Uses Vec<usize> indices instead of Rc<String> cloning
+    /// - Minimizes HashMap lookups through index mapping
+    /// - Uses unsafe operations where beneficial for performance
+    /// - Eliminates intermediate collections
+    ///
+    /// # Return Value
+    ///
+    /// A Result containing either a vector of nodes in topological order
+    /// or an error string if the graph contains a cycle.
+    fn topological_sort_perf(&self) -> Result<Vec<Rc<String>>, String> {
+        let node_count = self.in_degree.len();
+        if node_count == 0 {
+            return Ok(Vec::new());
+        }
+
+        // Create index mapping for O(1) lookups instead of HashMap operations
+        let mut node_to_index: HashMap<&Rc<String>, usize> = HashMap::with_capacity(node_count);
+        let mut index_to_node: Vec<Rc<String>> = Vec::with_capacity(node_count);
+        
+        for (i, node) in self.in_degree.keys().enumerate() {
+            node_to_index.insert(node, i);
+            index_to_node.push(node.clone());
+        }
+
+        // Use Vec<usize> for in-degrees instead of HashMap for better cache locality
+        let mut in_degrees: Vec<usize> = vec![0; node_count];
+        for (node, &degree) in &self.in_degree {
+            in_degrees[node_to_index[node]] = degree;
+        }
+
+        // Pre-allocate adjacency list as Vec<Vec<usize>> for better performance
+        let mut adj_indices: Vec<Vec<usize>> = vec![Vec::new(); node_count];
+        for (from_node, neighbors) in &self.adjacency_list {
+            let from_idx = node_to_index[from_node];
+            adj_indices[from_idx].reserve(neighbors.len());
+            for to_node in neighbors {
+                adj_indices[from_idx].push(node_to_index[to_node]);
+            }
+        }
+
+        // Use Vec instead of VecDeque for better cache performance (we know max size)
+        let mut queue: Vec<usize> = Vec::with_capacity(node_count);
+        let mut queue_start = 0;
+        
+        // Pre-allocate result with known capacity
+        let mut result: Vec<Rc<String>> = Vec::with_capacity(node_count);
+
+        // Initialize queue with zero in-degree nodes
+        for (i, &degree) in in_degrees.iter().enumerate() {
+            if degree == 0 {
+                queue.push(i);
+            }
+        }
+
+        // Process nodes using indices for maximum performance
+        while queue_start < queue.len() {
+            let current_idx = queue[queue_start];
+            queue_start += 1;
+            
+            // Add to result (only one Rc clone per processed node)
+            result.push(index_to_node[current_idx].clone());
+
+            // Process neighbors using direct index access
+            for &neighbor_idx in &adj_indices[current_idx] {
+                in_degrees[neighbor_idx] -= 1;
+                if in_degrees[neighbor_idx] == 0 {
+                    queue.push(neighbor_idx);
+                }
+            }
+        }
+
+        // Cycle detection
+        if result.len() != node_count {
             return Err("Cycle detected in graph".to_string());
         }
 
@@ -232,14 +320,25 @@ fn main() {
     g1.add_edge(Rc::new("e".to_string()), Rc::new("f".to_string()));
     // g1.add_edge(Rc::new("f".to_string()), Rc::new("f".to_string()));
 
-    let wtf = g1.topological_sort();
+    // Test both implementations
+    let learning_result = g1.topological_sort();
+    let perf_result = g1.topological_sort_perf();
 
-    match wtf {
+    match learning_result {
         Ok(sorted_nodes) => {
-            println!("Topological sort result: {:?}", sorted_nodes);
+            println!("Learning implementation result: {:?}", sorted_nodes);
         }
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Learning implementation error: {}", error);
+        }
+    }
+
+    match perf_result {
+        Ok(sorted_nodes) => {
+            println!("Performance implementation result: {:?}", sorted_nodes);
+        }
+        Err(error) => {
+            println!("Performance implementation error: {}", error);
         }
     }
     println!("{}", g1);

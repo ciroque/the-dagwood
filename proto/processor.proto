@@ -14,12 +14,20 @@ message ErrorDetail {
   string message = 2;                 // human-readable description
 }
 
+// Processor intent declaration for safe parallelism
+enum ProcessorIntent {
+  TRANSFORM = 0;  // Modifies payload, may modify metadata
+  ANALYZE = 1;    // Payload pass-through, may add metadata
+}
+
 // Response envelope for processors
 message ProcessorResponse {
   oneof outcome {
     bytes next_payload = 1;           // success result
     ErrorDetail error = 2;            // error result
   }
+  map<string, string> metadata = 3;     // Metadata for chaining and enrichment
+  ProcessorIntent declared_intent = 4;  // Declared intent for validation
 }
 
 // Canonical processor service definition

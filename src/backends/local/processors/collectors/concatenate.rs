@@ -28,6 +28,8 @@ impl ConcatenateCollector {
                 code: 500,
                 message: message.to_string(),
             })),
+            metadata: HashMap::new(),
+            declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
         }
     }
 }
@@ -62,6 +64,8 @@ impl ResultCollector for ConcatenateCollector {
         let combined = combined_parts.join(&self.separator);
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(combined.into_bytes())),
+            metadata: HashMap::new(),
+            declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
         }
     }
 }

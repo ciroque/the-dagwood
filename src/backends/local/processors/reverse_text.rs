@@ -24,6 +24,8 @@ impl Processor for ReverseTextProcessor {
                         code: 400,
                         message: format!("Invalid UTF-8 input: {}", e),
                     })),
+                    metadata: std::collections::HashMap::new(),
+                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
                 };
             }
         };
@@ -32,6 +34,8 @@ impl Processor for ReverseTextProcessor {
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(reversed.into_bytes())),
+            metadata: std::collections::HashMap::new(),
+            declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
         }
     }
 

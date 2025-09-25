@@ -22,6 +22,8 @@ impl Processor for StubProcessor {
             outcome: Some(
                 crate::proto::processor_v1::processor_response::Outcome::NextPayload(vec![])
             ),
+            metadata: std::collections::HashMap::new(),
+            declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
         }
     }
 

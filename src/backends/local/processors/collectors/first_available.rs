@@ -24,6 +24,8 @@ impl FirstAvailableCollector {
                 code: 500,
                 message: message.to_string(),
             })),
+            metadata: HashMap::new(),
+            declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
         }
     }
 }
@@ -45,6 +47,8 @@ impl ResultCollector for FirstAvailableCollector {
                     if let Some(payload) = &result.payload {
                         return ProcessorResponse {
                             outcome: Some(Outcome::NextPayload(payload.clone())),
+                            metadata: HashMap::new(),
+                            declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
                         }
                     }
                 }

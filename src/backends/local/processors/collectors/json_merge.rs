@@ -32,6 +32,8 @@ impl JsonMergeCollector {
                 code: 500,
                 message: message.to_string(),
             })),
+            metadata: HashMap::new(),
+            declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
         }
     }
 
@@ -119,6 +121,8 @@ impl ResultCollector for JsonMergeCollector {
         match serde_json::to_string(&merged_result) {
             Ok(json_str) => ProcessorResponse {
                 outcome: Some(Outcome::NextPayload(json_str.into_bytes())),
+                metadata: HashMap::new(),
+                declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
             },
             Err(e) => self.error_response(&format!("Failed to serialize merged JSON: {}", e)),
         }

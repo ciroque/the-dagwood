@@ -476,6 +476,8 @@ mod tests {
             let output_text = format!("{}{}", input_text, self.output_suffix);
             ProcessorResponse {
                 outcome: Some(Outcome::NextPayload(output_text.into_bytes())),
+                metadata: HashMap::new(),
+                declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
             }
         }
 
@@ -738,6 +740,8 @@ mod tests {
             async fn process(&self, _req: ProcessorRequest) -> ProcessorResponse {
                 ProcessorResponse {
                     outcome: None, // This indicates failure
+                    metadata: HashMap::new(),
+                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
                 }
             }
             
@@ -791,6 +795,8 @@ mod tests {
             async fn process(&self, _req: ProcessorRequest) -> ProcessorResponse {
                 ProcessorResponse {
                     outcome: None, // This indicates failure
+                    metadata: HashMap::new(),
+                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
                 }
             }
             
@@ -852,6 +858,8 @@ mod tests {
             async fn process(&self, _req: ProcessorRequest) -> ProcessorResponse {
                 ProcessorResponse {
                     outcome: None, // This indicates failure
+                    metadata: HashMap::new(),
+                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
                 }
             }
             

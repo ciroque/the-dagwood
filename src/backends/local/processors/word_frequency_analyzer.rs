@@ -25,6 +25,8 @@ impl Processor for WordFrequencyAnalyzerProcessor {
                         code: 400,
                         message: format!("Invalid UTF-8 input: {}", e),
                     })),
+                    metadata: std::collections::HashMap::new(),
+                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Analyze as i32,
                 };
             }
         };
@@ -52,12 +54,16 @@ impl Processor for WordFrequencyAnalyzerProcessor {
                         code: 500,
                         message: format!("Failed to serialize result: {}", e),
                     })),
+                    metadata: std::collections::HashMap::new(),
+                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Analyze as i32,
                 };
             }
         };
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(json_result.into_bytes())),
+            metadata: std::collections::HashMap::new(),
+            declared_intent: crate::proto::processor_v1::ProcessorIntent::Analyze as i32,
         }
     }
 

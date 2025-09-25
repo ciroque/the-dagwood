@@ -1,21 +1,12 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use serde_json;
-use serde::{Serialize, Deserialize};
 
 use crate::traits::Processor;
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::config::{CollectionStrategy, ConflictResolution};
-
-/// Serializable representation of a processor result for collection
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CollectableResult {
-    pub success: bool,
-    pub payload: Option<Vec<u8>>,
-    pub error_code: Option<i32>,
-    pub error_message: Option<String>,
-}
+use super::collectors::CollectableResult;
 
 /// ResultCollector processor for combining outputs from multiple dependencies.
 /// 

@@ -5,10 +5,46 @@ use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetai
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::traits::Processor;
 
+/// Case transformation types supported by the ChangeTextCase processor
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CaseType {
+    Upper,
+    Lower,
+    Proper,
+    Title,
+    #[serde(untagged)]
+    Custom(String),  // Fallback for extensibility
+}
+
+impl CaseType {
+    /// Create a CaseType from a string, with fallback to Custom variant
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "upper" => CaseType::Upper,
+            "lower" => CaseType::Lower,
+            "proper" => CaseType::Proper,
+            "title" => CaseType::Title,
+            _ => CaseType::Custom(s.to_string()),
+        }
+    }
+    
+    /// Get the string representation of the case type
+    pub fn as_str(&self) -> &str {
+        match self {
+            CaseType::Upper => "upper",
+            CaseType::Lower => "lower",
+            CaseType::Proper => "proper",
+            CaseType::Title => "title",
+            CaseType::Custom(s) => s,
+        }
+    }
+}
+
 /// Configuration for the Change Text Case processor
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ChangeTextCaseConfig {
-    pub case_type: String, // "upper", "lower", "proper", "title"
+    pub case_type: CaseType,
 }
 
 /// Change Text Case processor - converts text to different cases
@@ -23,25 +59,25 @@ impl ChangeTextCaseProcessor {
 
     pub fn upper() -> Self {
         Self::new(ChangeTextCaseConfig {
-            case_type: "upper".to_string(),
+            case_type: CaseType::Upper,
         })
     }
 
     pub fn lower() -> Self {
         Self::new(ChangeTextCaseConfig {
-            case_type: "lower".to_string(),
+            case_type: CaseType::Lower,
         })
     }
 
     pub fn proper() -> Self {
         Self::new(ChangeTextCaseConfig {
-            case_type: "proper".to_string(),
+            case_type: CaseType::Proper,
         })
     }
 
     pub fn title() -> Self {
         Self::new(ChangeTextCaseConfig {
-            case_type: "title".to_string(),
+            case_type: CaseType::Title,
         })
     }
 }
@@ -61,10 +97,10 @@ impl Processor for ChangeTextCaseProcessor {
             }
         };
 
-        let result = match self.config.case_type.as_str() {
-            "upper" => input.to_uppercase(),
-            "lower" => input.to_lowercase(),
-            "proper" => {
+        let result = match &self.config.case_type {
+            CaseType::Upper => input.to_uppercase(),
+            CaseType::Lower => input.to_lowercase(),
+            CaseType::Proper => {
                 // Proper case: first letter of each word capitalized
                 input
                     .split_whitespace()
@@ -78,7 +114,7 @@ impl Processor for ChangeTextCaseProcessor {
                     .collect::<Vec<_>>()
                     .join(" ")
             }
-            "title" => {
+            CaseType::Title => {
                 // Title case: similar to proper but with some exceptions for articles, prepositions
                 input
                     .split_whitespace()
@@ -99,11 +135,11 @@ impl Processor for ChangeTextCaseProcessor {
                     .collect::<Vec<_>>()
                     .join(" ")
             }
-            _ => {
+            CaseType::Custom(custom_type) => {
                 return ProcessorResponse {
                     outcome: Some(Outcome::Error(ErrorDetail {
                         code: 400,
-                        message: format!("Unknown case type: {}", self.config.case_type),
+                        message: format!("Unsupported custom case type: {}", custom_type),
                     })),
                 };
             }

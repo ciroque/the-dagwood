@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use serde_json;
 
-use crate::traits::executor::DagExecutor;
+use crate::traits::executor::{DagExecutor, ProcessorMap, DependencyGraph, EntryPoints};
 use crate::traits::processor::Processor;
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
@@ -162,9 +162,9 @@ impl WorkQueueExecutor {
 impl DagExecutor for WorkQueueExecutor {
     async fn execute_with_strategy(
         &self,
-        processors: HashMap<String, Arc<dyn Processor>>,
-        graph: HashMap<String, Vec<String>>,
-        entrypoints: Vec<String>,
+        processors: ProcessorMap,
+        graph: DependencyGraph,
+        entrypoints: EntryPoints,
         input: ProcessorRequest,
         failure_strategy: FailureStrategy,
     ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError> {
@@ -175,12 +175,12 @@ impl DagExecutor for WorkQueueExecutor {
             }
         }
         let _results: HashMap<String, ProcessorResponse> = HashMap::new();
-        let dependency_counts = self.build_dependency_counts(&graph);
-        let reverse_dependencies = self.build_reverse_dependencies(&graph);
+        let dependency_counts = self.build_dependency_counts(&graph.0);
+        let reverse_dependencies = self.build_reverse_dependencies(&graph.0);
         let mut work_queue = VecDeque::new();
         
         // Start with entrypoints (processors with no dependencies)
-        for entrypoint in &entrypoints {
+        for entrypoint in entrypoints.iter() {
             work_queue.push_back(entrypoint.clone());
         }
         
@@ -261,7 +261,7 @@ impl DagExecutor for WorkQueueExecutor {
                     };
                     let processor_id_clone = processor_id.clone();
                     let input_clone = input.clone();
-                    let graph_clone = graph.clone();
+                    let graph_clone = graph.0.clone();
                     let reverse_dependencies_clone = reverse_dependencies.clone();
                     let active_tasks_clone = active_tasks.clone();
                     let results_mutex_clone = results_mutex.clone();
@@ -501,7 +501,7 @@ mod tests {
             ..Default::default()
         };
         
-        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
+        let results = executor.execute(ProcessorMap::from(processors), DependencyGraph::from(graph), EntryPoints::from(entrypoints), input).await.expect("DAG execution should succeed");
         
         assert_eq!(results.len(), 1);
         let response = results.get("proc1").unwrap();
@@ -533,7 +533,7 @@ mod tests {
             ..Default::default()
         };
         
-        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
+        let results = executor.execute(ProcessorMap::from(processors), DependencyGraph::from(graph), EntryPoints::from(entrypoints), input).await.expect("DAG execution should succeed");
         
         assert_eq!(results.len(), 3);
         let response1 = results.get("proc1").unwrap();
@@ -579,7 +579,7 @@ mod tests {
             ..Default::default()
         };
         
-        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
+        let results = executor.execute(ProcessorMap::from(processors), DependencyGraph::from(graph), EntryPoints::from(entrypoints), input).await.expect("DAG execution should succeed");
         
         assert_eq!(results.len(), 4);
         let response_root = results.get("root").unwrap();
@@ -632,7 +632,7 @@ mod tests {
             ..Default::default()
         };
         
-        let results = executor.execute(processors, graph, entrypoints, input).await.expect("DAG execution should succeed");
+        let results = executor.execute(ProcessorMap::from(processors), DependencyGraph::from(graph), EntryPoints::from(entrypoints), input).await.expect("DAG execution should succeed");
         
         assert_eq!(results.len(), 3);
         let response_entry1 = results.get("entry1").unwrap();
@@ -715,7 +715,7 @@ mod tests {
             ..Default::default()
         };
         
-        let result = executor.execute(processors, graph, entrypoints, input).await;
+        let result = executor.execute(ProcessorMap::from(processors), DependencyGraph::from(graph), EntryPoints::from(entrypoints), input).await;
         
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -763,9 +763,9 @@ mod tests {
         };
         
         let result = executor.execute_with_strategy(
-            processors, 
-            graph, 
-            entrypoints, 
+            ProcessorMap::from(processors), 
+            DependencyGraph::from(graph), 
+            EntryPoints::from(entrypoints), 
             input, 
             FailureStrategy::FailFast
         ).await;
@@ -818,9 +818,9 @@ mod tests {
         };
         
         let result = executor.execute_with_strategy(
-            processors, 
-            graph, 
-            entrypoints, 
+            ProcessorMap::from(processors), 
+            DependencyGraph::from(graph), 
+            EntryPoints::from(entrypoints), 
             input, 
             FailureStrategy::ContinueOnError
         ).await;
@@ -879,9 +879,9 @@ mod tests {
         };
         
         let result = executor.execute_with_strategy(
-            processors, 
-            graph, 
-            entrypoints, 
+            ProcessorMap::from(processors), 
+            DependencyGraph::from(graph), 
+            EntryPoints::from(entrypoints), 
             input, 
             FailureStrategy::BestEffort
         ).await;

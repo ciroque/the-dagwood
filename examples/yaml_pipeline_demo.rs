@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use the_dagwood::config::{load_and_validate_config, build_dag_runtime};
 use the_dagwood::proto::ProcessorRequest;
+use the_dagwood::traits::{ProcessorMap, DependencyGraph, EntryPoints};
 
 /// Demo showing Phase 2, Step 3: Run a trivial pipeline using YAML configuration
 /// Usage: cargo run --example yaml_pipeline_demo <config_file> <input_text>
@@ -74,9 +75,9 @@ async fn run_yaml_pipeline_demo(config_file: String, input_text: String) -> Resu
     // Execute the DAG with the configured failure strategy
     println!("Executing DAG with Work Queue executor...");
     let results = executor.execute_with_strategy(
-        processors,
-        dependency_graph,
-        entrypoints,
+        ProcessorMap::from(processors),
+        DependencyGraph::from(dependency_graph),
+        EntryPoints::from(entrypoints),
         input_request,
         failure_strategy,
     ).await?;

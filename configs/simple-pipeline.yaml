@@ -1,0 +1,37 @@
+# Simple pipeline demonstrating Phase 2, Step 3: change text case -> reverse text
+# This is the trivial pipeline mentioned in the roadmap
+
+strategy: work_queue
+failure_strategy: fail_fast
+executor_options:
+  max_concurrency: 2
+
+processors:
+  # Main processing pipeline: input -> uppercase -> reverse
+  - id: uppercase
+    type: local
+    processor: change_text_case_upper
+    depends_on: []
+
+  - id: reverse
+    type: local  
+    processor: reverse_text
+    depends_on: [uppercase]
+
+  # Independent analysis processors (run in parallel, don't affect main flow)
+  - id: word_counter
+    type: local
+    processor: token_counter
+    depends_on: []
+
+  - id: prefix_suffix_arrows
+    type: local
+    processor: prefix_suffix_adder
+    options:
+      prefix: "***"
+      suffix: "***"
+    depends_on: []
+
+
+# Flow: input -> uppercase -> reverse -> output
+# Example: "hello world" -> "HELLO WORLD" -> "DLROW OLLEH"

@@ -16,10 +16,10 @@ This roadmap outlines a **hybrid iteration approach** for building The DAGwood: 
 
 ## Phase 2: First Demo (Bottom-up prototype)
 
-* [ ] Implement the **Local backend** with hard-coded processors (see table below).
-* [ ] Implement the **Work Queue executor** (dependency-counted).
-* [ ] Run a trivial pipeline: `change text case -> reverse text`.
-* [ ] Add basic error handling (short-circuit on failure).
+* [X] Implement the **Local backend** with hard-coded processors (see table below).
+* [X] Implement the **Work Queue executor** (dependency-counted).
+* [X] Run a trivial pipeline: `change text case -> reverse text`.
+* [X] Add basic error handling (short-circuit on failure).
 
 The following processors will be completed for this phase:
 

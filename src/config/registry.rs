@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::traits::Processor;
-use crate::config::{Config, BackendType};
+use crate::traits::{Processor, DagExecutor};
+use crate::config::{Config, BackendType, Strategy};
 use crate::backends::stub::StubProcessor;
+use crate::backends::local::LocalProcessorFactory;
+use crate::engine::work_queue::WorkQueueExecutor;
+use crate::errors::FailureStrategy;
 
 
 /// Resolves processors from config into runtime instances
@@ -13,8 +16,13 @@ pub fn build_registry(cfg: &Config) -> HashMap<String, Arc<dyn Processor>> {
     for p in &cfg.processors {
         let processor: Arc<dyn Processor> = match p.backend {
             BackendType::Local => {
-                // TODO: load from impl_/plugins directory
-                Arc::new(StubProcessor::new(p.id.clone()))
+                match LocalProcessorFactory::create_processor(p) {
+                    Ok(processor) => processor,
+                    Err(e) => {
+                        eprintln!("Warning: Failed to create local processor '{}': {}. Using stub instead.", p.id, e);
+                        Arc::new(StubProcessor::new(p.id.clone()))
+                    }
+                }
             }
             BackendType::Loadable => {
                 // TODO: dynamic library loading
@@ -34,6 +42,46 @@ pub fn build_registry(cfg: &Config) -> HashMap<String, Arc<dyn Processor>> {
     }
 
     registry
+}
+
+/// Creates a DAG executor based on the configuration
+pub fn build_executor(cfg: &Config) -> Box<dyn DagExecutor> {
+    let max_concurrency = cfg.executor_options.max_concurrency
+        .unwrap_or_else(|| {
+            std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(4)
+        });
+
+    match cfg.strategy {
+        Strategy::WorkQueue => {
+            Box::new(WorkQueueExecutor::new(max_concurrency))
+        }
+        Strategy::Level => {
+            // TODO: Implement Level executor
+            // For now, fallback to WorkQueue
+            Box::new(WorkQueueExecutor::new(max_concurrency))
+        }
+        Strategy::Reactive => {
+            // TODO: Implement Reactive executor
+            // For now, fallback to WorkQueue
+            Box::new(WorkQueueExecutor::new(max_concurrency))
+        }
+        Strategy::Hybrid => {
+            // TODO: Implement Hybrid executor
+            // For now, fallback to WorkQueue
+            Box::new(WorkQueueExecutor::new(max_concurrency))
+        }
+    }
+}
+
+/// Builds both processor registry and executor from configuration
+pub fn build_dag_runtime(cfg: &Config) -> (HashMap<String, Arc<dyn Processor>>, Box<dyn DagExecutor>, FailureStrategy) {
+    let processors = build_registry(cfg);
+    let executor = build_executor(cfg);
+    let failure_strategy = cfg.failure_strategy;
+    
+    (processors, executor, failure_strategy)
 }
 
 
@@ -57,6 +105,8 @@ mod tests {
                 name: "empty config",
                 config: Config {
                     strategy: crate::config::Strategy::WorkQueue,
+                    failure_strategy: crate::errors::FailureStrategy::FailFast,
+                    executor_options: crate::config::ExecutorOptions::default(),
                     processors: vec![],
                 },
                 expected_processor_count: 0,
@@ -66,13 +116,17 @@ mod tests {
                 name: "single local processor",
                 config: Config {
                     strategy: crate::config::Strategy::WorkQueue,
+                    failure_strategy: crate::errors::FailureStrategy::FailFast,
+                    executor_options: crate::config::ExecutorOptions::default(),
                     processors: vec![ProcessorConfig {
                         id: "local_proc".to_string(),
                         backend: BackendType::Local,
-                        impl_: Some("LocalImpl".to_string()),
+                        processor: Some("LocalImpl".to_string()),
                         endpoint: None,
                         module: None,
                         depends_on: vec![],
+                        collection_strategy: None,
+                        options: HashMap::new(),
                     }],
                 },
                 expected_processor_count: 1,
@@ -82,13 +136,17 @@ mod tests {
                 name: "single loadable processor",
                 config: Config {
                     strategy: crate::config::Strategy::Level,
+                    failure_strategy: crate::errors::FailureStrategy::FailFast,
+                    executor_options: crate::config::ExecutorOptions::default(),
                     processors: vec![ProcessorConfig {
                         id: "loadable_proc".to_string(),
                         backend: BackendType::Loadable,
-                        impl_: Some("libloadable.so".to_string()),
+                        processor: Some("libloadable.so".to_string()),
                         endpoint: None,
                         module: None,
                         depends_on: vec![],
+                        collection_strategy: None,
+                        options: HashMap::new(),
                     }],
                 },
                 expected_processor_count: 1,
@@ -98,13 +156,17 @@ mod tests {
                 name: "single grpc processor",
                 config: Config {
                     strategy: crate::config::Strategy::Reactive,
+                    failure_strategy: crate::errors::FailureStrategy::FailFast,
+                    executor_options: crate::config::ExecutorOptions::default(),
                     processors: vec![ProcessorConfig {
                         id: "grpc_proc".to_string(),
                         backend: BackendType::Grpc,
-                        impl_: None,
+                        processor: None,
                         endpoint: Some("https://grpc-service:50051".to_string()),
                         module: None,
                         depends_on: vec![],
+                        collection_strategy: None,
+                        options: HashMap::new(),
                     }],
                 },
                 expected_processor_count: 1,
@@ -114,13 +176,17 @@ mod tests {
                 name: "single http processor",
                 config: Config {
                     strategy: crate::config::Strategy::Hybrid,
+                    failure_strategy: crate::errors::FailureStrategy::FailFast,
+                    executor_options: crate::config::ExecutorOptions::default(),
                     processors: vec![ProcessorConfig {
                         id: "http_proc".to_string(),
                         backend: BackendType::Http,
-                        impl_: None,
+                        processor: None,
                         endpoint: Some("https://api.example.com/process".to_string()),
                         module: None,
                         depends_on: vec![],
+                        collection_strategy: None,
+                        options: HashMap::new(),
                     }],
                 },
                 expected_processor_count: 1,
@@ -130,13 +196,17 @@ mod tests {
                 name: "single wasm processor",
                 config: Config {
                     strategy: crate::config::Strategy::WorkQueue,
+                    failure_strategy: crate::errors::FailureStrategy::FailFast,
+                    executor_options: crate::config::ExecutorOptions::default(),
                     processors: vec![ProcessorConfig {
                         id: "wasm_proc".to_string(),
                         backend: BackendType::Wasm,
-                        impl_: None,
+                        processor: None,
                         endpoint: None,
                         module: Some("processor.wasm".to_string()),
                         depends_on: vec![],
+                        collection_strategy: None,
+                        options: HashMap::new(),
                     }],
                 },
                 expected_processor_count: 1,
@@ -146,30 +216,38 @@ mod tests {
                 name: "multiple processors of different types",
                 config: Config {
                     strategy: crate::config::Strategy::WorkQueue,
+                    failure_strategy: crate::errors::FailureStrategy::FailFast,
+                    executor_options: crate::config::ExecutorOptions::default(),
                     processors: vec![
                         ProcessorConfig {
                             id: "local1".to_string(),
                             backend: BackendType::Local,
-                            impl_: Some("LocalImpl1".to_string()),
+                            processor: Some("LocalImpl1".to_string()),
                             endpoint: None,
                             module: None,
                             depends_on: vec![],
+                            collection_strategy: None,
+                            options: HashMap::new(),
                         },
                         ProcessorConfig {
                             id: "grpc1".to_string(),
                             backend: BackendType::Grpc,
-                            impl_: None,
+                            processor: None,
                             endpoint: Some("grpc://service1:50051".to_string()),
                             module: None,
                             depends_on: vec!["local1".to_string()],
+                            collection_strategy: None,
+                            options: HashMap::new(),
                         },
                         ProcessorConfig {
                             id: "wasm1".to_string(),
                             backend: BackendType::Wasm,
-                            impl_: None,
+                            processor: None,
                             endpoint: None,
                             module: Some("wasm1.wasm".to_string()),
                             depends_on: vec!["local1".to_string(), "grpc1".to_string()],
+                            collection_strategy: None,
+                            options: HashMap::new(),
                         },
                     ],
                 },
@@ -180,30 +258,38 @@ mod tests {
                 name: "processors with dependencies",
                 config: Config {
                     strategy: crate::config::Strategy::Level,
+                    failure_strategy: crate::errors::FailureStrategy::FailFast,
+                    executor_options: crate::config::ExecutorOptions::default(),
                     processors: vec![
                         ProcessorConfig {
                             id: "input".to_string(),
                             backend: BackendType::Local,
-                            impl_: Some("InputProcessor".to_string()),
+                            processor: Some("InputProcessor".to_string()),
                             endpoint: None,
                             module: None,
                             depends_on: vec![],
+                            collection_strategy: None,
+                            options: HashMap::new(),
                         },
                         ProcessorConfig {
                             id: "transform".to_string(),
                             backend: BackendType::Http,
-                            impl_: None,
+                            processor: None,
                             endpoint: Some("https://transform.service.com".to_string()),
                             module: None,
                             depends_on: vec!["input".to_string()],
+                            collection_strategy: None,
+                            options: HashMap::new(),
                         },
                         ProcessorConfig {
                             id: "output".to_string(),
                             backend: BackendType::Loadable,
-                            impl_: Some("liboutput.so".to_string()),
+                            processor: Some("liboutput.so".to_string()),
                             endpoint: None,
                             module: None,
                             depends_on: vec!["transform".to_string()],
+                            collection_strategy: None,
+                            options: HashMap::new(),
                         },
                     ],
                 },
@@ -263,13 +349,17 @@ mod tests {
         for (i, backend_type) in backend_types.into_iter().enumerate() {
             let config = Config {
                 strategy: crate::config::Strategy::WorkQueue,
+                failure_strategy: crate::errors::FailureStrategy::FailFast,
+                executor_options: crate::config::ExecutorOptions::default(),
                 processors: vec![ProcessorConfig {
                     id: format!("processor_{}", i),
                     backend: backend_type,
-                    impl_: Some("test_impl".to_string()),
+                    processor: Some("test_impl".to_string()),
                     endpoint: Some("test_endpoint".to_string()),
                     module: Some("test_module".to_string()),
                     depends_on: vec![],
+                    collection_strategy: None,
+                    options: HashMap::new(),
                 }],
             };
 
@@ -287,22 +377,28 @@ mod tests {
         // Test behavior with duplicate processor IDs (last one should win)
         let config = Config {
             strategy: crate::config::Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![
                 ProcessorConfig {
                     id: "duplicate".to_string(),
                     backend: BackendType::Local,
-                    impl_: Some("first".to_string()),
+                    processor: Some("first".to_string()),
                     endpoint: None,
                     module: None,
                     depends_on: vec![],
+                    collection_strategy: None,
+                    options: HashMap::new(),
                 },
                 ProcessorConfig {
                     id: "duplicate".to_string(),
                     backend: BackendType::Grpc,
-                    impl_: None,
+                    processor: None,
                     endpoint: Some("second".to_string()),
                     module: None,
                     depends_on: vec![],
+                    collection_strategy: None,
+                    options: HashMap::new(),
                 },
             ],
         };

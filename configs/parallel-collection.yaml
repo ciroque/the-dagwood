@@ -9,24 +9,24 @@ executor_options:
 processors:
   - id: input_text
     type: local
-    impl: change_text_case_upper
+    processor: change_text_case_upper
     depends_on: []
 
   # Two processors that run in parallel on the same input
   - id: token_counter
     type: local
-    impl: token_counter_words
+    processor: token_counter
     depends_on: [input_text]
 
   - id: word_frequency
     type: local
-    impl: word_frequency_analyzer
+    processor: word_frequency_analyzer
     depends_on: [input_text]
 
   # Result collector that combines outputs from parallel processors
   - id: merge_results
     type: local
-    impl: result_collector
+    processor: result_collector
     collection_strategy:
       type: merge_metadata
       primary_source: "token_counter"
@@ -36,7 +36,7 @@ processors:
   # Final processor that uses the merged results
   - id: final_processor
     type: local
-    impl: prefix_suffix_adder
+    processor: prefix_suffix_adder
     options:
       prefix: "Analysis: "
       suffix: " [Complete]"

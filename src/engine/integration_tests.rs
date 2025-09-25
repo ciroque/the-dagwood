@@ -21,7 +21,7 @@ mod tests {
         let uppercase_config = ProcessorConfig {
             id: "uppercase".to_string(),
             backend: BackendType::Local,
-            impl_: Some("change_text_case_upper".to_string()),
+            processor: Some("change_text_case_upper".to_string()),
             endpoint: None,
             module: None,
             depends_on: vec![],
@@ -32,7 +32,7 @@ mod tests {
         let reverse_config = ProcessorConfig {
             id: "reverse".to_string(),
             backend: BackendType::Local,
-            impl_: Some("reverse_text".to_string()),
+            processor: Some("reverse_text".to_string()),
             endpoint: None,
             module: None,
             depends_on: vec!["uppercase".to_string()],
@@ -96,7 +96,7 @@ mod tests {
             ProcessorConfig {
                 id: "uppercase".to_string(),
                 backend: BackendType::Local,
-                impl_: Some("change_text_case_upper".to_string()),
+                processor: Some("change_text_case_upper".to_string()),
                 endpoint: None,
                 module: None,
                 depends_on: vec![],
@@ -106,7 +106,7 @@ mod tests {
             ProcessorConfig {
                 id: "lowercase".to_string(),
                 backend: BackendType::Local,
-                impl_: Some("change_text_case_lower".to_string()),
+                processor: Some("change_text_case_lower".to_string()),
                 endpoint: None,
                 module: None,
                 depends_on: vec![],
@@ -116,7 +116,7 @@ mod tests {
             ProcessorConfig {
                 id: "token_counter".to_string(),
                 backend: BackendType::Local,
-                impl_: Some("token_counter".to_string()),
+                processor: Some("token_counter".to_string()),
                 endpoint: None,
                 module: None,
                 depends_on: vec!["uppercase".to_string(), "lowercase".to_string()],
@@ -126,7 +126,7 @@ mod tests {
             ProcessorConfig {
                 id: "word_frequency".to_string(),
                 backend: BackendType::Local,
-                impl_: Some("word_frequency_analyzer".to_string()),
+                processor: Some("word_frequency_analyzer".to_string()),
                 endpoint: None,
                 module: None,
                 depends_on: vec!["token_counter".to_string()],
@@ -242,7 +242,7 @@ mod tests {
         let upper_case = LocalProcessorFactory::create_processor(&ProcessorConfig {
             id: "upper_case".to_string(),
             backend: BackendType::Local,
-            impl_: Some("change_text_case_upper".to_string()),
+            processor: Some("change_text_case_upper".to_string()),
             endpoint: None,
             module: None,
             depends_on: vec![],
@@ -253,7 +253,7 @@ mod tests {
         let lower_case = LocalProcessorFactory::create_processor(&ProcessorConfig {
             id: "lower_case".to_string(),
             backend: BackendType::Local,
-            impl_: Some("change_text_case_lower".to_string()),
+            processor: Some("change_text_case_lower".to_string()),
             endpoint: None,
             module: None,
             depends_on: vec![],
@@ -266,7 +266,7 @@ mod tests {
         let reverse_text = LocalProcessorFactory::create_processor(&ProcessorConfig {
             id: "reverse_text".to_string(),
             backend: BackendType::Local,
-            impl_: Some("reverse_text".to_string()),
+            processor: Some("reverse_text".to_string()),
             endpoint: None,
             module: None,
             depends_on: vec!["upper_case".to_string(), "lower_case".to_string()],

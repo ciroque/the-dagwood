@@ -26,7 +26,7 @@ use crate::errors::FailureStrategy;
 /// processors:
 ///   - id: "processor1"
 ///     type: local
-///     impl_: "my_processor"
+///     processor: "my_processor"
 /// ```
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -96,7 +96,7 @@ impl Default for ExecutorOptions {
 /// # Fields
 /// * `id` - Unique identifier for this processor
 /// * `backend` - The backend type that implements this processor
-/// * `impl_` - Implementation name/path (for local backends)
+/// * `processor` - Implementation name/path (for local backends)
 /// * `endpoint` - Network endpoint (for RPC backends)
 /// * `module` - WASM module path (for WASM backends)
 /// * `depends_on` - List of processor IDs that this processor depends on
@@ -107,7 +107,7 @@ impl Default for ExecutorOptions {
 /// ```yaml
 /// id: "data_processor"
 /// type: local
-/// impl_: "DataProcessor"
+/// processor: "DataProcessor"
 /// depends_on: ["input_validator"]
 /// collection_strategy:
 ///   type: merge_metadata
@@ -119,7 +119,7 @@ pub struct ProcessorConfig {
     pub id: String,
     #[serde(rename = "type")]
     pub backend: BackendType,
-    pub impl_: Option<String>,       // for local
+    pub processor: Option<String>,   // for local
     pub endpoint: Option<String>,    // for rpc
     pub module: Option<String>,      // for wasm
     #[serde(default)]

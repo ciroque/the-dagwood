@@ -10,7 +10,7 @@ pub struct LocalProcessorFactory;
 impl LocalProcessorFactory {
     /// Create a processor instance from configuration
     /// 
-    /// The `impl_` field in the config determines which processor to create:
+    /// The `processor` field in the config determines which processor to create:
     /// - "change_text_case_upper" -> ChangeTextCaseProcessor (uppercase)
     /// - "change_text_case_lower" -> ChangeTextCaseProcessor (lowercase)
     /// - "change_text_case_proper" -> ChangeTextCaseProcessor (proper case)
@@ -20,8 +20,8 @@ impl LocalProcessorFactory {
     /// - "word_frequency_analyzer" -> WordFrequencyAnalyzerProcessor
     /// - "prefix_suffix_adder" -> PrefixSuffixAdderProcessor (requires additional config)
     pub fn create_processor(config: &ProcessorConfig) -> Result<Arc<dyn Processor>, String> {
-        let impl_name = config.impl_.as_ref()
-            .ok_or_else(|| format!("Local processor '{}' missing 'impl_' field", config.id))?;
+        let impl_name = config.processor.as_ref()
+            .ok_or_else(|| format!("Local processor '{}' missing 'processor' field", config.id))?;
 
         match impl_name.as_str() {
             // Text case processors
@@ -39,10 +39,19 @@ impl LocalProcessorFactory {
             
             // Configurable processors - these would need additional config parsing
             "prefix_suffix_adder" => {
-                // For now, create with default brackets
+                // Parse prefix and suffix from options
+                let prefix = config.options.get("prefix")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "[".to_string());
+                let suffix = config.options.get("suffix")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "]".to_string());
+                
                 Ok(Arc::new(PrefixSuffixAdderProcessor::with_prefix_and_suffix(
-                    "[".to_string(), 
-                    "]".to_string()
+                    prefix, 
+                    suffix
                 )))
             },
             
@@ -90,7 +99,7 @@ mod tests {
         ProcessorConfig {
             id: id.to_string(),
             backend: BackendType::Local,
-            impl_: Some(impl_name.to_string()),
+            processor: Some(impl_name.to_string()),
             endpoint: None,
             module: None,
             depends_on: vec![],
@@ -174,12 +183,12 @@ mod tests {
     #[test]
     fn test_create_processor_missing_impl() {
         let mut config = create_test_config("test", "");
-        config.impl_ = None;
+        config.processor = None;
         
         let result = LocalProcessorFactory::create_processor(&config);
         assert!(result.is_err());
         let error_msg = result.err().unwrap();
-        assert!(error_msg.contains("missing 'impl_' field"));
+        assert!(error_msg.contains("missing 'processor' field"));
     }
 
     #[test]

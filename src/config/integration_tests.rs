@@ -15,9 +15,11 @@ mod integration_tests {
         assert_eq!(config.strategy, Strategy::WorkQueue);
         assert_eq!(config.failure_strategy, FailureStrategy::FailFast);
         assert_eq!(config.executor_options.max_concurrency, Some(2));
-        assert_eq!(config.processors.len(), 2);
+        assert_eq!(config.processors.len(), 4);
         assert_eq!(config.processors[0].id, "uppercase");
         assert_eq!(config.processors[1].id, "reverse");
+        assert_eq!(config.processors[2].id, "word_counter");
+        assert_eq!(config.processors[3].id, "prefix_suffix_arrows");
         assert_eq!(config.processors[1].depends_on, vec!["uppercase"]);
     }
 
@@ -76,9 +78,11 @@ mod integration_tests {
         let (processors, _executor, failure_strategy) = build_dag_runtime(&config);
         
         // Verify processor registry
-        assert_eq!(processors.len(), 2);
+        assert_eq!(processors.len(), 4);
         assert!(processors.contains_key("uppercase"));
         assert!(processors.contains_key("reverse"));
+        assert!(processors.contains_key("word_counter"));
+        assert!(processors.contains_key("prefix_suffix_arrows"));
         
         // Verify failure strategy
         assert_eq!(failure_strategy, FailureStrategy::FailFast);

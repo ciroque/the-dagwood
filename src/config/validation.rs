@@ -155,7 +155,7 @@ mod tests {
         ProcessorConfig {
             id: id.to_string(),
             backend: BackendType::Local,
-            impl_: Some("test".to_string()),
+            processor: Some("test".to_string()),
             endpoint: None,
             module: None,
             depends_on: depends_on.iter().map(|s| s.to_string()).collect(),

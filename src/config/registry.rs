@@ -121,7 +121,7 @@ mod tests {
                     processors: vec![ProcessorConfig {
                         id: "local_proc".to_string(),
                         backend: BackendType::Local,
-                        impl_: Some("LocalImpl".to_string()),
+                        processor: Some("LocalImpl".to_string()),
                         endpoint: None,
                         module: None,
                         depends_on: vec![],
@@ -141,7 +141,7 @@ mod tests {
                     processors: vec![ProcessorConfig {
                         id: "loadable_proc".to_string(),
                         backend: BackendType::Loadable,
-                        impl_: Some("libloadable.so".to_string()),
+                        processor: Some("libloadable.so".to_string()),
                         endpoint: None,
                         module: None,
                         depends_on: vec![],
@@ -161,7 +161,7 @@ mod tests {
                     processors: vec![ProcessorConfig {
                         id: "grpc_proc".to_string(),
                         backend: BackendType::Grpc,
-                        impl_: None,
+                        processor: None,
                         endpoint: Some("https://grpc-service:50051".to_string()),
                         module: None,
                         depends_on: vec![],
@@ -181,7 +181,7 @@ mod tests {
                     processors: vec![ProcessorConfig {
                         id: "http_proc".to_string(),
                         backend: BackendType::Http,
-                        impl_: None,
+                        processor: None,
                         endpoint: Some("https://api.example.com/process".to_string()),
                         module: None,
                         depends_on: vec![],
@@ -201,7 +201,7 @@ mod tests {
                     processors: vec![ProcessorConfig {
                         id: "wasm_proc".to_string(),
                         backend: BackendType::Wasm,
-                        impl_: None,
+                        processor: None,
                         endpoint: None,
                         module: Some("processor.wasm".to_string()),
                         depends_on: vec![],
@@ -222,7 +222,7 @@ mod tests {
                         ProcessorConfig {
                             id: "local1".to_string(),
                             backend: BackendType::Local,
-                            impl_: Some("LocalImpl1".to_string()),
+                            processor: Some("LocalImpl1".to_string()),
                             endpoint: None,
                             module: None,
                             depends_on: vec![],
@@ -232,7 +232,7 @@ mod tests {
                         ProcessorConfig {
                             id: "grpc1".to_string(),
                             backend: BackendType::Grpc,
-                            impl_: None,
+                            processor: None,
                             endpoint: Some("grpc://service1:50051".to_string()),
                             module: None,
                             depends_on: vec!["local1".to_string()],
@@ -242,7 +242,7 @@ mod tests {
                         ProcessorConfig {
                             id: "wasm1".to_string(),
                             backend: BackendType::Wasm,
-                            impl_: None,
+                            processor: None,
                             endpoint: None,
                             module: Some("wasm1.wasm".to_string()),
                             depends_on: vec!["local1".to_string(), "grpc1".to_string()],
@@ -264,7 +264,7 @@ mod tests {
                         ProcessorConfig {
                             id: "input".to_string(),
                             backend: BackendType::Local,
-                            impl_: Some("InputProcessor".to_string()),
+                            processor: Some("InputProcessor".to_string()),
                             endpoint: None,
                             module: None,
                             depends_on: vec![],
@@ -274,7 +274,7 @@ mod tests {
                         ProcessorConfig {
                             id: "transform".to_string(),
                             backend: BackendType::Http,
-                            impl_: None,
+                            processor: None,
                             endpoint: Some("https://transform.service.com".to_string()),
                             module: None,
                             depends_on: vec!["input".to_string()],
@@ -284,7 +284,7 @@ mod tests {
                         ProcessorConfig {
                             id: "output".to_string(),
                             backend: BackendType::Loadable,
-                            impl_: Some("liboutput.so".to_string()),
+                            processor: Some("liboutput.so".to_string()),
                             endpoint: None,
                             module: None,
                             depends_on: vec!["transform".to_string()],
@@ -354,7 +354,7 @@ mod tests {
                 processors: vec![ProcessorConfig {
                     id: format!("processor_{}", i),
                     backend: backend_type,
-                    impl_: Some("test_impl".to_string()),
+                    processor: Some("test_impl".to_string()),
                     endpoint: Some("test_endpoint".to_string()),
                     module: Some("test_module".to_string()),
                     depends_on: vec![],
@@ -383,7 +383,7 @@ mod tests {
                 ProcessorConfig {
                     id: "duplicate".to_string(),
                     backend: BackendType::Local,
-                    impl_: Some("first".to_string()),
+                    processor: Some("first".to_string()),
                     endpoint: None,
                     module: None,
                     depends_on: vec![],
@@ -393,7 +393,7 @@ mod tests {
                 ProcessorConfig {
                     id: "duplicate".to_string(),
                     backend: BackendType::Grpc,
-                    impl_: None,
+                    processor: None,
                     endpoint: Some("second".to_string()),
                     module: None,
                     depends_on: vec![],

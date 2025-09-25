@@ -9,25 +9,25 @@ executor_options:
 processors:
   - id: input_processor
     type: local
-    impl: change_text_case_upper
+    processor: change_text_case_upper
     depends_on: []
 
   # This processor will fail (non-existent implementation)
   - id: failing_processor
     type: local
-    impl: non_existent_processor
+    processor: non_existent_processor
     depends_on: [input_processor]
 
   # This processor should still execute despite the failure above
   - id: independent_processor
     type: local
-    impl: reverse_text
+    processor: reverse_text
     depends_on: [input_processor]
 
   # This processor depends on the failing one, so it should be blocked
   - id: dependent_on_failure
     type: local
-    impl: token_counter_words
+    processor: token_counter
     depends_on: [failing_processor]
 
 # Flow demonstration:

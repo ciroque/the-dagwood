@@ -11,7 +11,7 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
     let create_config = |id: &str, impl_name: &str| ProcessorConfig {
         id: id.to_string(),
         backend: BackendType::Local,
-        impl_: Some(impl_name.to_string()),
+        processor: Some(impl_name.to_string()),
         endpoint: None,
         module: None,
         depends_on: vec![],

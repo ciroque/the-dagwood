@@ -17,31 +17,31 @@ processors:
   # Trivial string transforms (Local backends)
   - id: case_change
     type: local
-    impl: CaseChanger         # implements Change Text Case
+    processor: CaseChanger         # implements Change Text Case
     options:
       mode: upper             # upper | lower | proper | title
     depends_on: []
 
   - id: token_counter
     type: local
-    impl: TokenCounter        # counts characters or words
+    processor: TokenCounter        # counts characters or words
     options:
       mode: words
     depends_on: [case_change]
 
   - id: word_frequency
     type: local
-    impl: WordFrequency       # builds histogram of word frequencies
+    processor: WordFrequency       # builds histogram of word frequencies
     depends_on: [case_change]
 
   - id: reverse_text
     type: local
-    impl: Reverser            # reverses string content
+    processor: Reverser            # reverses string content
     depends_on: [case_change]
 
   - id: prefix_suffix
     type: local
-    impl: PrefixSuffix        # adds prefix/suffix
+    processor: PrefixSuffix        # adds prefix/suffix
     options:
       prefix: ">>> "
       suffix: " <<<"
@@ -49,7 +49,7 @@ processors:
 
   - id: regex_replacer
     type: local
-    impl: RegexReplacer       # performs regex substitutions
+    processor: RegexReplacer       # performs regex substitutions
     options:
       pattern: "\\d+"         # replace digits with #
       replacement: "#"
@@ -57,7 +57,7 @@ processors:
 
   - id: json_extractor
     type: local
-    impl: JsonExtractor       # extracts fields from JSON strings
+    processor: JsonExtractor       # extracts fields from JSON strings
     options:
       path: "$.user.name"
     depends_on: [regex_replacer]

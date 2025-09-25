@@ -55,11 +55,67 @@ impl LocalProcessorFactory {
                 )))
             },
             
-            // Result collection processor
+            // Result collection processor (legacy)
             "result_collector" => {
                 let strategy = config.collection_strategy.clone()
                     .unwrap_or(CollectionStrategy::FirstAvailable);
                 Ok(Arc::new(ResultCollectorProcessor::new(strategy)))
+            },
+            
+            // New trait-based collectors
+            "first_available_collector" => Ok(Arc::new(FirstAvailableCollector::new())),
+            
+            "metadata_merge_collector" => {
+                let primary_source = config.options.get("primary_source")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| "metadata_merge_collector requires 'primary_source' option".to_string())?;
+                
+                let metadata_sources = config.options.get("metadata_sources")
+                    .and_then(|v| v.as_sequence())
+                    .map(|arr| arr.iter()
+                        .filter_map(|v| v.as_str())
+                        .map(|s| s.to_string())
+                        .collect::<Vec<String>>())
+                    .unwrap_or_default();
+                
+                Ok(Arc::new(MetadataMergeCollector::new(primary_source, metadata_sources)))
+            },
+            
+            "concatenate_collector" => {
+                let separator = config.options.get("separator")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                
+                Ok(Arc::new(ConcatenateCollector::new(separator)))
+            },
+            
+            "json_merge_collector" => {
+                let merge_arrays = config.options.get("merge_arrays")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                
+                let conflict_resolution = config.options.get("conflict_resolution")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| match s {
+                        "take_first" => Some(crate::config::ConflictResolution::TakeFirst),
+                        "take_last" => Some(crate::config::ConflictResolution::TakeLast),
+                        "merge" => Some(crate::config::ConflictResolution::Merge),
+                        "error" => Some(crate::config::ConflictResolution::Error),
+                        _ => None,
+                    })
+                    .unwrap_or(crate::config::ConflictResolution::Merge);
+                
+                Ok(Arc::new(JsonMergeCollector::new(merge_arrays, conflict_resolution)))
+            },
+            
+            "custom_collector" => {
+                let combiner_impl = config.options.get("combiner_impl")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| "custom_collector requires 'combiner_impl' option".to_string())?;
+                
+                Ok(Arc::new(CustomCollector::new(combiner_impl)))
             },
             
             // Add more processors here as they're implemented
@@ -79,6 +135,11 @@ impl LocalProcessorFactory {
             "word_frequency_analyzer",
             "prefix_suffix_adder",
             "result_collector",
+            "first_available_collector",
+            "metadata_merge_collector",
+            "concatenate_collector",
+            "json_merge_collector",
+            "custom_collector",
         ]
     }
 

@@ -163,7 +163,7 @@ pub enum BackendType {
 /// * `MergeMetadata` - Use one dependency as primary payload, others as metadata
 /// * `Concatenate` - Combine all dependency outputs into a single payload
 /// * `JsonMerge` - Intelligently merge JSON outputs from dependencies
-/// * `Custom` - Use a custom combiner implementation
+/// * `Custom` - Use a custom combiner implementation. Requires a `combiner_impl` field specifying the implementation to use.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CollectionStrategy {

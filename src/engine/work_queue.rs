@@ -4,7 +4,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use serde_json;
 
-use crate::traits::executor::{DagExecutor, ProcessorMap, DependencyGraph, EntryPoints};
+use crate::traits::executor::DagExecutor;
+use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
 use crate::traits::processor::Processor;
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
@@ -174,7 +175,6 @@ impl DagExecutor for WorkQueueExecutor {
                 return Err(ExecutionError::ProcessorNotFound(processor_id.clone()));
             }
         }
-        let _results: HashMap<String, ProcessorResponse> = HashMap::new();
         let dependency_counts = self.build_dependency_counts(&graph.0);
         let reverse_dependencies = self.build_reverse_dependencies(&graph.0);
         let mut work_queue = VecDeque::new();

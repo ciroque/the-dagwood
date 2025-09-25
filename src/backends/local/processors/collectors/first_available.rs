@@ -35,16 +35,22 @@ impl ResultCollector for FirstAvailableCollector {
         dependency_results: &HashMap<String, CollectableResult>,
         _request: &ProcessorRequest,
     ) -> ProcessorResponse {
-        for (_, result) in dependency_results {
-            if result.success {
-                if let Some(payload) = &result.payload {
-                    return ProcessorResponse {
-                        outcome: Some(Outcome::NextPayload(payload.clone())),
-                    };
+
+        // Iterate in deterministic order by sorting dependency IDs
+        let mut keys: Vec<_> = dependency_results.keys().collect();
+        keys.sort();
+        for key in keys {
+            if let Some(result) = dependency_results.get(key) {
+                if result.success {
+                    if let Some(payload) = &result.payload {
+                        return ProcessorResponse {
+                            outcome: Some(Outcome::NextPayload(payload.clone())),
+                        }
+                    }
                 }
             }
         }
-        
+
         self.error_response("No successful dependency results found")
     }
 }

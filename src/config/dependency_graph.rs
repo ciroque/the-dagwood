@@ -129,6 +129,7 @@ impl DependencyGraph {
     /// This is more efficient than calling build_dependency_counts() and topological_ranks() separately.
     pub fn dependency_counts_and_ranks(&self) -> Option<(HashMap<String, usize>, HashMap<String, usize>)> {
         let dependency_counts = self.build_dependency_counts();
+        // topological_sort_with_counts takes ownership and modifies the HashMap, so clone for the call
         let sorted_processors = self.topological_sort_with_counts(dependency_counts.clone())?;
         
         let ranks = sorted_processors

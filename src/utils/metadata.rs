@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::proto::processor_v1::ProcessorResponse;
 
 /// Merge metadata from multiple sources with namespaced keys to avoid conflicts.
 /// 
@@ -103,7 +104,7 @@ pub fn create_namespaced_key(dependency_id: &str, original_key: &str) -> String 
 /// Combined metadata with dependency keys namespaced as "dep:<len>:<dependency_id>:<original_key>"
 pub fn merge_metadata_from_responses(
     base_metadata: HashMap<String, String>,
-    dependency_responses: &HashMap<String, crate::proto::processor_v1::ProcessorResponse>,
+    dependency_responses: &HashMap<String, ProcessorResponse>,
 ) -> HashMap<String, String> {
     let mut dependency_metadata = HashMap::new();
     

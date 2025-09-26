@@ -50,46 +50,6 @@ impl WorkQueueExecutor {
         Self::new(concurrency)
     }
 
-    /// Build the dependency count map from the adjacency graph
-    fn build_dependency_counts(&self, graph: &HashMap<String, Vec<String>>) -> HashMap<String, usize> {
-        let mut dependency_counts = HashMap::new();
-        
-        // Initialize all processors with 0 dependencies
-        for processor_id in graph.keys() {
-            dependency_counts.insert(processor_id.clone(), 0);
-        }
-        
-        // Count incoming dependencies for each processor
-        for dependents in graph.values() {
-            for dependent_id in dependents {
-                *dependency_counts.entry(dependent_id.clone()).or_insert(0) += 1;
-            }
-        }
-        
-        dependency_counts
-    }
-
-    /// Build a reverse dependency map: processor_id -> list of processors it depends on
-    /// TODO(steve): Should this be done while the registry is being created and provided then?
-    fn build_reverse_dependencies(&self, graph: &HashMap<String, Vec<String>>) -> HashMap<String, Vec<String>> {
-        let mut reverse_deps = HashMap::new();
-        
-        // Initialize all processors with empty dependency lists
-        for processor_id in graph.keys() {
-            reverse_deps.insert(processor_id.clone(), vec![]);
-        }
-        
-        // Build reverse mapping
-        for (processor_id, dependents) in graph {
-            for dependent_id in dependents {
-                reverse_deps.entry(dependent_id.clone())
-                    .or_insert_with(Vec::new)
-                    .push(processor_id.clone());
-            }
-        }
-        
-        reverse_deps
-    }
 
     /// Find processors that are ready to execute (have no unresolved dependencies)
     #[cfg(test)]
@@ -118,8 +78,8 @@ impl DagExecutor for WorkQueueExecutor {
                 return Err(ExecutionError::ProcessorNotFound(processor_id.clone()));
             }
         }
-        let dependency_counts = self.build_dependency_counts(&graph.0);
-        let reverse_dependencies = self.build_reverse_dependencies(&graph.0);
+        let dependency_counts = graph.build_dependency_counts();
+        let reverse_dependencies = graph.build_reverse_dependencies();
         let mut work_queue = VecDeque::new();
         
         // Start with entrypoints (processors with no dependencies)
@@ -619,8 +579,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_dependency_counts() {
-        let executor = WorkQueueExecutor::new(1);
-        
         let graph = HashMap::from([
             ("a".to_string(), vec!["b".to_string(), "c".to_string()]),
             ("b".to_string(), vec!["d".to_string()]),
@@ -628,7 +586,8 @@ mod tests {
             ("d".to_string(), vec![]),
         ]);
         
-        let counts = executor.build_dependency_counts(&graph);
+        let dependency_graph = DependencyGraph::from(graph);
+        let counts = dependency_graph.build_dependency_counts();
         
         assert_eq!(counts.get("a"), Some(&0)); // No dependencies
         assert_eq!(counts.get("b"), Some(&1)); // Depends on a

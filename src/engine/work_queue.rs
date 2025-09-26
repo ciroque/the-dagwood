@@ -10,12 +10,25 @@ use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::errors::{ExecutionError, FailureStrategy};
 
-/// Work Queue executor that uses dependency counting to manage DAG execution.
+/// Work Queue executor that uses dependency counting and canonical payload tracking.
 /// 
 /// This executor maintains a queue of ready-to-execute processors and tracks
 /// the number of unresolved dependencies for each processor. When a processor
 /// completes, it decrements the dependency count for all its dependents,
 /// adding them to the work queue when their count reaches zero.
+/// 
+/// ## Canonical Payload Architecture
+/// 
+/// The executor implements a canonical payload approach to ensure deterministic
+/// execution and proper architectural separation between Transform and Analyze processors:
+/// 
+/// - **Transform processors**: Modify the payload and update the canonical payload
+/// - **Analyze processors**: Receive the canonical payload but only contribute metadata
+/// - **Downstream processors**: Always receive the canonical payload from the last Transform
+///   processor, plus merged metadata from all dependencies
+/// 
+/// This eliminates race conditions in diamond dependency patterns and enforces
+/// the architectural principle that only Transform processors should modify payloads.
 pub struct WorkQueueExecutor {
     /// Maximum number of concurrent processor executions
     max_concurrency: usize,
@@ -87,69 +100,6 @@ impl WorkQueueExecutor {
             .collect()
     }
 
-    /// Combine results from multiple dependencies using simplified logic:
-    /// - For Transform processors: Use the payload from the first successful dependency
-    /// - For Analyze processors: Keep original payload, merge all metadata
-    async fn combine_dependency_results(
-        dependencies: &[String],
-        results_guard: &HashMap<String, ProcessorResponse>,
-        processors: &ProcessorMap,
-        target_processor_id: &str,
-        fallback_input: ProcessorRequest,
-    ) -> ProcessorRequest {
-        if dependencies.is_empty() {
-            return fallback_input;
-        }
-
-        // Get the target processor to check its intent
-        let target_processor = match processors.get(target_processor_id) {
-            Some(processor) => processor,
-            None => return fallback_input,
-        };
-
-        let target_intent = target_processor.declared_intent();
-        
-        // Collect successful dependency results
-        let mut successful_results = Vec::new();
-        let mut all_metadata = HashMap::new();
-        
-        for dep_id in dependencies {
-            if let Some(dep_response) = results_guard.get(dep_id) {
-                if let Some(Outcome::NextPayload(payload)) = &dep_response.outcome {
-                    successful_results.push((dep_id.clone(), payload.clone()));
-                }
-                // Always collect metadata from all dependencies
-                for (key, value) in &dep_response.metadata {
-                    let prefixed_key = format!("{}_{}", dep_id, key);
-                    all_metadata.insert(prefixed_key, value.clone());
-                }
-            }
-        }
-
-        if successful_results.is_empty() {
-            return fallback_input;
-        }
-
-        match target_intent {
-            ProcessorIntent::Transform => {
-                // Transform processors: Use payload from first successful dependency
-                let (_, first_payload) = &successful_results[0];
-                ProcessorRequest {
-                    payload: first_payload.clone(),
-                    metadata: all_metadata,
-                }
-            },
-            ProcessorIntent::Analyze => {
-                // Analyze processors: Keep original payload, merge metadata
-                let mut combined_metadata = fallback_input.metadata.clone();
-                combined_metadata.extend(all_metadata);
-                ProcessorRequest {
-                    payload: fallback_input.payload,
-                    metadata: combined_metadata,
-                }
-            },
-        }
-    }
 }
 
 #[async_trait]
@@ -184,6 +134,9 @@ impl DagExecutor for WorkQueueExecutor {
         let work_queue_mutex = Arc::new(Mutex::new(work_queue));
         let failed_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
         let blocked_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
+        
+        // Track canonical payload from Transform processors
+        let canonical_payload_mutex = Arc::new(Mutex::new(input.payload.clone()));
         
         // Process the work queue until all processors are complete
         loop {
@@ -263,6 +216,7 @@ impl DagExecutor for WorkQueueExecutor {
                     let failed_processors_clone = failed_processors.clone();
                     let blocked_processors_clone = blocked_processors.clone();
                     let processors_clone = processors.clone(); // Clone processors for combine_dependency_results
+                    let canonical_payload_mutex_clone = canonical_payload_mutex.clone();
                     
                     // Spawn async task to execute the processor
                     tokio::spawn(async move {
@@ -286,39 +240,31 @@ impl DagExecutor for WorkQueueExecutor {
                                 }
                             }
                         } else {
-                        // Determine the input for this processor
+                        // Determine the input for this processor using canonical payload approach
                         let processor_input = if let Some(dependencies) = reverse_dependencies_clone.get(&processor_id_clone) {
                             if dependencies.is_empty() {
                                 // This is an entry point processor, use original input
                                 input_clone
                             } else {
-                                // This processor has dependencies, get input from dependency outputs
+                                // This processor has dependencies, use canonical payload + collected metadata
+                                let canonical_payload = canonical_payload_mutex_clone.lock().await.clone();
                                 let results_guard = results_mutex_clone.lock().await;
                                 
-                                if dependencies.len() == 1 {
-                                    // Single dependency: use its output directly
-                                    let dep_id = &dependencies[0];
+                                // Collect metadata from all dependencies
+                                let mut all_metadata = input_clone.metadata.clone();
+                                for dep_id in dependencies {
                                     if let Some(dep_response) = results_guard.get(dep_id) {
-                                        if let Some(Outcome::NextPayload(payload)) = &dep_response.outcome {
-                                            ProcessorRequest {
-                                                payload: payload.clone(),
-                                                ..input_clone
-                                            }
-                                        } else {
-                                            input_clone // Fallback to original input
+                                        // Collect metadata from this dependency
+                                        for (key, value) in &dep_response.metadata {
+                                            let prefixed_key = format!("{}_{}", dep_id, key);
+                                            all_metadata.insert(prefixed_key, value.clone());
                                         }
-                                    } else {
-                                        input_clone // Fallback to original input
                                     }
-                                } else {
-                                    // Multiple dependencies: use simplified collection logic
-                                    Self::combine_dependency_results(
-                                        &dependencies,
-                                        &results_guard,
-                                        &processors_clone,
-                                        &processor_id_clone,
-                                        input_clone
-                                    ).await
+                                }
+                                
+                                ProcessorRequest {
+                                    payload: canonical_payload,
+                                    metadata: all_metadata,
                                 }
                             }
                         } else {
@@ -350,9 +296,20 @@ impl DagExecutor for WorkQueueExecutor {
                                 }
                             } else {
                                 // Store the successful result
+                                let response_clone = response.clone();
                                 {
                                     let mut results = results_mutex_clone.lock().await;
                                     results.insert(processor_id_clone.clone(), response);
+                                }
+                                
+                                // Update canonical payload if this is a Transform processor
+                                if let Some(processor) = processors_clone.get(&processor_id_clone) {
+                                    if processor.declared_intent() == ProcessorIntent::Transform {
+                                        if let Some(Outcome::NextPayload(new_payload)) = &response_clone.outcome {
+                                            let mut canonical_payload = canonical_payload_mutex_clone.lock().await;
+                                            *canonical_payload = new_payload.clone();
+                                        }
+                                    }
                                 }
                                 
                                 // Update dependency counts for dependents

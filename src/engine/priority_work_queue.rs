@@ -184,8 +184,9 @@ impl PriorityWorkQueue {
     }
     
     /// Iterate over all tasks in the queue (for checking blocked status)
-    pub fn iter(&self) -> std::collections::binary_heap::Iter<PrioritizedTask> {
-        self.heap.iter()
+    /// Returns an iterator that includes both heap tasks and blocked tasks
+    pub fn iter(&self) -> Box<dyn Iterator<Item = &PrioritizedTask> + '_> {
+        Box::new(self.heap.iter().chain(self.blocked_tasks.values()))
     }
 }
 
@@ -318,5 +319,90 @@ mod tests {
         // Queue should now be empty
         assert!(queue.is_empty());
         assert_eq!(queue.len(), 0);
+    }
+
+    #[test]
+    fn test_iter_includes_both_heap_and_blocked_tasks() {
+        let mut queue = PriorityWorkQueue::new();
+        
+        // Add tasks that will be in the heap
+        queue.push(PrioritizedTask {
+            processor_id: "heap_task_1".to_string(),
+            topological_rank: 5,
+            is_transform: false,
+        });
+        queue.push(PrioritizedTask {
+            processor_id: "heap_task_2".to_string(),
+            topological_rank: 3,
+            is_transform: true,
+        });
+        
+        // Add tasks that will become blocked
+        queue.push(PrioritizedTask {
+            processor_id: "blocked_task_1".to_string(),
+            topological_rank: 10,
+            is_transform: false,
+        });
+        queue.push(PrioritizedTask {
+            processor_id: "blocked_task_2".to_string(),
+            topological_rank: 8,
+            is_transform: true,
+        });
+        
+        // Initially, all tasks should be visible in iterator
+        let all_task_ids: std::collections::HashSet<String> = queue.iter()
+            .map(|task| task.processor_id.clone())
+            .collect();
+        assert_eq!(all_task_ids.len(), 4);
+        assert!(all_task_ids.contains("heap_task_1"));
+        assert!(all_task_ids.contains("heap_task_2"));
+        assert!(all_task_ids.contains("blocked_task_1"));
+        assert!(all_task_ids.contains("blocked_task_2"));
+        
+        // Block some tasks
+        let mut blocked = std::collections::HashSet::new();
+        blocked.insert("blocked_task_1".to_string());
+        blocked.insert("blocked_task_2".to_string());
+        
+        // Pop available tasks (this will move blocked tasks to separate storage)
+        let available1 = queue.pop_next_available(&blocked);
+        assert_eq!(available1, Some("heap_task_1".to_string()));
+        
+        let available2 = queue.pop_next_available(&blocked);
+        assert_eq!(available2, Some("heap_task_2".to_string()));
+        
+        // Now we should have 2 blocked tasks in separate storage
+        assert_eq!(queue.len(), 2);
+        
+        // Iterator should still see all remaining tasks (blocked tasks in HashMap)
+        let remaining_task_ids: std::collections::HashSet<String> = queue.iter()
+            .map(|task| task.processor_id.clone())
+            .collect();
+        assert_eq!(remaining_task_ids.len(), 2);
+        assert!(remaining_task_ids.contains("blocked_task_1"));
+        assert!(remaining_task_ids.contains("blocked_task_2"));
+        
+        // Verify the blocked tasks are not in the heap anymore
+        let heap_task_ids: std::collections::HashSet<String> = queue.heap.iter()
+            .map(|task| task.processor_id.clone())
+            .collect();
+        assert_eq!(heap_task_ids.len(), 0);
+        
+        // But they should still be visible through the main iterator
+        assert_eq!(queue.iter().count(), 2);
+        
+        // Unblock one task
+        blocked.remove("blocked_task_1");
+        
+        // Pop should restore and return the unblocked task
+        let unblocked = queue.pop_next_available(&blocked);
+        assert_eq!(unblocked, Some("blocked_task_1".to_string()));
+        
+        // Iterator should now show only the remaining blocked task
+        let final_task_ids: std::collections::HashSet<String> = queue.iter()
+            .map(|task| task.processor_id.clone())
+            .collect();
+        assert_eq!(final_task_ids.len(), 1);
+        assert!(final_task_ids.contains("blocked_task_2"));
     }
 }

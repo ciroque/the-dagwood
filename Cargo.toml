@@ -26,6 +26,9 @@ toml = "0.8"
 # Error handling
 thiserror = "1.0"
 
+# Base64 encoding for secure metadata keys
+base64 = "0.21"
+
 # Logging / tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }

@@ -1,32 +1,11 @@
 use std::collections::HashMap;
+use base64::{Engine as _, engine::general_purpose};
 use crate::proto::processor_v1::ProcessorResponse;
 
 /// URL-safe base64 encoding without padding for secure key generation
+/// Uses the standard base64 crate for reliability and maintainability
 pub fn base64_url_safe_encode(input: &[u8]) -> String {
-    // Simple base64url encoding implementation
-    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-    let mut result = String::new();
-    
-    for chunk in input.chunks(3) {
-        let mut buf = [0u8; 3];
-        for (i, &byte) in chunk.iter().enumerate() {
-            buf[i] = byte;
-        }
-        
-        let b = ((buf[0] as u32) << 16) | ((buf[1] as u32) << 8) | (buf[2] as u32);
-        
-        result.push(ALPHABET[((b >> 18) & 63) as usize] as char);
-        result.push(ALPHABET[((b >> 12) & 63) as usize] as char);
-        
-        if chunk.len() > 1 {
-            result.push(ALPHABET[((b >> 6) & 63) as usize] as char);
-        }
-        if chunk.len() > 2 {
-            result.push(ALPHABET[(b & 63) as usize] as char);
-        }
-    }
-    
-    result
+    general_purpose::URL_SAFE_NO_PAD.encode(input)
 }
 
 /// Merge metadata from multiple sources with namespaced keys to avoid conflicts.
@@ -83,10 +62,9 @@ pub fn merge_metadata_with_prefixes(
 
 /// Create a collision-resistant namespaced key for dependency metadata.
 /// 
-/// Uses a robust scheme: "dep:<len>:<dependency_id>:<original_key>"
-/// where <len> is the byte length of the dependency_id. This prevents
-/// collisions even when dependency IDs contain colons, underscores, or other
-/// special characters.
+/// Uses a robust scheme: "dep.{base64_dep_id}.{base64_key}"
+/// where both dependency_id and original_key are base64url-encoded. This prevents
+/// collisions even when dependency IDs contain special characters.
 /// 
 /// # Arguments
 /// 

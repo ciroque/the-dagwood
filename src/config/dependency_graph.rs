@@ -72,11 +72,12 @@ impl DependencyGraph {
         reverse_deps
     }
 
-    /// Compute a topological sort order of the processors in the graph.
+    /// Compute a topological sort order using the provided dependency counts.
     /// Returns a vector of processor IDs in topological order, or None if the graph has cycles.
     /// Uses Kahn's algorithm for topological sorting.
-    pub fn topological_sort(&self) -> Option<Vec<String>> {
-        let mut dependency_counts = self.build_dependency_counts();
+    /// 
+    /// This is a more efficient version that reuses pre-computed dependency counts.
+    pub fn topological_sort_with_counts(&self, mut dependency_counts: HashMap<String, usize>) -> Option<Vec<String>> {
         let mut result = Vec::new();
         let mut queue = Vec::new();
         
@@ -113,6 +114,30 @@ impl DependencyGraph {
         } else {
             None // Graph has cycles
         }
+    }
+
+    /// Compute a topological sort order of the processors in the graph.
+    /// Returns a vector of processor IDs in topological order, or None if the graph has cycles.
+    /// Uses Kahn's algorithm for topological sorting.
+    pub fn topological_sort(&self) -> Option<Vec<String>> {
+        let dependency_counts = self.build_dependency_counts();
+        self.topological_sort_with_counts(dependency_counts)
+    }
+
+    /// Efficiently compute both dependency counts and topological ranks together.
+    /// Returns a tuple of (dependency_counts, topological_ranks) or None if the graph has cycles.
+    /// This is more efficient than calling build_dependency_counts() and topological_ranks() separately.
+    pub fn dependency_counts_and_ranks(&self) -> Option<(HashMap<String, usize>, HashMap<String, usize>)> {
+        let dependency_counts = self.build_dependency_counts();
+        let sorted_processors = self.topological_sort_with_counts(dependency_counts.clone())?;
+        
+        let ranks = sorted_processors
+            .iter()
+            .enumerate()
+            .map(|(rank, processor_id)| (processor_id.clone(), rank))
+            .collect();
+            
+        Some((dependency_counts, ranks))
     }
 
     /// Get topological ranks for all processors in the graph.
@@ -309,5 +334,51 @@ mod tests {
         let b_pos = topo_order.iter().position(|x| x == "b").unwrap();
         assert!(a_pos < c_pos); // a comes before c
         assert!(b_pos < c_pos); // b comes before c
+    }
+
+    #[test]
+    fn test_dependency_counts_and_ranks_efficiency() {
+        let mut graph = HashMap::new();
+        graph.insert("a".to_string(), vec!["b".to_string(), "c".to_string()]);
+        graph.insert("b".to_string(), vec!["d".to_string()]);
+        graph.insert("c".to_string(), vec!["d".to_string()]);
+        graph.insert("d".to_string(), vec![]);
+        
+        let dependency_graph = DependencyGraph::from(graph);
+        
+        // Test the efficient combined method
+        let result = dependency_graph.dependency_counts_and_ranks();
+        assert!(result.is_some());
+        
+        let (counts, ranks) = result.unwrap();
+        
+        // Verify dependency counts
+        assert_eq!(counts.get("a"), Some(&0)); // No dependencies
+        assert_eq!(counts.get("b"), Some(&1)); // Depends on a
+        assert_eq!(counts.get("c"), Some(&1)); // Depends on a
+        assert_eq!(counts.get("d"), Some(&2)); // Depends on b and c
+        
+        // Verify topological ranks
+        assert_eq!(ranks.get("a"), Some(&0)); // First in topological order
+        assert_eq!(ranks.get("d"), Some(&3)); // Last in topological order
+        
+        // Verify that separate method calls produce same results
+        let separate_counts = dependency_graph.build_dependency_counts();
+        let separate_ranks = dependency_graph.topological_ranks().unwrap();
+        
+        assert_eq!(counts, separate_counts);
+        assert_eq!(ranks, separate_ranks);
+    }
+
+    #[test]
+    fn test_dependency_counts_and_ranks_cyclic_graph() {
+        let mut graph = HashMap::new();
+        graph.insert("a".to_string(), vec!["b".to_string()]);
+        graph.insert("b".to_string(), vec!["a".to_string()]); // Cycle
+        
+        let dependency_graph = DependencyGraph::from(graph);
+        let result = dependency_graph.dependency_counts_and_ranks();
+        
+        assert!(result.is_none()); // Should return None for cyclic graph
     }
 }

@@ -1,8 +1,7 @@
 use async_trait::async_trait;
-use std::collections::{HashMap, BinaryHeap};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use std::cmp::Ordering;
 
 use crate::traits::executor::DagExecutor;
 use crate::traits::processor::ProcessorIntent;
@@ -11,55 +10,7 @@ use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::errors::{ExecutionError, FailureStrategy};
 
-/// Prioritized task for the work queue, ordered by topological rank and processor intent
-#[derive(Debug, Clone)]
-struct PrioritizedTask {
-    processor_id: String,
-    topological_rank: usize,
-    is_transform: bool,
-}
-
-impl PrioritizedTask {
-    fn new(processor_id: String, topological_rank: usize, is_transform: bool) -> Self {
-        Self {
-            processor_id,
-            topological_rank,
-            is_transform,
-        }
-    }
-}
-
-impl PartialEq for PrioritizedTask {
-    fn eq(&self, other: &Self) -> bool {
-        self.processor_id == other.processor_id
-    }
-}
-
-impl Eq for PrioritizedTask {}
-
-impl PartialOrd for PrioritizedTask {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for PrioritizedTask {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // Higher priority = higher topological rank (executed later in DAG)
-        // Transform processors get priority over Analyze processors at same rank
-        match self.topological_rank.cmp(&other.topological_rank) {
-            Ordering::Equal => {
-                // If same rank, prioritize Transform over Analyze
-                match (self.is_transform, other.is_transform) {
-                    (true, false) => Ordering::Greater,
-                    (false, true) => Ordering::Less,
-                    _ => self.processor_id.cmp(&other.processor_id), // Stable sort by ID
-                }
-            }
-            other_ordering => other_ordering,
-        }
-    }
-}
+use super::priority_work_queue::{PriorityWorkQueue, PrioritizedTask};
 
 /// Work Queue executor that uses dependency counting and canonical payload tracking.
 /// 
@@ -129,16 +80,15 @@ impl DagExecutor for WorkQueueExecutor {
                 return Err(ExecutionError::ProcessorNotFound(processor_id.clone()));
             }
         }
-        let dependency_counts = graph.build_dependency_counts();
         let reverse_dependencies = graph.build_reverse_dependencies();
         
-        // Build topological ranks for deterministic canonical payload updates
-        let topological_ranks = graph.topological_ranks()
+        // Efficiently compute both dependency counts and topological ranks together
+        let (dependency_counts, topological_ranks) = graph.dependency_counts_and_ranks()
             .ok_or_else(|| ExecutionError::InternalError { 
                 message: "Dependency graph contains cycles - cannot compute topological order".to_string() 
             })?;
         
-        let mut work_queue = BinaryHeap::new();
+        let mut work_queue = PriorityWorkQueue::new();
         
         // Start with entrypoints (processors with no dependencies), prioritized by topological rank
         for entrypoint in entrypoints.iter() {
@@ -188,27 +138,9 @@ impl DagExecutor for WorkQueueExecutor {
                 
                 // Check if we can start more tasks and have work to do
                 if active_count < self.max_concurrency && !queue.is_empty() {
-                    // Find the highest priority processor that isn't blocked
+                    // Use the newtype's efficient blocked processor handling
                     let blocked = blocked_processors.lock().await;
-                    let mut next_id = None;
-                    let mut temp_tasks = Vec::new();
-                    
-                    // Look for the highest priority non-blocked processor
-                    while let Some(task) = queue.pop() {
-                        if !blocked.contains(&task.processor_id) {
-                            next_id = Some(task.processor_id);
-                            break;
-                        } else {
-                            temp_tasks.push(task);
-                        }
-                    }
-                    
-                    // Put back the blocked processors we skipped
-                    for blocked_task in temp_tasks {
-                        queue.push(blocked_task);
-                    }
-                    
-                    next_id
+                    queue.pop_next_available(&blocked)
                 } else {
                     None
                 }
@@ -339,7 +271,7 @@ impl DagExecutor for WorkQueueExecutor {
                                                 // or if no Transform processor has completed yet
                                                 let should_update = match *highest_rank {
                                                     None => true, // First Transform processor
-                                                    Some(current_highest) => processor_rank >= current_highest,
+                                                    Some(current_highest) => processor_rank > current_highest,
                                                 };
                                                 
                                                 if should_update {

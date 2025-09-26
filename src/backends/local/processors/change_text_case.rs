@@ -160,4 +160,8 @@ impl Processor for ChangeTextCaseProcessor {
     fn name(&self) -> &'static str {
         "change_text_case"
     }
+
+    fn declared_intent(&self) -> crate::proto::processor_v1::ProcessorIntent {
+        crate::proto::processor_v1::ProcessorIntent::Transform
+    }
 }

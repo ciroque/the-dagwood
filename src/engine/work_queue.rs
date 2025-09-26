@@ -2,15 +2,12 @@ use async_trait::async_trait;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use serde_json;
 
 use crate::traits::executor::DagExecutor;
 use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
-use crate::traits::processor::Processor;
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::config::CollectionStrategy;
-use crate::backends::local::processors::{ResultCollectorProcessor, CollectableResult};
+use crate::proto::processor_v1::ProcessorIntent;
 use crate::errors::{ExecutionError, FailureStrategy};
 
 /// Work Queue executor that uses dependency counting to manage DAG execution.
@@ -90,71 +87,67 @@ impl WorkQueueExecutor {
             .collect()
     }
 
-    /// Combine results from multiple dependencies using collection strategy
+    /// Combine results from multiple dependencies using simplified logic:
+    /// - For Transform processors: Use the payload from the first successful dependency
+    /// - For Analyze processors: Keep original payload, merge all metadata
     async fn combine_dependency_results(
         dependencies: &[String],
         results_guard: &HashMap<String, ProcessorResponse>,
+        processors: &ProcessorMap,
+        target_processor_id: &str,
         fallback_input: ProcessorRequest,
     ) -> ProcessorRequest {
-        // Convert ProcessorResponse to CollectableResult for each dependency
-        let mut dependency_results = HashMap::new();
-        
-        for dep_id in dependencies {
-            if let Some(dep_response) = results_guard.get(dep_id) {
-                let collectable_result = match &dep_response.outcome {
-                    Some(Outcome::NextPayload(payload)) => CollectableResult {
-                        success: true,
-                        payload: Some(payload.clone()),
-                        error_code: None,
-                        error_message: None,
-                    },
-                    Some(Outcome::Error(error)) => CollectableResult {
-                        success: false,
-                        payload: None,
-                        error_code: Some(error.code),
-                        error_message: Some(error.message.clone()),
-                    },
-                    None => CollectableResult {
-                        success: false,
-                        payload: None,
-                        error_code: Some(500),
-                        error_message: Some("No outcome in processor response".to_string()),
-                    },
-                };
-                dependency_results.insert(dep_id.clone(), collectable_result);
-            }
-        }
-
-        // If we have no successful dependency results, fallback to original input
-        if dependency_results.is_empty() {
+        if dependencies.is_empty() {
             return fallback_input;
         }
 
-        // Use FirstAvailable strategy as default for now
-        // TODO: In the future, this should be configurable per processor
-        let collector = ResultCollectorProcessor::new(CollectionStrategy::FirstAvailable);
+        // Get the target processor to check its intent
+        let target_processor = match processors.get(target_processor_id) {
+            Some(processor) => processor,
+            None => return fallback_input,
+        };
+
+        let target_intent = target_processor.declared_intent();
         
-        // Serialize dependency results for the collector
-        match serde_json::to_vec(&dependency_results) {
-            Ok(serialized_deps) => {
-                let collector_request = ProcessorRequest {
-                    payload: serialized_deps,
-                    metadata: fallback_input.metadata.clone(),
-                };
-                
-                // Process the collection
-                let collector_response = collector.process(collector_request).await;
-                
-                // Extract the combined result
-                match collector_response.outcome {
-                    Some(Outcome::NextPayload(combined_payload)) => ProcessorRequest {
-                        payload: combined_payload,
-                        metadata: fallback_input.metadata,
-                    },
-                    _ => fallback_input, // Fallback on collection failure
+        // Collect successful dependency results
+        let mut successful_results = Vec::new();
+        let mut all_metadata = HashMap::new();
+        
+        for dep_id in dependencies {
+            if let Some(dep_response) = results_guard.get(dep_id) {
+                if let Some(Outcome::NextPayload(payload)) = &dep_response.outcome {
+                    successful_results.push((dep_id.clone(), payload.clone()));
+                }
+                // Always collect metadata from all dependencies
+                for (key, value) in &dep_response.metadata {
+                    let prefixed_key = format!("{}_{}", dep_id, key);
+                    all_metadata.insert(prefixed_key, value.clone());
+                }
+            }
+        }
+
+        if successful_results.is_empty() {
+            return fallback_input;
+        }
+
+        match target_intent {
+            ProcessorIntent::Transform => {
+                // Transform processors: Use payload from first successful dependency
+                let (_, first_payload) = &successful_results[0];
+                ProcessorRequest {
+                    payload: first_payload.clone(),
+                    metadata: all_metadata,
                 }
             },
-            Err(_) => fallback_input, // Fallback on serialization failure
+            ProcessorIntent::Analyze => {
+                // Analyze processors: Keep original payload, merge metadata
+                let mut combined_metadata = fallback_input.metadata.clone();
+                combined_metadata.extend(all_metadata);
+                ProcessorRequest {
+                    payload: fallback_input.payload,
+                    metadata: combined_metadata,
+                }
+            },
         }
     }
 }
@@ -269,6 +262,7 @@ impl DagExecutor for WorkQueueExecutor {
                     let work_queue_mutex_clone = work_queue_mutex.clone();
                     let failed_processors_clone = failed_processors.clone();
                     let blocked_processors_clone = blocked_processors.clone();
+                    let processors_clone = processors.clone(); // Clone processors for combine_dependency_results
                     
                     // Spawn async task to execute the processor
                     tokio::spawn(async move {
@@ -317,10 +311,12 @@ impl DagExecutor for WorkQueueExecutor {
                                         input_clone // Fallback to original input
                                     }
                                 } else {
-                                    // Multiple dependencies: use collection strategy to combine results
+                                    // Multiple dependencies: use simplified collection logic
                                     Self::combine_dependency_results(
                                         &dependencies,
                                         &results_guard,
+                                        &processors_clone,
+                                        &processor_id_clone,
                                         input_clone
                                     ).await
                                 }
@@ -446,6 +442,7 @@ impl DagExecutor for WorkQueueExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::traits::processor::Processor;
     use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
     use std::time::Duration;
     use tokio::time::sleep;

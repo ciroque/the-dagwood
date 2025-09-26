@@ -72,4 +72,8 @@ impl Processor for TokenCounterProcessor {
     fn name(&self) -> &'static str {
         "token_counter"
     }
+
+    fn declared_intent(&self) -> crate::proto::processor_v1::ProcessorIntent {
+        crate::proto::processor_v1::ProcessorIntent::Analyze
+    }
 }

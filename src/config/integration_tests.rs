@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod integration_tests {
     use crate::config::{
-        Strategy, CollectionStrategy, 
+        Strategy, 
         load_and_validate_config, build_dag_runtime
     };
     use crate::errors::FailureStrategy;
@@ -47,29 +47,6 @@ mod integration_tests {
         assert_eq!(config.processors[3].depends_on, vec!["failing_processor"]);
     }
 
-    /// Test parallel collection configuration loading
-    #[test]
-    fn test_parallel_collection_yaml_loading() {
-        // Test loading the parallel collection configuration file
-        let config = load_and_validate_config("configs/parallel-collection.yaml").unwrap();
-        
-        assert_eq!(config.strategy, Strategy::WorkQueue);
-        assert_eq!(config.failure_strategy, FailureStrategy::FailFast);
-        assert_eq!(config.executor_options.max_concurrency, Some(4));
-        assert_eq!(config.processors.len(), 5);
-        
-        // Verify the merge_results processor has collection strategy
-        let merge_processor = &config.processors[3];
-        assert_eq!(merge_processor.id, "merge_results");
-        assert!(merge_processor.collection_strategy.is_some());
-        
-        if let Some(CollectionStrategy::MergeMetadata { primary_source, metadata_sources }) = &merge_processor.collection_strategy {
-            assert_eq!(primary_source, "token_counter");
-            assert_eq!(metadata_sources, &vec!["word_frequency".to_string()]);
-        } else {
-            panic!("Expected MergeMetadata collection strategy");
-        }
-    }
 
     /// Test building DAG runtime from YAML configuration
     #[test]

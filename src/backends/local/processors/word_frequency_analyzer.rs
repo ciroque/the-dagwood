@@ -70,4 +70,8 @@ impl Processor for WordFrequencyAnalyzerProcessor {
     fn name(&self) -> &'static str {
         "word_frequency_analyzer"
     }
+
+    fn declared_intent(&self) -> crate::proto::processor_v1::ProcessorIntent {
+        crate::proto::processor_v1::ProcessorIntent::Analyze
+    }
 }

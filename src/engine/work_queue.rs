@@ -209,10 +209,17 @@ impl DagExecutor for WorkQueueExecutor {
                                 let canonical_payload = canonical_payload_mutex_clone.lock().await.clone();
                                 let results_guard = results_mutex_clone.lock().await;
                                 
-                                // Collect metadata from all dependencies using shared utility
+                                // Collect metadata only from actual dependencies, not all completed processors
+                                let mut dependency_results = HashMap::new();
+                                for dep_id in dependencies {
+                                    if let Some(dep_response) = results_guard.get(dep_id) {
+                                        dependency_results.insert(dep_id.clone(), dep_response.clone());
+                                    }
+                                }
+                                
                                 let all_metadata = merge_metadata_from_responses(
                                     input_clone.metadata.clone(),
-                                    &results_guard
+                                    &dependency_results
                                 );
                                 
                                 ProcessorRequest {
@@ -938,6 +945,82 @@ mod tests {
             }
             _ => panic!("Expected MultipleFailed error"),
         }
+    }
+
+    #[tokio::test]
+    async fn test_metadata_isolation_between_unrelated_processors() {
+        let executor = WorkQueueExecutor::new(4);
+        
+        // Create a DAG where processors should only receive metadata from their dependencies
+        // Graph: entry1 -> proc1 -> final
+        //        entry2 -> proc2 (unrelated to final)
+        // final should only get metadata from proc1, not from proc2
+        let processors = HashMap::from([
+            ("entry1".to_string(), Arc::new(MockAnalyzeProcessor::new("entry1", 10, "E1_META")) as Arc<dyn Processor>),
+            ("entry2".to_string(), Arc::new(MockAnalyzeProcessor::new("entry2", 10, "E2_META")) as Arc<dyn Processor>),
+            ("proc1".to_string(), Arc::new(MockAnalyzeProcessor::new("proc1", 10, "P1_META")) as Arc<dyn Processor>),
+            ("proc2".to_string(), Arc::new(MockAnalyzeProcessor::new("proc2", 10, "P2_META")) as Arc<dyn Processor>),
+            ("final".to_string(), Arc::new(MockAnalyzeProcessor::new("final", 10, "FINAL_META")) as Arc<dyn Processor>),
+        ]);
+        
+        let graph = HashMap::from([
+            ("entry1".to_string(), vec!["proc1".to_string()]),
+            ("entry2".to_string(), vec!["proc2".to_string()]),
+            ("proc1".to_string(), vec!["final".to_string()]),
+            ("proc2".to_string(), vec![]), // proc2 is unrelated to final
+            ("final".to_string(), vec![]),
+        ]);
+        
+        let entrypoints = vec!["entry1".to_string(), "entry2".to_string()];
+        let input = ProcessorRequest {
+            payload: "test".to_string().into_bytes(),
+            metadata: {
+                let mut m = HashMap::new();
+                m.insert("original".to_string(), "INPUT_META".to_string());
+                m
+            },
+        };
+        
+        let result = executor.execute_with_strategy(
+            ProcessorMap::from(processors), 
+            DependencyGraph::from(graph), 
+            EntryPoints::from(entrypoints), 
+            input,
+            FailureStrategy::FailFast
+        ).await.unwrap();
+        
+        // Verify all processors completed
+        assert_eq!(result.len(), 5);
+        
+        // Check that final processor only has metadata from its dependencies (proc1)
+        // and NOT from unrelated processors (proc2, entry2)
+        let final_result = result.get("final").unwrap();
+        
+        // Verify metadata isolation: final should only have metadata from its direct dependency (proc1)
+        
+        // Should have original metadata
+        assert!(final_result.metadata.contains_key("original"));
+        assert_eq!(final_result.metadata.get("original"), Some(&"INPUT_META".to_string()));
+        
+        // Should have metadata from proc1 (direct dependency)
+        assert!(final_result.metadata.contains_key("dep:5:proc1:analysis"));
+        assert_eq!(final_result.metadata.get("dep:5:proc1:analysis"), Some(&"P1_META".to_string()));
+        
+        // Should NOT have metadata from proc2 (unrelated processor)
+        assert!(!final_result.metadata.contains_key("dep:5:proc2:analysis"));
+        
+        // Should NOT have metadata from entry2 (unrelated processor)
+        assert!(!final_result.metadata.contains_key("dep:6:entry2:analysis"));
+        
+        // Note: entry1 metadata should NOT be directly present in final because
+        // final only depends on proc1, not entry1. The metadata chain is:
+        // entry1 -> proc1 (proc1 gets entry1's metadata)
+        // proc1 -> final (final gets proc1's metadata, but not entry1's directly)
+        
+        // Verify proc2 completed successfully but is isolated
+        let proc2_result = result.get("proc2").unwrap();
+        assert!(proc2_result.metadata.contains_key("analysis"));
+        assert_eq!(proc2_result.metadata.get("analysis"), Some(&"P2_META".to_string()));
     }
 
     #[tokio::test]

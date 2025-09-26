@@ -4,10 +4,10 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::traits::executor::DagExecutor;
+use crate::traits::processor::ProcessorIntent;
 use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::proto::processor_v1::ProcessorIntent;
 use crate::errors::{ExecutionError, FailureStrategy};
 
 /// Work Queue executor that uses dependency counting to manage DAG execution.
@@ -474,12 +474,15 @@ mod tests {
             ProcessorResponse {
                 outcome: Some(Outcome::NextPayload(output_text.into_bytes())),
                 metadata: HashMap::new(),
-                declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
             }
         }
 
         fn name(&self) -> &'static str {
             "MockProcessor"
+        }
+
+        fn declared_intent(&self) -> ProcessorIntent {
+            ProcessorIntent::Transform
         }
     }
 
@@ -738,12 +741,15 @@ mod tests {
                 ProcessorResponse {
                     outcome: None, // This indicates failure
                     metadata: HashMap::new(),
-                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
                 }
             }
             
             fn name(&self) -> &'static str {
                 "failing_processor"
+            }
+
+            fn declared_intent(&self) -> ProcessorIntent {
+                ProcessorIntent::Transform
             }
         }
         
@@ -793,12 +799,15 @@ mod tests {
                 ProcessorResponse {
                     outcome: None, // This indicates failure
                     metadata: HashMap::new(),
-                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
                 }
             }
             
             fn name(&self) -> &'static str {
                 "failing_processor"
+            }
+
+            fn declared_intent(&self) -> ProcessorIntent {
+                ProcessorIntent::Transform
             }
         }
         
@@ -856,12 +865,15 @@ mod tests {
                 ProcessorResponse {
                     outcome: None, // This indicates failure
                     metadata: HashMap::new(),
-                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Transform as i32,
                 }
             }
             
             fn name(&self) -> &'static str {
                 "failing_processor"
+            }
+
+            fn declared_intent(&self) -> ProcessorIntent {
+                ProcessorIntent::Transform
             }
         }
         

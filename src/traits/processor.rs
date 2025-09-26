@@ -1,12 +1,22 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ProcessorIntent};
+use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 
-/// Enhanced Processor trait supporting ADR-12 features:
+/// Processor intent declaration for safe parallelism
+/// This enum is separate from protobuf and used only in Rust trait methods
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessorIntent {
+    /// Modifies payload, may modify metadata - must run sequentially
+    Transform,
+    /// Payload pass-through, may add metadata - can run in parallel
+    Analyze,
+}
+
+/// Enhanced Processor trait as defined in ADR-13 (supersedes parts of ADR-12):
 /// - Intent declaration (Transform vs Analyze)
 /// - Metadata propagation and handling
-/// - Backward compatibility with existing processors
+/// - Backward compatibility with existing processors (see ADR-12 for legacy details)
 #[async_trait]
 pub trait Processor: Send + Sync {
     /// Process the input request and return a response

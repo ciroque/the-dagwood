@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::traits::Processor;
+use crate::traits::{Processor, processor::ProcessorIntent};
 
 /// Token Counter processor - counts characters and words
 pub struct TokenCounterProcessor;
@@ -33,7 +33,6 @@ impl Processor for TokenCounterProcessor {
                         message: format!("Invalid UTF-8 input: {}", e),
                     })),
                     metadata: std::collections::HashMap::new(),
-                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Analyze as i32,
                 };
             }
         };
@@ -57,7 +56,6 @@ impl Processor for TokenCounterProcessor {
                         message: format!("Failed to serialize result: {}", e),
                     })),
                     metadata: std::collections::HashMap::new(),
-                    declared_intent: crate::proto::processor_v1::ProcessorIntent::Analyze as i32,
                 };
             }
         };
@@ -65,7 +63,6 @@ impl Processor for TokenCounterProcessor {
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(json_result.into_bytes())),
             metadata: std::collections::HashMap::new(),
-            declared_intent: crate::proto::processor_v1::ProcessorIntent::Analyze as i32,
         }
     }
 
@@ -73,7 +70,7 @@ impl Processor for TokenCounterProcessor {
         "token_counter"
     }
 
-    fn declared_intent(&self) -> crate::proto::processor_v1::ProcessorIntent {
-        crate::proto::processor_v1::ProcessorIntent::Analyze
+    fn declared_intent(&self) -> ProcessorIntent {
+        ProcessorIntent::Analyze
     }
 }

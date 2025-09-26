@@ -1,4 +1,4 @@
-use std::collections::{BinaryHeap, HashSet};
+use std::collections::{BinaryHeap, HashSet, HashMap};
 use std::cmp::Ordering;
 
 /// Prioritized task for the work queue, ordered by topological rank and processor intent
@@ -80,13 +80,16 @@ impl Ord for PrioritizedTask {
 #[derive(Debug)]
 pub struct PriorityWorkQueue {
     heap: BinaryHeap<PrioritizedTask>,
+    // Separate storage for long-term blocked tasks to avoid repeated heap operations
+    blocked_tasks: HashMap<String, PrioritizedTask>,
 }
 
 impl PriorityWorkQueue {
     /// Create a new empty priority work queue
     pub fn new() -> Self {
         Self { 
-            heap: BinaryHeap::new() 
+            heap: BinaryHeap::new(),
+            blocked_tasks: HashMap::new(),
         }
     }
     
@@ -105,9 +108,10 @@ impl PriorityWorkQueue {
     
     /// Efficiently find and remove the highest priority non-blocked processor.
     /// 
-    /// This method implements a two-phase approach:
+    /// This method implements an optimized approach with separate blocked task storage:
     /// 1. **Fast Path**: Check if the highest priority task is available (O(1))
-    /// 2. **Slow Path**: Search through blocked tasks and restore them efficiently (O(n))
+    /// 2. **Optimized Slow Path**: Move blocked tasks to separate storage to avoid repeated heap operations
+    /// 3. **Unblock Restoration**: Restore tasks from blocked storage when they become available
     /// 
     /// ## Arguments
     /// 
@@ -118,6 +122,9 @@ impl PriorityWorkQueue {
     /// * `Some(processor_id)` - The highest priority non-blocked processor ID
     /// * `None` - If all tasks are blocked or the queue is empty
     pub fn pop_next_available(&mut self, blocked: &HashSet<String>) -> Option<String> {
+        // First, restore any previously blocked tasks that are now unblocked
+        self.restore_unblocked_tasks(blocked);
+        
         // Fast path: check if top task is available (O(1) when no blocking)
         if let Some(top_task) = self.heap.peek() {
             if !blocked.contains(&top_task.processor_id) {
@@ -125,8 +132,7 @@ impl PriorityWorkQueue {
             }
         }
         
-        // Slow path: find first non-blocked task (O(n) when blocking occurs)
-        let mut temp_tasks = Vec::new();
+        // Optimized slow path: move blocked tasks to separate storage
         let mut result = None;
         
         while let Some(task) = self.heap.pop() {
@@ -134,21 +140,37 @@ impl PriorityWorkQueue {
                 result = Some(task.processor_id);
                 break;
             } else {
-                temp_tasks.push(task);
+                // Store in separate blocked tasks storage instead of temp vector
+                self.blocked_tasks.insert(task.processor_id.clone(), task);
             }
-        }
-        
-        // Batch restore blocked tasks to minimize heap operations
-        if !temp_tasks.is_empty() {
-            self.heap.extend(temp_tasks);
         }
         
         result
     }
     
-    /// Check if the queue is empty
+    /// Restore previously blocked tasks that are now unblocked back to the main heap
+    fn restore_unblocked_tasks(&mut self, blocked: &HashSet<String>) {
+        let mut to_restore = Vec::new();
+        
+        // Find tasks that are no longer blocked
+        self.blocked_tasks.retain(|processor_id, task| {
+            if !blocked.contains(processor_id) {
+                to_restore.push(task.clone());
+                false // Remove from blocked_tasks
+            } else {
+                true // Keep in blocked_tasks
+            }
+        });
+        
+        // Restore unblocked tasks to the main heap
+        if !to_restore.is_empty() {
+            self.heap.extend(to_restore);
+        }
+    }
+    
+    /// Check if the queue is empty (both main heap and blocked tasks)
     pub fn is_empty(&self) -> bool {
-        self.heap.is_empty()
+        self.heap.is_empty() && self.blocked_tasks.is_empty()
     }
     
     /// Peek at the highest priority task without removing it
@@ -156,9 +178,9 @@ impl PriorityWorkQueue {
         self.heap.peek()
     }
     
-    /// Get the number of tasks in the queue
+    /// Get the total number of tasks in the queue (including blocked tasks)
     pub fn len(&self) -> usize {
-        self.heap.len()
+        self.heap.len() + self.blocked_tasks.len()
     }
     
     /// Iterate over all tasks in the queue (for checking blocked status)
@@ -253,5 +275,48 @@ mod tests {
         // Tasks should still be in queue
         assert!(!queue.is_empty());
         assert_eq!(queue.len(), 2);
+    }
+
+    #[test]
+    fn test_blocked_task_storage_optimization() {
+        let mut queue = PriorityWorkQueue::new();
+        
+        // Add multiple tasks with different priorities
+        queue.push(PrioritizedTask::new("high_blocked".to_string(), 3, true));
+        queue.push(PrioritizedTask::new("mid_blocked".to_string(), 2, true));
+        queue.push(PrioritizedTask::new("low_available".to_string(), 1, true));
+        queue.push(PrioritizedTask::new("lowest_available".to_string(), 0, true));
+        
+        let mut blocked = HashSet::new();
+        blocked.insert("high_blocked".to_string());
+        blocked.insert("mid_blocked".to_string());
+        
+        // First call should move blocked tasks to separate storage and return available task
+        assert_eq!(queue.pop_next_available(&blocked), Some("low_available".to_string()));
+        
+        // Verify blocked tasks are in separate storage (not in main heap)
+        assert_eq!(queue.len(), 3); // 1 in heap + 2 in blocked storage
+        
+        // Second call should return next available without re-processing blocked tasks
+        assert_eq!(queue.pop_next_available(&blocked), Some("lowest_available".to_string()));
+        
+        // Now unblock one task
+        blocked.remove("high_blocked");
+        
+        // Should restore the unblocked task and return it (highest priority)
+        assert_eq!(queue.pop_next_available(&blocked), Some("high_blocked".to_string()));
+        
+        // Only one blocked task should remain
+        assert_eq!(queue.len(), 1);
+        
+        // Unblock the last task
+        blocked.clear();
+        
+        // Should restore and return the last task
+        assert_eq!(queue.pop_next_available(&blocked), Some("mid_blocked".to_string()));
+        
+        // Queue should now be empty
+        assert!(queue.is_empty());
+        assert_eq!(queue.len(), 0);
     }
 }

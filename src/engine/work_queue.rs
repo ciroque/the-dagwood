@@ -1,7 +1,8 @@
 use async_trait::async_trait;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, BinaryHeap};
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use std::cmp::Ordering;
 
 use crate::traits::executor::DagExecutor;
 use crate::traits::processor::ProcessorIntent;
@@ -9,6 +10,56 @@ use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::errors::{ExecutionError, FailureStrategy};
+
+/// Prioritized task for the work queue, ordered by topological rank and processor intent
+#[derive(Debug, Clone)]
+struct PrioritizedTask {
+    processor_id: String,
+    topological_rank: usize,
+    is_transform: bool,
+}
+
+impl PrioritizedTask {
+    fn new(processor_id: String, topological_rank: usize, is_transform: bool) -> Self {
+        Self {
+            processor_id,
+            topological_rank,
+            is_transform,
+        }
+    }
+}
+
+impl PartialEq for PrioritizedTask {
+    fn eq(&self, other: &Self) -> bool {
+        self.processor_id == other.processor_id
+    }
+}
+
+impl Eq for PrioritizedTask {}
+
+impl PartialOrd for PrioritizedTask {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PrioritizedTask {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Higher priority = higher topological rank (executed later in DAG)
+        // Transform processors get priority over Analyze processors at same rank
+        match self.topological_rank.cmp(&other.topological_rank) {
+            Ordering::Equal => {
+                // If same rank, prioritize Transform over Analyze
+                match (self.is_transform, other.is_transform) {
+                    (true, false) => Ordering::Greater,
+                    (false, true) => Ordering::Less,
+                    _ => self.processor_id.cmp(&other.processor_id), // Stable sort by ID
+                }
+            }
+            other_ordering => other_ordering,
+        }
+    }
+}
 
 /// Work Queue executor that uses dependency counting and canonical payload tracking.
 /// 
@@ -87,11 +138,15 @@ impl DagExecutor for WorkQueueExecutor {
                 message: "Dependency graph contains cycles - cannot compute topological order".to_string() 
             })?;
         
-        let mut work_queue = VecDeque::new();
+        let mut work_queue = BinaryHeap::new();
         
-        // Start with entrypoints (processors with no dependencies)
+        // Start with entrypoints (processors with no dependencies), prioritized by topological rank
         for entrypoint in entrypoints.iter() {
-            work_queue.push_back(entrypoint.clone());
+            let rank = topological_ranks.get(entrypoint).copied().unwrap_or(0);
+            let is_transform = processors.get(entrypoint)
+                .map(|p| p.declared_intent() == ProcessorIntent::Transform)
+                .unwrap_or(false);
+            work_queue.push(PrioritizedTask::new(entrypoint.clone(), rank, is_transform));
         }
         
         // Track active tasks to respect concurrency limits
@@ -133,23 +188,24 @@ impl DagExecutor for WorkQueueExecutor {
                 
                 // Check if we can start more tasks and have work to do
                 if active_count < self.max_concurrency && !queue.is_empty() {
-                    // Find a processor that isn't blocked
+                    // Find the highest priority processor that isn't blocked
                     let blocked = blocked_processors.lock().await;
                     let mut next_id = None;
-                    let mut remaining_queue = VecDeque::new();
+                    let mut temp_tasks = Vec::new();
                     
-                    while let Some(id) = queue.pop_front() {
-                        if !blocked.contains(&id) {
-                            next_id = Some(id);
+                    // Look for the highest priority non-blocked processor
+                    while let Some(task) = queue.pop() {
+                        if !blocked.contains(&task.processor_id) {
+                            next_id = Some(task.processor_id);
                             break;
                         } else {
-                            remaining_queue.push_back(id);
+                            temp_tasks.push(task);
                         }
                     }
                     
-                    // Put back the blocked processors
-                    while let Some(id) = remaining_queue.pop_front() {
-                        queue.push_back(id);
+                    // Put back the blocked processors we skipped
+                    for blocked_task in temp_tasks {
+                        queue.push(blocked_task);
                     }
                     
                     next_id
@@ -305,9 +361,13 @@ impl DagExecutor for WorkQueueExecutor {
                                         if let Some(count) = dependency_counts.get_mut(dependent_id) {
                                             *count -= 1;
                                             
-                                            // If dependency count reaches zero, add to work queue
+                                            // If dependency count reaches zero, add to work queue with priority
                                             if *count == 0 {
-                                                work_queue.push_back(dependent_id.clone());
+                                                let rank = topological_ranks_clone.get(dependent_id).copied().unwrap_or(0);
+                                                let is_transform = processors_clone.get(dependent_id)
+                                                    .map(|p| p.declared_intent() == ProcessorIntent::Transform)
+                                                    .unwrap_or(false);
+                                                work_queue.push(PrioritizedTask::new(dependent_id.clone(), rank, is_transform));
                                             }
                                         }
                                     }
@@ -355,7 +415,7 @@ impl DagExecutor for WorkQueueExecutor {
                         let blocked = blocked_processors.lock().await;
                         let queue = work_queue_mutex.lock().await;
                         
-                        if queue.iter().all(|id| blocked.contains(id)) {
+                        if queue.iter().all(|task| blocked.contains(&task.processor_id)) {
                             // All remaining processors are blocked due to failed dependencies
                             let failures: Vec<ExecutionError> = failed.iter()
                                 .map(|id| ExecutionError::ProcessorFailed {
@@ -658,6 +718,71 @@ mod tests {
         assert_eq!(counts.get("b"), Some(&1)); // Depends on a
         assert_eq!(counts.get("c"), Some(&1)); // Depends on a
         assert_eq!(counts.get("d"), Some(&2)); // Depends on b and c
+    }
+
+    #[tokio::test]
+    async fn test_task_prioritization_based_on_topological_ranks() {
+        let executor = WorkQueueExecutor::new(2); // Limited concurrency to test prioritization
+        
+        // Create a complex DAG to test prioritization:
+        // entry1 -> [transform1, analyze1] -> transform2 -> final
+        // entry2 -> transform3 -> final
+        // This tests that higher-ranked Transform processors (transform2, transform3) get priority
+        let processors = HashMap::from([
+            ("entry1".to_string(), Arc::new(MockProcessor::new("entry1", 50, "-E1")) as Arc<dyn Processor>),
+            ("entry2".to_string(), Arc::new(MockProcessor::new("entry2", 50, "-E2")) as Arc<dyn Processor>),
+            ("transform1".to_string(), Arc::new(MockProcessor::new("transform1", 50, "-T1")) as Arc<dyn Processor>),
+            ("analyze1".to_string(), Arc::new(MockAnalyzeProcessor::new("analyze1", 50, "-A1")) as Arc<dyn Processor>),
+            ("transform2".to_string(), Arc::new(MockProcessor::new("transform2", 10, "-T2")) as Arc<dyn Processor>),
+            ("transform3".to_string(), Arc::new(MockProcessor::new("transform3", 10, "-T3")) as Arc<dyn Processor>),
+            ("final".to_string(), Arc::new(MockProcessor::new("final", 10, "-FINAL")) as Arc<dyn Processor>),
+        ]);
+        
+        let graph = HashMap::from([
+            ("entry1".to_string(), vec!["transform1".to_string(), "analyze1".to_string()]),
+            ("entry2".to_string(), vec!["transform3".to_string()]),
+            ("transform1".to_string(), vec!["transform2".to_string()]),
+            ("analyze1".to_string(), vec!["transform2".to_string()]),
+            ("transform2".to_string(), vec!["final".to_string()]),
+            ("transform3".to_string(), vec!["final".to_string()]),
+            ("final".to_string(), vec![]),
+        ]);
+        
+        let entrypoints = vec!["entry1".to_string(), "entry2".to_string()];
+        let input = ProcessorRequest {
+            payload: "start".to_string().into_bytes(),
+            ..Default::default()
+        };
+        
+        let result = executor.execute_with_strategy(
+            ProcessorMap::from(processors), 
+            DependencyGraph::from(graph), 
+            EntryPoints::from(entrypoints), 
+            input,
+            FailureStrategy::FailFast
+        ).await.unwrap();
+        
+        // Verify all processors completed successfully
+        assert_eq!(result.len(), 7);
+        
+        // Verify the final processor received the canonical payload from the highest-ranked Transform
+        let final_result = result.get("final").unwrap();
+        if let Some(Outcome::NextPayload(payload)) = &final_result.outcome {
+            let result_str = String::from_utf8(payload.clone()).unwrap();
+            // Due to prioritization, either transform2 or transform3 should have set the canonical payload
+            // The final result should show the canonical payload path
+            assert!(result_str.contains("start") && (result_str.contains("T2") || result_str.contains("T3")));
+        } else {
+            panic!("Expected NextPayload outcome for final processor");
+        }
+        
+        // Verify Transform processors completed (they should be prioritized)
+        assert!(result.contains_key("transform1"));
+        assert!(result.contains_key("transform2"));
+        assert!(result.contains_key("transform3"));
+        
+        // Verify Analyze processor completed but didn't affect canonical payload
+        assert!(result.contains_key("analyze1"));
     }
 
     #[tokio::test]

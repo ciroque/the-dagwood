@@ -86,7 +86,7 @@ impl DagExecutor for WorkQueueExecutor {
         // Efficiently compute both dependency counts and topological ranks together
         let (dependency_counts, topological_ranks) = graph.dependency_counts_and_ranks()
             .ok_or_else(|| ExecutionError::InternalError { 
-                message: "Dependency graph contains cycles - cannot compute topological order".into() 
+                message: "Internal consistency error: dependency graph contains cycles (should have been caught during config validation)".into() 
             })?;
         
         let mut work_queue = PriorityWorkQueue::new();

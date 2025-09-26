@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
+use crate::utils::metadata::merge_metadata_with_prefixes;
 
 /// Processor intent declaration for safe parallelism
 /// This enum is separate from protobuf and used only in Rust trait methods
@@ -55,17 +56,7 @@ pub trait Processor: Send + Sync {
         dependency_metadata: &HashMap<String, HashMap<String, String>>,
         own_metadata: HashMap<String, String>,
     ) -> HashMap<String, String> {
-        let mut merged = own_metadata;
-        
-        // Merge dependency metadata with prefixed keys to avoid conflicts
-        for (dep_id, dep_metadata) in dependency_metadata {
-            for (key, value) in dep_metadata {
-                let prefixed_key = format!("{}_{}", dep_id, key);
-                merged.insert(prefixed_key, value.clone());
-            }
-        }
-        
-        merged
+        merge_metadata_with_prefixes(own_metadata, dependency_metadata)
     }
 
     /// Validate that the processor's runtime behavior matches its declared intent

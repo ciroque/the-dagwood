@@ -6,3 +6,4 @@ pub mod examples;   // demo examples
 pub mod observability;
 pub mod proto;      // generated protobufs live here
 pub mod traits;     // unified abstractions
+pub mod utils;      // shared utility functions

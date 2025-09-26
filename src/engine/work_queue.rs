@@ -9,6 +9,7 @@ use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::errors::{ExecutionError, FailureStrategy};
+use crate::utils::metadata::merge_metadata_from_responses;
 
 use super::priority_work_queue::{PriorityWorkQueue, PrioritizedTask};
 
@@ -208,17 +209,11 @@ impl DagExecutor for WorkQueueExecutor {
                                 let canonical_payload = canonical_payload_mutex_clone.lock().await.clone();
                                 let results_guard = results_mutex_clone.lock().await;
                                 
-                                // Collect metadata from all dependencies
-                                let mut all_metadata = input_clone.metadata.clone();
-                                for dep_id in dependencies {
-                                    if let Some(dep_response) = results_guard.get(dep_id) {
-                                        // Collect metadata from this dependency
-                                        for (key, value) in &dep_response.metadata {
-                                            let prefixed_key = format!("{}_{}", dep_id, key);
-                                            all_metadata.insert(prefixed_key, value.clone());
-                                        }
-                                    }
-                                }
+                                // Collect metadata from all dependencies using shared utility
+                                let all_metadata = merge_metadata_from_responses(
+                                    input_clone.metadata.clone(),
+                                    &results_guard
+                                );
                                 
                                 ProcessorRequest {
                                     payload: canonical_payload,

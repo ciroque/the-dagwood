@@ -35,7 +35,8 @@ impl PartialOrd for PrioritizedTask {
 
 impl Ord for PrioritizedTask {
     fn cmp(&self, other: &Self) -> Ordering {
-        // Higher priority = higher topological rank (executed later in DAG)
+        // BinaryHeap is a max-heap: higher topological ranks are popped first
+        // This prioritizes critical path processors (higher ranks = executed first)
         // Transform processors get priority over Analyze processors at same rank
         match self.topological_rank.cmp(&other.topological_rank) {
             Ordering::Equal => {

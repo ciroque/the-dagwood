@@ -1002,15 +1002,18 @@ mod tests {
         assert!(final_result.metadata.contains_key("original"));
         assert_eq!(final_result.metadata.get("original"), Some(&"INPUT_META".to_string()));
         
-        // Should have metadata from proc1 (direct dependency)
-        assert!(final_result.metadata.contains_key("dep:5:proc1:analysis"));
-        assert_eq!(final_result.metadata.get("dep:5:proc1:analysis"), Some(&"P1_META".to_string()));
+        // Should have metadata from proc1 (direct dependency) using new secure format
+        let proc1_key = crate::utils::metadata::create_namespaced_key("proc1", "analysis");
+        assert!(final_result.metadata.contains_key(&proc1_key));
+        assert_eq!(final_result.metadata.get(&proc1_key), Some(&"P1_META".to_string()));
         
         // Should NOT have metadata from proc2 (unrelated processor)
-        assert!(!final_result.metadata.contains_key("dep:5:proc2:analysis"));
+        let proc2_key = crate::utils::metadata::create_namespaced_key("proc2", "analysis");
+        assert!(!final_result.metadata.contains_key(&proc2_key));
         
         // Should NOT have metadata from entry2 (unrelated processor)
-        assert!(!final_result.metadata.contains_key("dep:6:entry2:analysis"));
+        let entry2_key = crate::utils::metadata::create_namespaced_key("entry2", "analysis");
+        assert!(!final_result.metadata.contains_key(&entry2_key));
         
         // Note: entry1 metadata should NOT be directly present in final because
         // final only depends on proc1, not entry1. The metadata chain is:

@@ -1,0 +1,52 @@
+# Parallel Analysis Pipeline
+# Demonstrates parallel processing with Transform and Analyze processors
+# Shows canonical payload architecture with metadata isolation
+
+strategy: work_queue
+failure_strategy: fail_fast
+
+executor_options:
+  max_concurrency: 4
+  timeout_seconds: 45
+  retry_attempts: 2
+
+# Diamond dependency pattern with parallel analysis branches
+processors:
+  # Entry point - normalize text to proper case
+  - id: normalize_input
+    type: local
+    processor: change_text_case_proper
+    depends_on: []
+
+  # Parallel analysis branches (Analyze processors)
+  - id: count_tokens
+    type: local
+    processor: token_counter
+    depends_on: [normalize_input]
+
+  - id: analyze_frequency
+    type: local
+    processor: word_frequency_analyzer
+    depends_on: [normalize_input]
+
+  # Transform processor that modifies payload
+  - id: reverse_normalized
+    type: local
+    processor: reverse_text
+    depends_on: [normalize_input]
+
+  # Final processor receives canonical payload from highest-ranked Transform
+  # Plus metadata from all dependencies (token_counter, word_frequency_analyzer, reverse_normalized)
+  - id: final_formatting
+    type: local
+    processor: prefix_suffix_adder
+    options:
+      prefix: ">>> RESULT: "
+      suffix: " <<<"
+    depends_on: [count_tokens, analyze_frequency, reverse_normalized]
+
+# Flow demonstrates:
+# - Parallel execution of analysis processors
+# - Canonical payload from Transform processor (reverse_normalized)
+# - Metadata collection from all dependencies
+# - Proper isolation between unrelated processors

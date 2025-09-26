@@ -1,0 +1,75 @@
+# Metadata Isolation and Collision-Resistant Namespacing Demo
+# Showcases the improved metadata handling with collision-resistant key prefixing
+# Tests metadata isolation between unrelated processors
+
+strategy: work_queue
+failure_strategy: fail_fast
+
+executor_options:
+  max_concurrency: 6
+  timeout_seconds: 25
+  retry_attempts: 1
+
+# Complex DAG with multiple independent branches to test metadata isolation
+processors:
+  # Independent entry points
+  - id: entry_branch_a
+    type: local
+    processor: change_text_case_lower
+    depends_on: []
+
+  - id: entry_branch_b
+    type: local
+    processor: change_text_case_upper
+    depends_on: []
+
+  # Branch A processors (should have isolated metadata)
+  - id: branch_a_analyzer
+    type: local
+    processor: token_counter
+    depends_on: [entry_branch_a]
+
+  - id: branch_a_transform
+    type: local
+    processor: reverse_text
+    depends_on: [entry_branch_a]
+
+  - id: branch_a_final
+    type: local
+    processor: prefix_suffix_adder
+    options:
+      prefix: "A_RESULT: "
+      suffix: " :A_END"
+    depends_on: [branch_a_analyzer, branch_a_transform]
+
+  # Branch B processors (completely independent, should not receive Branch A metadata)
+  - id: branch_b_analyzer
+    type: local
+    processor: word_frequency_analyzer
+    depends_on: [entry_branch_b]
+
+  - id: branch_b_transform
+    type: local
+    processor: change_text_case_proper
+    depends_on: [entry_branch_b]
+
+  - id: branch_b_final
+    type: local
+    processor: prefix_suffix_adder
+    options:
+      prefix: "B_RESULT: "
+      suffix: " :B_END"
+    depends_on: [branch_b_analyzer, branch_b_transform]
+
+  # Cross-branch processor (should receive metadata from both branches)
+  - id: cross_branch_collector
+    type: local
+    processor: token_counter
+    depends_on: [branch_a_final, branch_b_final]
+
+# This configuration tests:
+# - Metadata isolation: branch_a_final should NOT receive metadata from branch_b processors
+# - Metadata isolation: branch_b_final should NOT receive metadata from branch_a processors  
+# - Collision-resistant namespacing: processors with similar IDs don't cause key collisions
+# - Cross-branch metadata collection: cross_branch_collector receives metadata from both branches
+# - Canonical payload architecture: proper payload flow through Transform processors

@@ -1,0 +1,64 @@
+# Failure Handling Strategies Demo
+# Demonstrates different failure strategies and error propagation
+# Tests robustness of the work queue executor
+
+strategy: work_queue
+failure_strategy: continue_on_error  # Continue processing despite failures
+
+executor_options:
+  max_concurrency: 3
+  timeout_seconds: 60
+  retry_attempts: 3
+
+# Pipeline designed to test failure scenarios
+processors:
+  # Entry point - always succeeds
+  - id: entry_processor
+    type: local
+    processor: change_text_case_lower
+    depends_on: []
+
+  # Parallel branches - some may fail in real scenarios
+  - id: branch_a_transform
+    type: local
+    processor: reverse_text
+    depends_on: [entry_processor]
+
+  - id: branch_b_analysis
+    type: local
+    processor: token_counter
+    depends_on: [entry_processor]
+
+  - id: branch_c_transform
+    type: local
+    processor: change_text_case_upper
+    depends_on: [entry_processor]
+
+  # Processors that depend on potentially failing branches
+  - id: resilient_processor_a
+    type: local
+    processor: prefix_suffix_adder
+    options:
+      prefix: "A: "
+      suffix: ""
+    depends_on: [branch_a_transform]
+
+  - id: resilient_processor_b
+    type: local
+    processor: prefix_suffix_adder
+    options:
+      prefix: "B: "
+      suffix: ""
+    depends_on: [branch_b_analysis]
+
+  # Final processor that should still execute if some branches fail
+  - id: final_collector
+    type: local
+    processor: word_frequency_analyzer
+    depends_on: [resilient_processor_a, resilient_processor_b]
+
+# This configuration tests:
+# - Failure isolation between parallel branches
+# - Metadata collection from successful processors only
+# - Canonical payload updates from highest-ranked successful Transform
+# - Blocked processor handling when dependencies fail

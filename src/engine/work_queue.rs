@@ -269,8 +269,8 @@ impl DagExecutor for WorkQueueExecutor {
                                             if let Some(&processor_rank) = topological_ranks_clone.get(&processor_id_clone) {
                                                 let mut highest_rank = highest_transform_rank_mutex_clone.lock().await;
                                                 
-                                                // Update canonical payload if this processor has higher rank
-                                                // or if no Transform processor has completed yet
+                                                // Update canonical payload if this processor has strictly higher rank
+                                                // or if no Transform processor has completed yet (prevents race conditions)
                                                 let should_update = match *highest_rank {
                                                     None => true, // First Transform processor
                                                     Some(current_highest) => processor_rank > current_highest,

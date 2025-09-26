@@ -80,6 +80,13 @@ impl DagExecutor for WorkQueueExecutor {
         }
         let dependency_counts = graph.build_dependency_counts();
         let reverse_dependencies = graph.build_reverse_dependencies();
+        
+        // Build topological ranks for deterministic canonical payload updates
+        let topological_ranks = graph.topological_ranks()
+            .ok_or_else(|| ExecutionError::InternalError { 
+                message: "Dependency graph contains cycles - cannot compute topological order".to_string() 
+            })?;
+        
         let mut work_queue = VecDeque::new();
         
         // Start with entrypoints (processors with no dependencies)
@@ -95,8 +102,9 @@ impl DagExecutor for WorkQueueExecutor {
         let failed_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
         let blocked_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
         
-        // Track canonical payload from Transform processors
+        // Track canonical payload from Transform processors with topological ranking
         let canonical_payload_mutex = Arc::new(Mutex::new(input.payload.clone()));
+        let highest_transform_rank_mutex = Arc::new(Mutex::new(None::<usize>));
         
         // Process the work queue until all processors are complete
         loop {
@@ -177,6 +185,8 @@ impl DagExecutor for WorkQueueExecutor {
                     let blocked_processors_clone = blocked_processors.clone();
                     let processors_clone = processors.clone(); // Clone processors for combine_dependency_results
                     let canonical_payload_mutex_clone = canonical_payload_mutex.clone();
+                    let highest_transform_rank_mutex_clone = highest_transform_rank_mutex.clone();
+                    let topological_ranks_clone = topological_ranks.clone();
                     
                     // Spawn async task to execute the processor
                     tokio::spawn(async move {
@@ -262,12 +272,26 @@ impl DagExecutor for WorkQueueExecutor {
                                     results.insert(processor_id_clone.clone(), response);
                                 }
                                 
-                                // Update canonical payload if this is a Transform processor
+                                // Update canonical payload if this is a Transform processor with higher topological rank
                                 if let Some(processor) = processors_clone.get(&processor_id_clone) {
                                     if processor.declared_intent() == ProcessorIntent::Transform {
                                         if let Some(Outcome::NextPayload(new_payload)) = &response_clone.outcome {
-                                            let mut canonical_payload = canonical_payload_mutex_clone.lock().await;
-                                            *canonical_payload = new_payload.clone();
+                                            if let Some(&processor_rank) = topological_ranks_clone.get(&processor_id_clone) {
+                                                let mut highest_rank = highest_transform_rank_mutex_clone.lock().await;
+                                                
+                                                // Update canonical payload if this processor has higher rank
+                                                // or if no Transform processor has completed yet
+                                                let should_update = match *highest_rank {
+                                                    None => true, // First Transform processor
+                                                    Some(current_highest) => processor_rank >= current_highest,
+                                                };
+                                                
+                                                if should_update {
+                                                    let mut canonical_payload = canonical_payload_mutex_clone.lock().await;
+                                                    *canonical_payload = new_payload.clone();
+                                                    *highest_rank = Some(processor_rank);
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -400,6 +424,47 @@ mod tests {
 
         fn declared_intent(&self) -> ProcessorIntent {
             ProcessorIntent::Transform
+        }
+    }
+
+    // Mock Analyze processor for testing canonical payload architecture
+    struct MockAnalyzeProcessor {
+        delay_ms: u64,
+        metadata_suffix: String,
+    }
+
+    impl MockAnalyzeProcessor {
+        fn new(_name: &str, delay_ms: u64, metadata_suffix: &str) -> Self {
+            Self {
+                delay_ms,
+                metadata_suffix: metadata_suffix.to_string(),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Processor for MockAnalyzeProcessor {
+        async fn process(&self, req: ProcessorRequest) -> ProcessorResponse {
+            if self.delay_ms > 0 {
+                sleep(Duration::from_millis(self.delay_ms)).await;
+            }
+            
+            // Analyze processors should NOT modify the payload, only add metadata
+            let mut metadata = req.metadata.clone();
+            metadata.insert("analysis".to_string(), self.metadata_suffix.clone());
+            
+            ProcessorResponse {
+                outcome: Some(Outcome::NextPayload(req.payload)), // Pass through unchanged
+                metadata,
+            }
+        }
+
+        fn name(&self) -> &'static str {
+            "MockAnalyzeProcessor"
+        }
+
+        fn declared_intent(&self) -> ProcessorIntent {
+            ProcessorIntent::Analyze
         }
     }
 
@@ -593,6 +658,61 @@ mod tests {
         assert_eq!(counts.get("b"), Some(&1)); // Depends on a
         assert_eq!(counts.get("c"), Some(&1)); // Depends on a
         assert_eq!(counts.get("d"), Some(&2)); // Depends on b and c
+    }
+
+    #[tokio::test]
+    async fn test_topological_rank_based_canonical_payload_updates() {
+        let executor = WorkQueueExecutor::new(4);
+        
+        // Create Transform processors with different topological ranks
+        // Graph: transform1 -> transform2 -> analyze1
+        // transform1 (rank 0) -> transform2 (rank 1) -> analyze1 (rank 2)
+        let processors = HashMap::from([
+            ("transform1".to_string(), Arc::new(MockProcessor::new("transform1", 10, "-T1")) as Arc<dyn Processor>),
+            ("transform2".to_string(), Arc::new(MockProcessor::new("transform2", 10, "-T2")) as Arc<dyn Processor>),
+            ("analyze1".to_string(), Arc::new(MockAnalyzeProcessor::new("analyze1", 10, "-A1")) as Arc<dyn Processor>),
+        ]);
+        
+        let graph = HashMap::from([
+            ("transform1".to_string(), vec!["transform2".to_string()]),
+            ("transform2".to_string(), vec!["analyze1".to_string()]),
+            ("analyze1".to_string(), vec![]),
+        ]);
+        
+        let entrypoints = vec!["transform1".to_string()];
+        let input = ProcessorRequest {
+            payload: "initial".to_string().into_bytes(),
+            ..Default::default()
+        };
+        
+        let result = executor.execute_with_strategy(
+            ProcessorMap::from(processors), 
+            DependencyGraph::from(graph), 
+            EntryPoints::from(entrypoints), 
+            input,
+            FailureStrategy::FailFast
+        ).await.unwrap();
+        
+        // Verify that the final analyze processor received the canonical payload
+        // from the highest-ranked Transform processor (transform2)
+        let analyze_result = result.get("analyze1").unwrap();
+        if let Some(Outcome::NextPayload(payload)) = &analyze_result.outcome {
+            let result_str = String::from_utf8(payload.clone()).unwrap();
+            // Should be: "initial" -> transform1 -> "initial-T1" -> transform2 -> "initial-T1-T2"
+            // analyze1 should receive "initial-T1-T2" and add "-A1" metadata only
+            assert_eq!(result_str, "initial-T1-T2");
+        } else {
+            panic!("Expected NextPayload outcome for analyze1");
+        }
+        
+        // Verify that transform2 has the expected output (canonical payload source)
+        let transform2_result = result.get("transform2").unwrap();
+        if let Some(Outcome::NextPayload(payload)) = &transform2_result.outcome {
+            let result_str = String::from_utf8(payload.clone()).unwrap();
+            assert_eq!(result_str, "initial-T1-T2");
+        } else {
+            panic!("Expected NextPayload outcome for transform2");
+        }
     }
 
     #[tokio::test]

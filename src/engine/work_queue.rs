@@ -109,7 +109,8 @@ impl DagExecutor for WorkQueueExecutor {
         let blocked_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
         
         // Track canonical payload from Transform processors with topological ranking
-        let canonical_payload_mutex = Arc::new(Mutex::new(input.payload.clone()));
+        // Use Arc<Vec<u8>> to avoid expensive cloning for large payloads
+        let canonical_payload_mutex = Arc::new(Mutex::new(Arc::new(input.payload.clone())));
         let highest_transform_rank_mutex = Arc::new(Mutex::new(None::<usize>));
         
         // Process the work queue until all processors are complete
@@ -206,7 +207,8 @@ impl DagExecutor for WorkQueueExecutor {
                                 input_clone
                             } else {
                                 // This processor has dependencies, use canonical payload + collected metadata
-                                let canonical_payload = canonical_payload_mutex_clone.lock().await.clone();
+                                let canonical_payload_arc = canonical_payload_mutex_clone.lock().await.clone();
+                                let canonical_payload = (*canonical_payload_arc).clone(); // Only clone when creating ProcessorRequest
                                 let results_guard = results_mutex_clone.lock().await;
                                 
                                 // Collect metadata only from actual dependencies, not all completed processors
@@ -278,7 +280,7 @@ impl DagExecutor for WorkQueueExecutor {
                                                 
                                                 if should_update {
                                                     let mut canonical_payload = canonical_payload_mutex_clone.lock().await;
-                                                    *canonical_payload = new_payload.clone();
+                                                    *canonical_payload = Arc::new(new_payload.clone());
                                                     *highest_rank = Some(processor_rank);
                                                 }
                                             }

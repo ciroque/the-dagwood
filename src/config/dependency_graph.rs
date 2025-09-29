@@ -72,6 +72,58 @@ impl DependencyGraph {
         reverse_deps
     }
 
+    /// Compute a topological sort using DFS with cycle detection.
+    /// Returns Some(order) if acyclic, or None if a cycle is detected.
+    ///
+    /// This variant does not require or mutate dependency counts, making it
+    /// suitable for scenarios where we also need to preserve the original
+    /// indegree map (e.g., when returning both counts and ranks together).
+    pub fn topological_sort_dfs(&self) -> Option<Vec<String>> {
+        // 0 = unvisited, 1 = visiting, 2 = visited
+        let mut state: HashMap<&str, u8> = HashMap::new();
+        for k in self.0.keys() {
+            state.insert(k.as_str(), 0);
+        }
+
+        let mut order: Vec<String> = Vec::with_capacity(self.0.len());
+
+        fn dfs<'a>(
+            graph: &'a HashMap<String, Vec<String>>,
+            node: &'a str,
+            state: &mut HashMap<&'a str, u8>,
+            order: &mut Vec<String>,
+        ) -> bool {
+            match state.get(node).copied().unwrap_or(0) {
+                1 => return false, // back edge: cycle
+                2 => return true,  // already processed
+                _ => {}
+            }
+
+            state.insert(node, 1); // visiting
+            if let Some(neighbors) = graph.get(node) {
+                for dep in neighbors {
+                    if !dfs(graph, dep.as_str(), state, order) {
+                        return false;
+                    }
+                }
+            }
+            state.insert(node, 2); // visited
+            order.push(node.to_string());
+            true
+        }
+
+        for node in self.0.keys() {
+            if state.get(node.as_str()).copied().unwrap_or(0) == 0 {
+                if !dfs(&self.0, node.as_str(), &mut state, &mut order) {
+                    return None; // cycle detected
+                }
+            }
+        }
+
+        order.reverse();
+        Some(order)
+    }
+
     /// Compute a topological sort order using the provided dependency counts.
     /// Returns a vector of processor IDs in topological order, or None if the graph has cycles.
     /// Uses Kahn's algorithm for topological sorting.
@@ -129,8 +181,8 @@ impl DependencyGraph {
     /// This is more efficient than calling build_dependency_counts() and topological_ranks() separately.
     pub fn dependency_counts_and_ranks(&self) -> Option<(HashMap<String, usize>, HashMap<String, usize>)> {
         let dependency_counts = self.build_dependency_counts();
-        // topological_sort_with_counts takes ownership and modifies the HashMap, so clone for the call
-        let sorted_processors = self.topological_sort_with_counts(dependency_counts.clone())?;
+        // Use DFS-based topological sort to avoid cloning dependency_counts
+        let sorted_processors = self.topological_sort_dfs()?;
         
         let ranks = sorted_processors
             .iter()

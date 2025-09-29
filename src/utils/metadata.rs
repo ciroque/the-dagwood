@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use base64::{Engine as _, engine::general_purpose};
 use crate::proto::processor_v1::ProcessorResponse;
 
+const TOP_LEVEL_NAMESPACE: &str = "dagwood";
+
 /// Uses URL-safe base64 encoding without padding (via the `base64` crate's `URL_SAFE_NO_PAD` engine)
 /// for secure and collision-resistant key generation.
 pub fn base64_url_safe_encode(input: &[u8]) -> String {
@@ -104,7 +106,7 @@ pub fn create_namespaced_key(dependency_id: &str, original_key: &str) -> String 
     // Use URL-safe base64 encoding to eliminate any possibility of delimiter confusion
     let encoded_dep_id = base64_url_safe_encode(dependency_id.as_bytes());
     let encoded_key = base64_url_safe_encode(original_key.as_bytes());
-    format!("dep.{}.{}", encoded_dep_id, encoded_key)
+    format!("{}.{}.{}", TOP_LEVEL_NAMESPACE, encoded_dep_id, encoded_key)
 }
 
 /// Merge metadata from dependency responses with namespaced keys.

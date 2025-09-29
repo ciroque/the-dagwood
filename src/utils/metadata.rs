@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use base64::{Engine as _, engine::general_purpose};
 use crate::proto::processor_v1::ProcessorResponse;
 
-/// URL-safe base64 encoding without padding for secure key generation
-/// Uses the standard base64 crate for reliability and maintainability
+/// Uses URL-safe base64 encoding without padding (via the `base64` crate's `URL_SAFE_NO_PAD` engine)
+/// for secure and collision-resistant key generation.
 pub fn base64_url_safe_encode(input: &[u8]) -> String {
     general_purpose::URL_SAFE_NO_PAD.encode(input)
 }

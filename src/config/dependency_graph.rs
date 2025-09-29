@@ -87,19 +87,23 @@ impl DependencyGraph {
 
         let mut order: Vec<String> = Vec::with_capacity(self.0.len());
 
+        const UNVISITED: u8 = 0;
+        const VISITING: u8 = 1;
+        const VISITED: u8 = 2;
+
         fn dfs<'a>(
             graph: &'a HashMap<String, Vec<String>>,
             node: &'a str,
             state: &mut HashMap<&'a str, u8>,
             order: &mut Vec<String>,
         ) -> bool {
-            match state.get(node).copied().unwrap_or(0) {
+            match state.get(node).copied().unwrap_or(UNVISITED) {
                 1 => return false, // back edge: cycle
                 2 => return true,  // already processed
                 _ => {}
             }
 
-            state.insert(node, 1); // visiting
+            state.insert(node, VISITING);
             if let Some(neighbors) = graph.get(node) {
                 for dep in neighbors {
                     if !dfs(graph, dep.as_str(), state, order) {
@@ -107,7 +111,7 @@ impl DependencyGraph {
                     }
                 }
             }
-            state.insert(node, 2); // visited
+            state.insert(node, VISITED);
             order.push(node.to_string());
             true
         }

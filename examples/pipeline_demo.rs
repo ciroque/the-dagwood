@@ -15,7 +15,6 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
         endpoint: None,
         module: None,
         depends_on: vec![],
-        collection_strategy: None,
         options: HashMap::new(),
     };
     

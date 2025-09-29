@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::traits::Processor;
+use crate::traits::{Processor, processor::ProcessorIntent};
 
 /// Configuration for the Prefix/Suffix Adder processor
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -55,6 +55,7 @@ impl Processor for PrefixSuffixAdderProcessor {
                         code: 400,
                         message: format!("Invalid UTF-8 input: {}", e),
                     })),
+                    metadata: std::collections::HashMap::new(),
                 };
             }
         };
@@ -73,10 +74,15 @@ impl Processor for PrefixSuffixAdderProcessor {
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(result.into_bytes())),
+            metadata: std::collections::HashMap::new(),
         }
     }
 
     fn name(&self) -> &'static str {
         "prefix_suffix_adder"
+    }
+
+    fn declared_intent(&self) -> ProcessorIntent {
+        ProcessorIntent::Transform
     }
 }

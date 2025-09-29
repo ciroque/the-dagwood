@@ -25,7 +25,6 @@ mod tests {
             endpoint: None,
             module: None,
             depends_on: vec![],
-            collection_strategy: None,
             options: HashMap::new(),
         };
         
@@ -36,7 +35,6 @@ mod tests {
             endpoint: None,
             module: None,
             depends_on: vec!["uppercase".to_string()],
-            collection_strategy: None,
             options: HashMap::new(),
         };
         
@@ -100,7 +98,6 @@ mod tests {
                 endpoint: None,
                 module: None,
                 depends_on: vec![],
-                collection_strategy: None,
                 options: HashMap::new(),
             },
             ProcessorConfig {
@@ -110,7 +107,6 @@ mod tests {
                 endpoint: None,
                 module: None,
                 depends_on: vec![],
-                collection_strategy: None,
                 options: HashMap::new(),
             },
             ProcessorConfig {
@@ -120,7 +116,6 @@ mod tests {
                 endpoint: None,
                 module: None,
                 depends_on: vec!["uppercase".to_string(), "lowercase".to_string()],
-                collection_strategy: None,
                 options: HashMap::new(),
             },
             ProcessorConfig {
@@ -130,7 +125,6 @@ mod tests {
                 endpoint: None,
                 module: None,
                 depends_on: vec!["token_counter".to_string()],
-                collection_strategy: None,
                 options: HashMap::new(),
             },
         ];
@@ -246,7 +240,6 @@ mod tests {
             endpoint: None,
             module: None,
             depends_on: vec![],
-            collection_strategy: None,
             options: HashMap::new(),
         }).unwrap();
         
@@ -257,7 +250,6 @@ mod tests {
             endpoint: None,
             module: None,
             depends_on: vec![],
-            collection_strategy: None,
             options: HashMap::new(),
         }).unwrap();
         
@@ -270,7 +262,6 @@ mod tests {
             endpoint: None,
             module: None,
             depends_on: vec!["upper_case".to_string(), "lower_case".to_string()],
-            collection_strategy: None,
             options: HashMap::new(),
         }).unwrap();
         

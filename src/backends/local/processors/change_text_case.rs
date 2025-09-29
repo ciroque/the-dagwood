@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::traits::Processor;
+use crate::traits::processor::{Processor, ProcessorIntent};
 
 /// Case transformation types supported by the ChangeTextCase processor
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,6 +94,7 @@ impl Processor for ChangeTextCaseProcessor {
                         code: 400,
                         message: format!("Invalid UTF-8 input: {}", e),
                     })),
+                    metadata: HashMap::new(),
                 };
             }
         };
@@ -141,16 +143,22 @@ impl Processor for ChangeTextCaseProcessor {
                         code: 400,
                         message: format!("Unsupported custom case type: {}", custom_type),
                     })),
+                    metadata: HashMap::new(),
                 };
             }
         };
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(result.into_bytes())),
+            metadata: HashMap::new(),
         }
     }
 
     fn name(&self) -> &'static str {
         "change_text_case"
+    }
+
+    fn declared_intent(&self) -> ProcessorIntent {
+        ProcessorIntent::Transform
     }
 }

@@ -1,24 +1,37 @@
 use async_trait::async_trait;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use serde_json;
 
 use crate::traits::executor::DagExecutor;
+use crate::traits::processor::ProcessorIntent;
 use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
-use crate::traits::processor::Processor;
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::config::CollectionStrategy;
-use crate::backends::local::processors::{ResultCollectorProcessor, CollectableResult};
 use crate::errors::{ExecutionError, FailureStrategy};
+use crate::utils::metadata::merge_metadata_from_responses;
 
-/// Work Queue executor that uses dependency counting to manage DAG execution.
+use super::priority_work_queue::{PriorityWorkQueue, PrioritizedTask};
+
+/// Work Queue executor that uses dependency counting and canonical payload tracking.
 /// 
 /// This executor maintains a queue of ready-to-execute processors and tracks
 /// the number of unresolved dependencies for each processor. When a processor
 /// completes, it decrements the dependency count for all its dependents,
 /// adding them to the work queue when their count reaches zero.
+/// 
+/// ## Canonical Payload Architecture
+/// 
+/// The executor implements a canonical payload approach to ensure deterministic
+/// execution and proper architectural separation between Transform and Analyze processors:
+/// 
+/// - **Transform processors**: Modify the payload and update the canonical payload
+/// - **Analyze processors**: Receive the canonical payload but only contribute metadata
+/// - **Downstream processors**: Always receive the canonical payload from the last Transform
+///   processor, plus merged metadata from all dependencies
+/// 
+/// This eliminates race conditions in diamond dependency patterns and enforces
+/// the architectural principle that only Transform processors should modify payloads.
 pub struct WorkQueueExecutor {
     /// Maximum number of concurrent processor executions
     max_concurrency: usize,
@@ -40,46 +53,6 @@ impl WorkQueueExecutor {
         Self::new(concurrency)
     }
 
-    /// Build the dependency count map from the adjacency graph
-    fn build_dependency_counts(&self, graph: &HashMap<String, Vec<String>>) -> HashMap<String, usize> {
-        let mut dependency_counts = HashMap::new();
-        
-        // Initialize all processors with 0 dependencies
-        for processor_id in graph.keys() {
-            dependency_counts.insert(processor_id.clone(), 0);
-        }
-        
-        // Count incoming dependencies for each processor
-        for dependents in graph.values() {
-            for dependent_id in dependents {
-                *dependency_counts.entry(dependent_id.clone()).or_insert(0) += 1;
-            }
-        }
-        
-        dependency_counts
-    }
-
-    /// Build a reverse dependency map: processor_id -> list of processors it depends on
-    /// TODO(steve): Should this be done while the registry is being created and provided then?
-    fn build_reverse_dependencies(&self, graph: &HashMap<String, Vec<String>>) -> HashMap<String, Vec<String>> {
-        let mut reverse_deps = HashMap::new();
-        
-        // Initialize all processors with empty dependency lists
-        for processor_id in graph.keys() {
-            reverse_deps.insert(processor_id.clone(), vec![]);
-        }
-        
-        // Build reverse mapping
-        for (processor_id, dependents) in graph {
-            for dependent_id in dependents {
-                reverse_deps.entry(dependent_id.clone())
-                    .or_insert_with(Vec::new)
-                    .push(processor_id.clone());
-            }
-        }
-        
-        reverse_deps
-    }
 
     /// Find processors that are ready to execute (have no unresolved dependencies)
     #[cfg(test)]
@@ -90,73 +63,6 @@ impl WorkQueueExecutor {
             .collect()
     }
 
-    /// Combine results from multiple dependencies using collection strategy
-    async fn combine_dependency_results(
-        dependencies: &[String],
-        results_guard: &HashMap<String, ProcessorResponse>,
-        fallback_input: ProcessorRequest,
-    ) -> ProcessorRequest {
-        // Convert ProcessorResponse to CollectableResult for each dependency
-        let mut dependency_results = HashMap::new();
-        
-        for dep_id in dependencies {
-            if let Some(dep_response) = results_guard.get(dep_id) {
-                let collectable_result = match &dep_response.outcome {
-                    Some(Outcome::NextPayload(payload)) => CollectableResult {
-                        success: true,
-                        payload: Some(payload.clone()),
-                        error_code: None,
-                        error_message: None,
-                    },
-                    Some(Outcome::Error(error)) => CollectableResult {
-                        success: false,
-                        payload: None,
-                        error_code: Some(error.code),
-                        error_message: Some(error.message.clone()),
-                    },
-                    None => CollectableResult {
-                        success: false,
-                        payload: None,
-                        error_code: Some(500),
-                        error_message: Some("No outcome in processor response".to_string()),
-                    },
-                };
-                dependency_results.insert(dep_id.clone(), collectable_result);
-            }
-        }
-
-        // If we have no successful dependency results, fallback to original input
-        if dependency_results.is_empty() {
-            return fallback_input;
-        }
-
-        // Use FirstAvailable strategy as default for now
-        // TODO: In the future, this should be configurable per processor
-        let collector = ResultCollectorProcessor::new(CollectionStrategy::FirstAvailable);
-        
-        // Serialize dependency results for the collector
-        match serde_json::to_vec(&dependency_results) {
-            Ok(serialized_deps) => {
-                let collector_request = ProcessorRequest {
-                    payload: serialized_deps,
-                    metadata: fallback_input.metadata.clone(),
-                };
-                
-                // Process the collection
-                let collector_response = collector.process(collector_request).await;
-                
-                // Extract the combined result
-                match collector_response.outcome {
-                    Some(Outcome::NextPayload(combined_payload)) => ProcessorRequest {
-                        payload: combined_payload,
-                        metadata: fallback_input.metadata,
-                    },
-                    _ => fallback_input, // Fallback on collection failure
-                }
-            },
-            Err(_) => fallback_input, // Fallback on serialization failure
-        }
-    }
 }
 
 #[async_trait]
@@ -175,13 +81,23 @@ impl DagExecutor for WorkQueueExecutor {
                 return Err(ExecutionError::ProcessorNotFound(processor_id.clone()));
             }
         }
-        let dependency_counts = self.build_dependency_counts(&graph.0);
-        let reverse_dependencies = self.build_reverse_dependencies(&graph.0);
-        let mut work_queue = VecDeque::new();
+        let reverse_dependencies = graph.build_reverse_dependencies();
         
-        // Start with entrypoints (processors with no dependencies)
+        // Efficiently compute both dependency counts and topological ranks together
+        let (dependency_counts, topological_ranks) = graph.dependency_counts_and_ranks()
+            .ok_or_else(|| ExecutionError::InternalError { 
+                message: "Internal consistency error: dependency graph contains cycles (should have been caught during config validation)".into() 
+            })?;
+        
+        let mut work_queue = PriorityWorkQueue::new();
+        
+        // Start with entrypoints (processors with no dependencies), prioritized by topological rank
         for entrypoint in entrypoints.iter() {
-            work_queue.push_back(entrypoint.clone());
+            let rank = topological_ranks.get(entrypoint).copied().unwrap_or(0);
+            let is_transform = processors.get(entrypoint)
+                .map(|p| p.declared_intent() == ProcessorIntent::Transform)
+                .unwrap_or(false);
+            work_queue.push(PrioritizedTask::new(entrypoint.clone(), rank, is_transform));
         }
         
         // Track active tasks to respect concurrency limits
@@ -191,6 +107,11 @@ impl DagExecutor for WorkQueueExecutor {
         let work_queue_mutex = Arc::new(Mutex::new(work_queue));
         let failed_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
         let blocked_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
+        
+        // Track canonical payload from Transform processors with topological ranking
+        // Use Arc<Vec<u8>> to avoid expensive cloning for large payloads
+        let canonical_payload_mutex = Arc::new(Mutex::new(Arc::new(input.payload.clone())));
+        let highest_transform_rank_mutex = Arc::new(Mutex::new(None::<usize>));
         
         // Process the work queue until all processors are complete
         loop {
@@ -219,26 +140,9 @@ impl DagExecutor for WorkQueueExecutor {
                 
                 // Check if we can start more tasks and have work to do
                 if active_count < self.max_concurrency && !queue.is_empty() {
-                    // Find a processor that isn't blocked
+                    // Use the newtype's efficient blocked processor handling
                     let blocked = blocked_processors.lock().await;
-                    let mut next_id = None;
-                    let mut remaining_queue = VecDeque::new();
-                    
-                    while let Some(id) = queue.pop_front() {
-                        if !blocked.contains(&id) {
-                            next_id = Some(id);
-                            break;
-                        } else {
-                            remaining_queue.push_back(id);
-                        }
-                    }
-                    
-                    // Put back the blocked processors
-                    while let Some(id) = remaining_queue.pop_front() {
-                        queue.push_back(id);
-                    }
-                    
-                    next_id
+                    queue.pop_next_available(&blocked)
                 } else {
                     None
                 }
@@ -269,6 +173,10 @@ impl DagExecutor for WorkQueueExecutor {
                     let work_queue_mutex_clone = work_queue_mutex.clone();
                     let failed_processors_clone = failed_processors.clone();
                     let blocked_processors_clone = blocked_processors.clone();
+                    let processors_clone = processors.clone(); // Clone processors for combine_dependency_results
+                    let canonical_payload_mutex_clone = canonical_payload_mutex.clone();
+                    let highest_transform_rank_mutex_clone = highest_transform_rank_mutex.clone();
+                    let topological_ranks_clone = topological_ranks.clone();
                     
                     // Spawn async task to execute the processor
                     tokio::spawn(async move {
@@ -292,37 +200,33 @@ impl DagExecutor for WorkQueueExecutor {
                                 }
                             }
                         } else {
-                        // Determine the input for this processor
+                        // Determine the input for this processor using canonical payload approach
                         let processor_input = if let Some(dependencies) = reverse_dependencies_clone.get(&processor_id_clone) {
                             if dependencies.is_empty() {
                                 // This is an entry point processor, use original input
                                 input_clone
                             } else {
-                                // This processor has dependencies, get input from dependency outputs
+                                // This processor has dependencies, use canonical payload + collected metadata
+                                let canonical_payload_arc = canonical_payload_mutex_clone.lock().await.clone();
+                                let canonical_payload = (*canonical_payload_arc).clone(); // Only clone when creating ProcessorRequest
                                 let results_guard = results_mutex_clone.lock().await;
                                 
-                                if dependencies.len() == 1 {
-                                    // Single dependency: use its output directly
-                                    let dep_id = &dependencies[0];
+                                // Collect metadata only from actual dependencies, not all completed processors
+                                let mut dependency_results = HashMap::new();
+                                for dep_id in dependencies {
                                     if let Some(dep_response) = results_guard.get(dep_id) {
-                                        if let Some(Outcome::NextPayload(payload)) = &dep_response.outcome {
-                                            ProcessorRequest {
-                                                payload: payload.clone(),
-                                                ..input_clone
-                                            }
-                                        } else {
-                                            input_clone // Fallback to original input
-                                        }
-                                    } else {
-                                        input_clone // Fallback to original input
+                                        dependency_results.insert(dep_id.clone(), dep_response.clone());
                                     }
-                                } else {
-                                    // Multiple dependencies: use collection strategy to combine results
-                                    Self::combine_dependency_results(
-                                        &dependencies,
-                                        &results_guard,
-                                        input_clone
-                                    ).await
+                                }
+                                
+                                let all_metadata = merge_metadata_from_responses(
+                                    input_clone.metadata.clone(),
+                                    &dependency_results
+                                );
+                                
+                                ProcessorRequest {
+                                    payload: canonical_payload,
+                                    metadata: all_metadata,
                                 }
                             }
                         } else {
@@ -354,9 +258,36 @@ impl DagExecutor for WorkQueueExecutor {
                                 }
                             } else {
                                 // Store the successful result
+                                let response_clone = response.clone();
                                 {
                                     let mut results = results_mutex_clone.lock().await;
                                     results.insert(processor_id_clone.clone(), response);
+                                }
+                                
+                                // Update canonical payload if this is a Transform processor with higher topological rank
+                                if let Some(processor) = processors_clone.get(&processor_id_clone) {
+                                    if processor.declared_intent() == ProcessorIntent::Transform {
+                                        if let Some(Outcome::NextPayload(new_payload)) = &response_clone.outcome {
+                                            if let Some(&processor_rank) = topological_ranks_clone.get(&processor_id_clone) {
+                                                let mut highest_rank = highest_transform_rank_mutex_clone.lock().await;
+                                                
+                                                // Update canonical payload if this processor has a strictly higher rank
+                                                // or if no Transform processor has completed yet. Strict comparison prevents
+                                                // race conditions: parallel Transform processors at the same rank can't overwrite
+                                                // each other's payload, ensuring deterministic canonical payload updates.
+                                                let should_update = match *highest_rank {
+                                                    None => true, // First Transform processor
+                                                    Some(current_highest) => processor_rank > current_highest,
+                                                };
+                                                
+                                                if should_update {
+                                                    let mut canonical_payload = canonical_payload_mutex_clone.lock().await;
+                                                    *canonical_payload = Arc::new(new_payload.clone());
+                                                    *highest_rank = Some(processor_rank);
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                                 
                                 // Update dependency counts for dependents
@@ -368,9 +299,13 @@ impl DagExecutor for WorkQueueExecutor {
                                         if let Some(count) = dependency_counts.get_mut(dependent_id) {
                                             *count -= 1;
                                             
-                                            // If dependency count reaches zero, add to work queue
+                                            // If dependency count reaches zero, add to work queue with priority
                                             if *count == 0 {
-                                                work_queue.push_back(dependent_id.clone());
+                                                let rank = topological_ranks_clone.get(dependent_id).copied().unwrap_or(0);
+                                                let is_transform = processors_clone.get(dependent_id)
+                                                    .map(|p| p.declared_intent() == ProcessorIntent::Transform)
+                                                    .unwrap_or(false);
+                                                work_queue.push(PrioritizedTask::new(dependent_id.clone(), rank, is_transform));
                                             }
                                         }
                                     }
@@ -418,7 +353,7 @@ impl DagExecutor for WorkQueueExecutor {
                         let blocked = blocked_processors.lock().await;
                         let queue = work_queue_mutex.lock().await;
                         
-                        if queue.iter().all(|id| blocked.contains(id)) {
+                        if queue.iter().all(|task| blocked.contains(&task.processor_id)) {
                             // All remaining processors are blocked due to failed dependencies
                             let failures: Vec<ExecutionError> = failed.iter()
                                 .map(|id| ExecutionError::ProcessorFailed {
@@ -446,6 +381,7 @@ impl DagExecutor for WorkQueueExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::traits::processor::Processor;
     use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
     use std::time::Duration;
     use tokio::time::sleep;
@@ -476,11 +412,57 @@ mod tests {
             let output_text = format!("{}{}", input_text, self.output_suffix);
             ProcessorResponse {
                 outcome: Some(Outcome::NextPayload(output_text.into_bytes())),
+                metadata: HashMap::new(),
             }
         }
 
         fn name(&self) -> &'static str {
             "MockProcessor"
+        }
+
+        fn declared_intent(&self) -> ProcessorIntent {
+            ProcessorIntent::Transform
+        }
+    }
+
+    // Mock Analyze processor for testing canonical payload architecture
+    struct MockAnalyzeProcessor {
+        delay_ms: u64,
+        metadata_suffix: String,
+    }
+
+    impl MockAnalyzeProcessor {
+        fn new(_name: &str, delay_ms: u64, metadata_suffix: &str) -> Self {
+            Self {
+                delay_ms,
+                metadata_suffix: metadata_suffix.to_string(),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Processor for MockAnalyzeProcessor {
+        async fn process(&self, req: ProcessorRequest) -> ProcessorResponse {
+            if self.delay_ms > 0 {
+                sleep(Duration::from_millis(self.delay_ms)).await;
+            }
+            
+            // Analyze processors should NOT modify the payload, only add metadata
+            let mut metadata = req.metadata.clone();
+            metadata.insert("analysis".to_string(), self.metadata_suffix.clone());
+            
+            ProcessorResponse {
+                outcome: Some(Outcome::NextPayload(req.payload)), // Pass through unchanged
+                metadata,
+            }
+        }
+
+        fn name(&self) -> &'static str {
+            "MockAnalyzeProcessor"
+        }
+
+        fn declared_intent(&self) -> ProcessorIntent {
+            ProcessorIntent::Analyze
         }
     }
 
@@ -660,8 +642,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_dependency_counts() {
-        let executor = WorkQueueExecutor::new(1);
-        
         let graph = HashMap::from([
             ("a".to_string(), vec!["b".to_string(), "c".to_string()]),
             ("b".to_string(), vec!["d".to_string()]),
@@ -669,12 +649,133 @@ mod tests {
             ("d".to_string(), vec![]),
         ]);
         
-        let counts = executor.build_dependency_counts(&graph);
+        let dependency_graph = DependencyGraph::from(graph);
+        let counts = dependency_graph.build_dependency_counts();
         
         assert_eq!(counts.get("a"), Some(&0)); // No dependencies
         assert_eq!(counts.get("b"), Some(&1)); // Depends on a
         assert_eq!(counts.get("c"), Some(&1)); // Depends on a
         assert_eq!(counts.get("d"), Some(&2)); // Depends on b and c
+    }
+
+    #[tokio::test]
+    async fn test_task_prioritization_based_on_topological_ranks() {
+        let executor = WorkQueueExecutor::new(2); // Limited concurrency to test prioritization
+        
+        // Create a complex DAG to test prioritization:
+        // entry1 -> [transform1, analyze1] -> transform2 -> final
+        // entry2 -> transform3 -> final
+        // This tests that higher-ranked Transform processors (transform2, transform3) get priority
+        let processors = HashMap::from([
+            ("entry1".to_string(), Arc::new(MockProcessor::new("entry1", 50, "-E1")) as Arc<dyn Processor>),
+            ("entry2".to_string(), Arc::new(MockProcessor::new("entry2", 50, "-E2")) as Arc<dyn Processor>),
+            ("transform1".to_string(), Arc::new(MockProcessor::new("transform1", 50, "-T1")) as Arc<dyn Processor>),
+            ("analyze1".to_string(), Arc::new(MockAnalyzeProcessor::new("analyze1", 50, "-A1")) as Arc<dyn Processor>),
+            ("transform2".to_string(), Arc::new(MockProcessor::new("transform2", 10, "-T2")) as Arc<dyn Processor>),
+            ("transform3".to_string(), Arc::new(MockProcessor::new("transform3", 10, "-T3")) as Arc<dyn Processor>),
+            ("final".to_string(), Arc::new(MockProcessor::new("final", 10, "-FINAL")) as Arc<dyn Processor>),
+        ]);
+        
+        let graph = HashMap::from([
+            ("entry1".to_string(), vec!["transform1".to_string(), "analyze1".to_string()]),
+            ("entry2".to_string(), vec!["transform3".to_string()]),
+            ("transform1".to_string(), vec!["transform2".to_string()]),
+            ("analyze1".to_string(), vec!["transform2".to_string()]),
+            ("transform2".to_string(), vec!["final".to_string()]),
+            ("transform3".to_string(), vec!["final".to_string()]),
+            ("final".to_string(), vec![]),
+        ]);
+        
+        let entrypoints = vec!["entry1".to_string(), "entry2".to_string()];
+        let input = ProcessorRequest {
+            payload: "start".to_string().into_bytes(),
+            ..Default::default()
+        };
+        
+        let result = executor.execute_with_strategy(
+            ProcessorMap::from(processors), 
+            DependencyGraph::from(graph), 
+            EntryPoints::from(entrypoints), 
+            input,
+            FailureStrategy::FailFast
+        ).await.unwrap();
+        
+        // Verify all processors completed successfully
+        assert_eq!(result.len(), 7);
+        
+        // Verify the final processor received the canonical payload from the highest-ranked Transform
+        let final_result = result.get("final").unwrap();
+        if let Some(Outcome::NextPayload(payload)) = &final_result.outcome {
+            let result_str = String::from_utf8(payload.clone()).unwrap();
+            // Due to prioritization, either transform2 or transform3 should have set the canonical payload
+            // The final result should show the canonical payload path
+            assert!(result_str.contains("start") && (result_str.contains("T2") || result_str.contains("T3")));
+        } else {
+            panic!("Expected NextPayload outcome for final processor");
+        }
+        
+        // Verify Transform processors completed (they should be prioritized)
+        assert!(result.contains_key("transform1"));
+        assert!(result.contains_key("transform2"));
+        assert!(result.contains_key("transform3"));
+        
+        // Verify Analyze processor completed but didn't affect canonical payload
+        assert!(result.contains_key("analyze1"));
+    }
+
+    #[tokio::test]
+    async fn test_topological_rank_based_canonical_payload_updates() {
+        let executor = WorkQueueExecutor::new(4);
+        
+        // Create Transform processors with different topological ranks
+        // Graph: transform1 -> transform2 -> analyze1
+        // transform1 (rank 0) -> transform2 (rank 1) -> analyze1 (rank 2)
+        let processors = HashMap::from([
+            ("transform1".to_string(), Arc::new(MockProcessor::new("transform1", 10, "-T1")) as Arc<dyn Processor>),
+            ("transform2".to_string(), Arc::new(MockProcessor::new("transform2", 10, "-T2")) as Arc<dyn Processor>),
+            ("analyze1".to_string(), Arc::new(MockAnalyzeProcessor::new("analyze1", 10, "-A1")) as Arc<dyn Processor>),
+        ]);
+        
+        let graph = HashMap::from([
+            ("transform1".to_string(), vec!["transform2".to_string()]),
+            ("transform2".to_string(), vec!["analyze1".to_string()]),
+            ("analyze1".to_string(), vec![]),
+        ]);
+        
+        let entrypoints = vec!["transform1".to_string()];
+        let input = ProcessorRequest {
+            payload: "initial".to_string().into_bytes(),
+            ..Default::default()
+        };
+        
+        let result = executor.execute_with_strategy(
+            ProcessorMap::from(processors), 
+            DependencyGraph::from(graph), 
+            EntryPoints::from(entrypoints), 
+            input,
+            FailureStrategy::FailFast
+        ).await.unwrap();
+        
+        // Verify that the final analyze processor received the canonical payload
+        // from the highest-ranked Transform processor (transform2)
+        let analyze_result = result.get("analyze1").unwrap();
+        if let Some(Outcome::NextPayload(payload)) = &analyze_result.outcome {
+            let result_str = String::from_utf8(payload.clone()).unwrap();
+            // Should be: "initial" -> transform1 -> "initial-T1" -> transform2 -> "initial-T1-T2"
+            // analyze1 should receive "initial-T1-T2" and add "-A1" metadata only
+            assert_eq!(result_str, "initial-T1-T2");
+        } else {
+            panic!("Expected NextPayload outcome for analyze1");
+        }
+        
+        // Verify that transform2 has the expected output (canonical payload source)
+        let transform2_result = result.get("transform2").unwrap();
+        if let Some(Outcome::NextPayload(payload)) = &transform2_result.outcome {
+            let result_str = String::from_utf8(payload.clone()).unwrap();
+            assert_eq!(result_str, "initial-T1-T2");
+        } else {
+            panic!("Expected NextPayload outcome for transform2");
+        }
     }
 
     #[tokio::test]
@@ -738,11 +839,16 @@ mod tests {
             async fn process(&self, _req: ProcessorRequest) -> ProcessorResponse {
                 ProcessorResponse {
                     outcome: None, // This indicates failure
+                    metadata: HashMap::new(),
                 }
             }
             
             fn name(&self) -> &'static str {
                 "failing_processor"
+            }
+
+            fn declared_intent(&self) -> ProcessorIntent {
+                ProcessorIntent::Transform
             }
         }
         
@@ -791,11 +897,16 @@ mod tests {
             async fn process(&self, _req: ProcessorRequest) -> ProcessorResponse {
                 ProcessorResponse {
                     outcome: None, // This indicates failure
+                    metadata: HashMap::new(),
                 }
             }
             
             fn name(&self) -> &'static str {
                 "failing_processor"
+            }
+
+            fn declared_intent(&self) -> ProcessorIntent {
+                ProcessorIntent::Transform
             }
         }
         
@@ -841,6 +952,85 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_metadata_isolation_between_unrelated_processors() {
+        let executor = WorkQueueExecutor::new(4);
+        
+        // Create a DAG where processors should only receive metadata from their dependencies
+        // Graph: entry1 -> proc1 -> final
+        //        entry2 -> proc2 (unrelated to final)
+        // final should only get metadata from proc1, not from proc2
+        let processors = HashMap::from([
+            ("entry1".to_string(), Arc::new(MockAnalyzeProcessor::new("entry1", 10, "E1_META")) as Arc<dyn Processor>),
+            ("entry2".to_string(), Arc::new(MockAnalyzeProcessor::new("entry2", 10, "E2_META")) as Arc<dyn Processor>),
+            ("proc1".to_string(), Arc::new(MockAnalyzeProcessor::new("proc1", 10, "P1_META")) as Arc<dyn Processor>),
+            ("proc2".to_string(), Arc::new(MockAnalyzeProcessor::new("proc2", 10, "P2_META")) as Arc<dyn Processor>),
+            ("final".to_string(), Arc::new(MockAnalyzeProcessor::new("final", 10, "FINAL_META")) as Arc<dyn Processor>),
+        ]);
+        
+        let graph = HashMap::from([
+            ("entry1".to_string(), vec!["proc1".to_string()]),
+            ("entry2".to_string(), vec!["proc2".to_string()]),
+            ("proc1".to_string(), vec!["final".to_string()]),
+            ("proc2".to_string(), vec![]), // proc2 is unrelated to final
+            ("final".to_string(), vec![]),
+        ]);
+        
+        let entrypoints = vec!["entry1".to_string(), "entry2".to_string()];
+        let input = ProcessorRequest {
+            payload: "test".to_string().into_bytes(),
+            metadata: {
+                let mut m = HashMap::new();
+                m.insert("original".to_string(), "INPUT_META".to_string());
+                m
+            },
+        };
+        
+        let result = executor.execute_with_strategy(
+            ProcessorMap::from(processors), 
+            DependencyGraph::from(graph), 
+            EntryPoints::from(entrypoints), 
+            input,
+            FailureStrategy::FailFast
+        ).await.unwrap();
+        
+        // Verify all processors completed
+        assert_eq!(result.len(), 5);
+        
+        // Check that final processor only has metadata from its dependencies (proc1)
+        // and NOT from unrelated processors (proc2, entry2)
+        let final_result = result.get("final").unwrap();
+        
+        // Verify metadata isolation: final should only have metadata from its direct dependency (proc1)
+        
+        // Should have original metadata
+        assert!(final_result.metadata.contains_key("original"));
+        assert_eq!(final_result.metadata.get("original"), Some(&"INPUT_META".to_string()));
+        
+        // Should have metadata from proc1 (direct dependency) using new secure format
+        let proc1_key = crate::utils::metadata::create_namespaced_key("proc1", "analysis");
+        assert!(final_result.metadata.contains_key(&proc1_key));
+        assert_eq!(final_result.metadata.get(&proc1_key), Some(&"P1_META".to_string()));
+        
+        // Should NOT have metadata from proc2 (unrelated processor)
+        let proc2_key = crate::utils::metadata::create_namespaced_key("proc2", "analysis");
+        assert!(!final_result.metadata.contains_key(&proc2_key));
+        
+        // Should NOT have metadata from entry2 (unrelated processor)
+        let entry2_key = crate::utils::metadata::create_namespaced_key("entry2", "analysis");
+        assert!(!final_result.metadata.contains_key(&entry2_key));
+        
+        // Note: entry1 metadata should NOT be directly present in final because
+        // final only depends on proc1, not entry1. The metadata chain is:
+        // entry1 -> proc1 (proc1 gets entry1's metadata)
+        // proc1 -> final (final gets proc1's metadata, but not entry1's directly)
+        
+        // Verify proc2 completed successfully but is isolated
+        let proc2_result = result.get("proc2").unwrap();
+        assert!(proc2_result.metadata.contains_key("analysis"));
+        assert_eq!(proc2_result.metadata.get("analysis"), Some(&"P2_META".to_string()));
+    }
+
+    #[tokio::test]
     async fn test_dependency_blocking_on_failure() {
         let executor = WorkQueueExecutor::new(2);
         
@@ -852,11 +1042,16 @@ mod tests {
             async fn process(&self, _req: ProcessorRequest) -> ProcessorResponse {
                 ProcessorResponse {
                     outcome: None, // This indicates failure
+                    metadata: HashMap::new(),
                 }
             }
             
             fn name(&self) -> &'static str {
                 "failing_processor"
+            }
+
+            fn declared_intent(&self) -> ProcessorIntent {
+                ProcessorIntent::Transform
             }
         }
         

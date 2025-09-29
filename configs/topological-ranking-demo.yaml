@@ -1,0 +1,72 @@
+# Topological Ranking and Priority Demo
+# Demonstrates topological rank-based execution priority and canonical payload updates
+# Tests the priority work queue and Transform processor precedence
+
+strategy: work_queue
+failure_strategy: fail_fast
+
+executor_options:
+  max_concurrency: 4
+  timeout_seconds: 30
+  retry_attempts: 1
+
+# Complex DAG with multiple Transform processors at different topological ranks
+processors:
+  # Rank 0: Entry points
+  - id: input_normalizer
+    type: local
+    processor: change_text_case_lower
+    depends_on: []
+
+  - id: input_analyzer
+    type: local
+    processor: token_counter
+    depends_on: []
+
+  # Rank 1: First level transforms and analysis
+  - id: transform_rank_1a
+    type: local
+    processor: change_text_case_proper
+    depends_on: [input_normalizer]
+
+  - id: transform_rank_1b
+    type: local
+    processor: reverse_text
+    depends_on: [input_normalizer]
+
+  - id: analysis_rank_1
+    type: local
+    processor: word_frequency_analyzer
+    depends_on: [input_analyzer]
+
+  # Rank 2: Higher priority transforms (should override rank 1 canonical payload)
+  - id: transform_rank_2_high_priority
+    type: local
+    processor: change_text_case_title
+    depends_on: [transform_rank_1a, analysis_rank_1]
+
+  - id: analysis_rank_2
+    type: local
+    processor: token_counter
+    depends_on: [transform_rank_1b]
+
+  # Rank 3: Final processors (highest priority Transform should set canonical payload)
+  - id: final_transform_highest_rank
+    type: local
+    processor: change_text_case_upper
+    depends_on: [transform_rank_2_high_priority]
+
+  - id: final_formatter
+    type: local
+    processor: prefix_suffix_adder
+    options:
+      prefix: "FINAL: "
+      suffix: " :END"
+    depends_on: [final_transform_highest_rank, analysis_rank_2]
+
+# This configuration demonstrates:
+# - Topological rank calculation and priority-based execution
+# - Transform processors at higher ranks override canonical payload
+# - BinaryHeap max-heap behavior (higher ranks executed first when ready)
+# - Transform processor priority over Analyze processors at same rank
+# - Metadata collection from all dependencies while maintaining canonical payload from highest Transform

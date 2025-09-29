@@ -1,4 +1,4 @@
-use crate::traits::Processor;
+use crate::traits::{Processor, processor::ProcessorIntent};
 
 /// A stub processor implementation for testing and placeholder purposes
 pub struct StubProcessor {
@@ -22,10 +22,15 @@ impl Processor for StubProcessor {
             outcome: Some(
                 crate::proto::processor_v1::processor_response::Outcome::NextPayload(vec![])
             ),
+            metadata: std::collections::HashMap::new(),
         }
     }
 
     fn name(&self) -> &'static str {
         "stub"
+    }
+
+    fn declared_intent(&self) -> ProcessorIntent {
+        ProcessorIntent::Transform
     }
 }

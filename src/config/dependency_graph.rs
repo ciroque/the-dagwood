@@ -78,6 +78,19 @@ impl DependencyGraph {
     /// This variant does not require or mutate dependency counts, making it
     /// suitable for scenarios where we also need to preserve the original
     /// indegree map (e.g., when returning both counts and ranks together).
+    ///
+    /// # When to use this DFS-based approach vs. Kahn's algorithm
+    /// - Use this DFS-based method when you need to preserve the original indegree map,
+    ///   as it does not require mutating or maintaining dependency counts.
+    /// - This approach is suitable for scenarios where you want to avoid side effects
+    ///   on the graph's state, or when you need to return both the topological order
+    ///   and the original dependency counts together.
+    /// - Kahn's algorithm (if implemented elsewhere) is generally more efficient for
+    ///   large graphs and is the standard approach for topological sorting, but it
+    ///   requires mutating or copying the indegree map.
+    ///
+    /// Choose the method that best fits your use case: use DFS for immutability and
+    /// preservation of state, or Kahn's algorithm for performance on large graphs.
     pub fn topological_sort_dfs(&self) -> Option<Vec<String>> {
         // 0 = unvisited, 1 = visiting, 2 = visited
         let mut state: HashMap<&str, u8> = HashMap::new();

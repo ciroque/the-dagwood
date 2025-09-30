@@ -9,7 +9,7 @@ use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::errors::{ExecutionError, FailureStrategy};
-use crate::utils::metadata::merge_metadata_from_responses;
+use crate::utils::metadata::{merge_metadata_from_responses, BASE_METADATA_KEY};
 
 use super::priority_work_queue::{PriorityWorkQueue, PrioritizedTask};
 
@@ -53,7 +53,6 @@ impl WorkQueueExecutor {
         Self::new(concurrency)
     }
 
-
     /// Find processors that are ready to execute (have no unresolved dependencies)
     #[cfg(test)]
     fn find_ready_processors(&self, dependency_counts: &HashMap<String, usize>) -> Vec<String> {
@@ -62,7 +61,6 @@ impl WorkQueueExecutor {
             .filter_map(|(id, &count)| if count == 0 { Some(id.clone()) } else { None })
             .collect()
     }
-
 }
 
 #[async_trait]
@@ -75,23 +73,38 @@ impl DagExecutor for WorkQueueExecutor {
         input: ProcessorRequest,
         failure_strategy: FailureStrategy,
     ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError> {
-        // Validate all processors exist in registry
+        // === PHASE 1: VALIDATION AND SETUP ===
+        
+        // Validate all processors referenced in the dependency graph actually exist in the registry
+        // This prevents runtime errors when trying to execute non-existent processors
         for processor_id in graph.keys() {
             if !processors.contains_key(processor_id) {
                 return Err(ExecutionError::ProcessorNotFound(processor_id.clone()));
             }
         }
+        
+        // Build reverse dependency map: processor_id -> [processors that depend on it]
+        // This is used to efficiently find which processors become ready when one completes
         let reverse_dependencies = graph.build_reverse_dependencies();
         
-        // Efficiently compute both dependency counts and topological ranks together
+        // Compute dependency counts (how many dependencies each processor has) and topological ranks
+        // (execution order) together for efficiency. Topological ranks are crucial for the canonical
+        // payload architecture - they determine which Transform processor's payload takes precedence
         let (dependency_counts, topological_ranks) = graph.dependency_counts_and_ranks()
             .ok_or_else(|| ExecutionError::InternalError { 
                 message: "Internal consistency error: dependency graph contains cycles (should have been caught during config validation)".into() 
             })?;
         
+        // === PHASE 2: WORK QUEUE INITIALIZATION ===
+        
+        // Priority work queue ensures deterministic execution order:
+        // 1. Lower topological rank (earlier in DAG) executes first
+        // 2. At same rank, Transform processors execute before Analyze processors
+        // This ordering is critical for the canonical payload architecture
         let mut work_queue = PriorityWorkQueue::new();
         
-        // Start with entrypoints (processors with no dependencies), prioritized by topological rank
+        // Start with entrypoints (processors with no dependencies)
+        // These are prioritized by topological rank to ensure deterministic startup
         for entrypoint in entrypoints.iter() {
             let rank = topological_ranks.get(entrypoint).copied().unwrap_or(0);
             let is_transform = processors.get(entrypoint)
@@ -100,31 +113,56 @@ impl DagExecutor for WorkQueueExecutor {
             work_queue.push(PrioritizedTask::new(entrypoint.clone(), rank, is_transform));
         }
         
-        // Track active tasks to respect concurrency limits
+        // === PHASE 3: SHARED STATE SETUP FOR CONCURRENT EXECUTION ===
+        
+        // All shared state uses Arc<Mutex<T>> pattern for thread-safe access across async tasks
+        // Arc provides shared ownership, Mutex provides exclusive access for mutations
+        
+        // Track active tasks to respect concurrency limits and know when execution is complete
         let active_tasks = Arc::new(Mutex::new(0));
+        
+        // Store execution results from completed processors - used for metadata merging
         let results_mutex = Arc::new(Mutex::new(HashMap::<String, ProcessorResponse>::new()));
+        
+        // Track remaining dependency counts - decremented as processors complete
         let dependency_counts_mutex = Arc::new(Mutex::new(dependency_counts));
+        
+        // Work queue of processors ready to execute - shared across all async tasks
         let work_queue_mutex = Arc::new(Mutex::new(work_queue));
+        
+        // Track processors that have failed execution
         let failed_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
+        
+        // Track processors blocked due to failed dependencies
         let blocked_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
         
-        // Track canonical payload from Transform processors with topological ranking
+        // === CANONICAL PAYLOAD ARCHITECTURE ===
+        // This is the key innovation that solves race conditions in diamond dependency patterns
+        
+        // The canonical payload represents the "official" data flowing through the DAG
+        // Only Transform processors can modify it, and only if they have a higher topological rank
         // Use Arc<Vec<u8>> to avoid expensive cloning for large payloads
         let canonical_payload_mutex = Arc::new(Mutex::new(Arc::new(input.payload.clone())));
+        
+        // Track the highest topological rank of any Transform processor that has updated the payload
+        // This ensures deterministic behavior: later processors (higher rank) override earlier ones
         let highest_transform_rank_mutex = Arc::new(Mutex::new(None::<usize>));
         
+        // === PHASE 4: MAIN EXECUTION LOOP ===
         // Process the work queue until all processors are complete
         loop {
+            // Determine the next processor to execute (if any)
+            // This block acquires multiple locks, so we scope it to release them quickly
             let next_processor_id = {
                 let mut queue = work_queue_mutex.lock().await;
                 let active_count = *active_tasks.lock().await;
                 let failed = failed_processors.lock().await;
                 
-                // Check failure strategy
+                // Apply failure strategy to determine if we should continue execution
                 match failure_strategy {
                     FailureStrategy::FailFast => {
                         if !failed.is_empty() {
-                            // Return the first failure immediately
+                            // Return the first failure immediately - no further processing
                             let first_failed = failed.iter().next().unwrap().clone();
                             return Err(ExecutionError::ProcessorFailed {
                                 processor_id: first_failed,
@@ -134,35 +172,41 @@ impl DagExecutor for WorkQueueExecutor {
                     }
                     _ => {
                         // For ContinueOnError and BestEffort, we continue processing
-                        // but skip blocked processors
+                        // but skip blocked processors (handled below)
                     }
                 }
                 
-                // Check if we can start more tasks and have work to do
+                // Check if we can start more tasks (respect concurrency limits) and have work to do
                 if active_count < self.max_concurrency && !queue.is_empty() {
-                    // Use the newtype's efficient blocked processor handling
+                    // Efficiently find next available processor, skipping any that are blocked
+                    // due to failed dependencies
                     let blocked = blocked_processors.lock().await;
                     queue.pop_next_available(&blocked)
                 } else {
-                    None
+                    None // Either at concurrency limit or no work available
                 }
             };
             
             match next_processor_id {
                 Some(processor_id) => {
-                    // Increment active task count
+                    // === SPAWN ASYNC TASK FOR PROCESSOR EXECUTION ===
+                    
+                    // Increment active task count before spawning to maintain accurate concurrency tracking
                     {
                         let mut active = active_tasks.lock().await;
                         *active += 1;
                     }
                     
-                    // Clone necessary data for the async task
+                    // Get the processor instance - this should always succeed due to earlier validation
                     let processor = match processors.get(&processor_id) {
                         Some(p) => p.clone(),
                         None => {
                             return Err(ExecutionError::ProcessorNotFound(processor_id));
                         }
                     };
+                    
+                    // Clone all necessary data for the async task
+                    // Arc::clone is cheap - it only increments the reference count, doesn't copy data
                     let processor_id_clone = processor_id.clone();
                     let input_clone = input.clone();
                     let graph_clone = graph.0.clone();
@@ -173,19 +217,22 @@ impl DagExecutor for WorkQueueExecutor {
                     let work_queue_mutex_clone = work_queue_mutex.clone();
                     let failed_processors_clone = failed_processors.clone();
                     let blocked_processors_clone = blocked_processors.clone();
-                    let processors_clone = processors.clone(); // Clone processors for combine_dependency_results
+                    let processors_clone = processors.clone();
                     let canonical_payload_mutex_clone = canonical_payload_mutex.clone();
                     let highest_transform_rank_mutex_clone = highest_transform_rank_mutex.clone();
                     let topological_ranks_clone = topological_ranks.clone();
                     
-                    // Spawn async task to execute the processor
+                    // Spawn async task to execute the processor concurrently
+                    // Each processor runs in its own async task for maximum parallelism
                     tokio::spawn(async move {
-                        // Check if any dependencies failed
+                        // === DEPENDENCY FAILURE CHECK ===
+                        // Before executing, check if any of this processor's dependencies have failed
+                        // If so, this processor should be blocked (not executed)
                         let should_block = if let Some(dependencies) = reverse_dependencies_clone.get(&processor_id_clone) {
                             let failed = failed_processors_clone.lock().await;
                             dependencies.iter().any(|dep| failed.contains(dep))
                         } else {
-                            false
+                            false // No dependencies means nothing can block this processor
                         };
                         
                         if should_block {
@@ -200,44 +247,58 @@ impl DagExecutor for WorkQueueExecutor {
                                 }
                             }
                         } else {
-                        // Determine the input for this processor using canonical payload approach
-                        let processor_input = if let Some(dependencies) = reverse_dependencies_clone.get(&processor_id_clone) {
-                            if dependencies.is_empty() {
-                                // This is an entry point processor, use original input
-                                input_clone
-                            } else {
-                                // This processor has dependencies, use canonical payload + collected metadata
-                                let canonical_payload_arc = canonical_payload_mutex_clone.lock().await.clone();
-                                let canonical_payload = (*canonical_payload_arc).clone(); // Only clone when creating ProcessorRequest
-                                let results_guard = results_mutex_clone.lock().await;
-                                
-                                // Collect metadata only from actual dependencies, not all completed processors
-                                let mut dependency_results = HashMap::new();
-                                for dep_id in dependencies {
-                                    if let Some(dep_response) = results_guard.get(dep_id) {
-                                        dependency_results.insert(dep_id.clone(), dep_response.clone());
+                            // === PROCESSOR INPUT PREPARATION ===
+                            // Determine the input for this processor using canonical payload approach
+                            let processor_input = if let Some(dependencies) = reverse_dependencies_clone.get(&processor_id_clone) {
+                                if dependencies.is_empty() {
+                                    // This is an entry point processor - use the original input as-is
+                                    input_clone
+                                } else {
+                                    // This processor has dependencies - construct input from canonical payload + metadata
+                                    
+                                    // Get the current canonical payload (latest from any Transform processor)
+                                    let canonical_payload_arc = canonical_payload_mutex_clone.lock().await.clone();
+                                    let canonical_payload = (*canonical_payload_arc).clone(); // Only clone when creating ProcessorRequest
+                                    let results_guard = results_mutex_clone.lock().await;
+                                    
+                                    // Collect metadata only from actual dependencies, not all completed processors
+                                    // This ensures processors only see metadata from their direct dependencies
+                                    let mut dependency_results = HashMap::new();
+                                    for dep_id in dependencies {
+                                        if let Some(dep_response) = results_guard.get(dep_id) {
+                                            dependency_results.insert(dep_id.clone(), dep_response.clone());
+                                        }
+                                    }
+                                    
+                                    // Extract base metadata from original input and merge with dependency metadata
+                                    let base_metadata = if let Some(input_metadata) = input_clone.metadata.get(BASE_METADATA_KEY) {
+                                        input_metadata.metadata.clone()
+                                    } else {
+                                        HashMap::new()
+                                    };
+                                    
+                                    // Merge all metadata: base input metadata + all dependency contributions
+                                    let all_metadata = merge_metadata_from_responses(
+                                        base_metadata,
+                                        &dependency_results
+                                    );
+                                    
+                                    ProcessorRequest {
+                                        payload: canonical_payload,
+                                        metadata: all_metadata,
                                     }
                                 }
-                                
-                                let all_metadata = merge_metadata_from_responses(
-                                    input_clone.metadata.clone(),
-                                    &dependency_results
-                                );
-                                
-                                ProcessorRequest {
-                                    payload: canonical_payload,
-                                    metadata: all_metadata,
-                                }
-                            }
-                        } else {
-                            // No dependency information, use original input
-                            input_clone
-                        };
-                        
-                            // Execute the processor
+                            } else {
+                                // No dependency information, use original input
+                                input_clone
+                            };
+                            
+                            // === PROCESSOR EXECUTION ===
+                            // Execute the processor with the prepared input
                             let response = processor.process(processor_input).await;
                             
                             // Check if the processor execution was successful
+                            // Success is indicated by a NextPayload outcome
                             let execution_successful = match &response.outcome {
                                 Some(Outcome::NextPayload(_)) => true,
                                 Some(_) => false, // Other outcomes might indicate failure
@@ -245,11 +306,12 @@ impl DagExecutor for WorkQueueExecutor {
                             };
                             
                             if !execution_successful {
+                                // === FAILURE HANDLING ===
                                 // Mark processor as failed
                                 let mut failed = failed_processors_clone.lock().await;
                                 failed.insert(processor_id_clone.clone());
                                 
-                                // Block all dependents of this processor
+                                // Block all dependents of this processor (failure propagation)
                                 if let Some(dependents) = graph_clone.get(&processor_id_clone) {
                                     let mut blocked = blocked_processors_clone.lock().await;
                                     for dependent in dependents {
@@ -257,13 +319,15 @@ impl DagExecutor for WorkQueueExecutor {
                                     }
                                 }
                             } else {
-                                // Store the successful result
+                                // === SUCCESS HANDLING ===
+                                // Store the successful result for future processors to use
                                 let response_clone = response.clone();
                                 {
                                     let mut results = results_mutex_clone.lock().await;
                                     results.insert(processor_id_clone.clone(), response);
                                 }
                                 
+                                // === CANONICAL PAYLOAD UPDATE (CORE ARCHITECTURE) ===
                                 // Update canonical payload if this is a Transform processor with higher topological rank
                                 if let Some(processor) = processors_clone.get(&processor_id_clone) {
                                     if processor.declared_intent() == ProcessorIntent::Transform {
@@ -271,13 +335,14 @@ impl DagExecutor for WorkQueueExecutor {
                                             if let Some(&processor_rank) = topological_ranks_clone.get(&processor_id_clone) {
                                                 let mut highest_rank = highest_transform_rank_mutex_clone.lock().await;
                                                 
-                                                // Update canonical payload if this processor has a strictly higher rank
-                                                // or if no Transform processor has completed yet. Strict comparison prevents
+                                                // CRITICAL: Update canonical payload if this processor has a strictly higher rank
+                                                // or if no Transform processor has completed yet. Strict comparison (>) prevents
                                                 // race conditions: parallel Transform processors at the same rank can't overwrite
                                                 // each other's payload, ensuring deterministic canonical payload updates.
+                                                // This is the key innovation that solves diamond dependency race conditions.
                                                 let should_update = match *highest_rank {
-                                                    None => true, // First Transform processor
-                                                    Some(current_highest) => processor_rank > current_highest,
+                                                    None => true, // First Transform processor gets to set canonical payload
+                                                    Some(current_highest) => processor_rank > current_highest, // Only higher ranks can override
                                                 };
                                                 
                                                 if should_update {
@@ -290,16 +355,17 @@ impl DagExecutor for WorkQueueExecutor {
                                     }
                                 }
                                 
-                                // Update dependency counts for dependents
+                                // === DEPENDENCY RESOLUTION ===
+                                // Update dependency counts for dependents and add newly ready processors to queue
                                 if let Some(dependents) = graph_clone.get(&processor_id_clone) {
                                     let mut dependency_counts = dependency_counts_mutex_clone.lock().await;
                                     let mut work_queue = work_queue_mutex_clone.lock().await;
                                     
                                     for dependent_id in dependents {
                                         if let Some(count) = dependency_counts.get_mut(dependent_id) {
-                                            *count -= 1;
+                                            *count -= 1; // One less dependency to wait for
                                             
-                                            // If dependency count reaches zero, add to work queue with priority
+                                            // If dependency count reaches zero, this processor is ready to execute
                                             if *count == 0 {
                                                 let rank = topological_ranks_clone.get(dependent_id).copied().unwrap_or(0);
                                                 let is_transform = processors_clone.get(dependent_id)
@@ -313,7 +379,9 @@ impl DagExecutor for WorkQueueExecutor {
                             }
                         }
                         
-                        // Decrement active task count
+                        // === CLEANUP ===
+                        // Always decrement active task count, even if processor failed
+                        // This ensures accurate concurrency tracking and prevents deadlocks
                         {
                             let mut active = active_tasks_clone.lock().await;
                             *active -= 1;
@@ -321,13 +389,15 @@ impl DagExecutor for WorkQueueExecutor {
                     });
                 }
                 None => {
-                    // No work available, check if we're done
+                    // === EXECUTION COMPLETION CHECK ===
+                    // No work available, check if we're done with all execution
                     let active_count = *active_tasks.lock().await;
                     let queue_empty = work_queue_mutex.lock().await.is_empty();
                     let failed = failed_processors.lock().await;
                     
                     if active_count == 0 && queue_empty {
-                        // All work is complete, check for failures
+                        // All work is complete - no active tasks and no queued work
+                        // Apply failure strategy to determine final result
                         match failure_strategy {
                             FailureStrategy::FailFast => {
                                 // Should have already returned on first failure
@@ -335,7 +405,7 @@ impl DagExecutor for WorkQueueExecutor {
                             }
                             FailureStrategy::ContinueOnError | FailureStrategy::BestEffort => {
                                 if !failed.is_empty() {
-                                    // Collect all failures
+                                    // Collect all failures for comprehensive error reporting
                                     let failures: Vec<ExecutionError> = failed.iter()
                                         .map(|id| ExecutionError::ProcessorFailed {
                                             processor_id: id.clone(),
@@ -349,12 +419,14 @@ impl DagExecutor for WorkQueueExecutor {
                             }
                         }
                     } else if active_count == 0 && !queue_empty {
+                        // === DEADLOCK DETECTION ===
                         // We have work but can't proceed - likely all remaining processors are blocked
                         let blocked = blocked_processors.lock().await;
                         let queue = work_queue_mutex.lock().await;
                         
                         if queue.iter().all(|task| blocked.contains(&task.processor_id)) {
                             // All remaining processors are blocked due to failed dependencies
+                            // This is a deadlock situation - no progress can be made
                             let failures: Vec<ExecutionError> = failed.iter()
                                 .map(|id| ExecutionError::ProcessorFailed {
                                     processor_id: id.clone(),
@@ -365,14 +437,16 @@ impl DagExecutor for WorkQueueExecutor {
                             return Err(ExecutionError::MultipleFailed { failures });
                         }
                     } else {
-                        // Wait a bit before checking again
+                        // === WAIT FOR PROGRESS ===
+                        // Active tasks are running or concurrency limit reached - wait briefly
                         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
                     }
                 }
             }
         }
         
-        // Extract final results
+        // === PHASE 5: RESULT EXTRACTION ===
+        // All processors have completed successfully - extract the final results
         let final_results = results_mutex.lock().await;
         Ok(final_results.clone())
     }
@@ -382,7 +456,7 @@ impl DagExecutor for WorkQueueExecutor {
 mod tests {
     use super::*;
     use crate::traits::processor::Processor;
-    use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
+    use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, Metadata};
     use std::time::Duration;
     use tokio::time::sleep;
 
@@ -449,10 +523,22 @@ mod tests {
             
             // Analyze processors should NOT modify the payload, only add metadata
             let mut metadata = req.metadata.clone();
-            metadata.insert("analysis".to_string(), self.metadata_suffix.clone());
+            
+            // Merge with existing "self" metadata instead of overwriting
+            if let Some(existing_self) = metadata.get_mut("self") {
+                // Add our analysis metadata to existing metadata
+                existing_self.metadata.insert("analysis".to_string(), self.metadata_suffix.clone());
+            } else {
+                // No existing "self" metadata, create new
+                let mut own_metadata = std::collections::HashMap::new();
+                own_metadata.insert("analysis".to_string(), self.metadata_suffix.clone());
+                metadata.insert("self".to_string(), Metadata {
+                    metadata: own_metadata,
+                });
+            }
             
             ProcessorResponse {
-                outcome: Some(Outcome::NextPayload(req.payload)), // Pass through unchanged
+                outcome: Some(Outcome::NextPayload(Vec::new())), // Pass through unchanged
                 metadata,
             }
         }
@@ -545,7 +631,7 @@ mod tests {
         let mut processors = HashMap::new();
         processors.insert("root".to_string(), Arc::new(MockProcessor::new("root", 0, "-root")) as Arc<dyn Processor>);
         processors.insert("left".to_string(), Arc::new(MockProcessor::new("left", 10, "-left")) as Arc<dyn Processor>);
-        processors.insert("right".to_string(), Arc::new(MockProcessor::new("right", 5, "-right")) as Arc<dyn Processor>);
+        processors.insert("right".to_string(), Arc::new(MockAnalyzeProcessor::new("right", 5, "RIGHT_ANALYSIS")) as Arc<dyn Processor>);
         processors.insert("merge".to_string(), Arc::new(MockProcessor::new("merge", 0, "-merge")) as Arc<dyn Processor>);
         
         let graph = HashMap::from([
@@ -578,16 +664,18 @@ mod tests {
         }
         let response_right = results.get("right").unwrap();
         if let Some(Outcome::NextPayload(payload)) = &response_right.outcome {
-            assert_eq!(String::from_utf8(payload.clone()).unwrap(), "test-root-right");
+            // Right is now an Analyze processor, so it receives an empty payload
+            assert_eq!(String::from_utf8(payload.clone()).unwrap(), "");
         } else {
             panic!("Expected success outcome for right");
         }
         let response_merge = results.get("merge").unwrap();
         if let Some(Outcome::NextPayload(payload)) = &response_merge.outcome {
-            // Merge processor gets input from one of its dependencies (order may vary)
+            // Merge processor gets canonical payload from left (the only Transform at rank 1)
+            // This is now deterministic due to canonical payload architecture
             let result = String::from_utf8(payload.clone()).unwrap();
-            assert!(result == "test-root-left-merge" || result == "test-root-right-merge", 
-                   "Expected merge result to be either 'test-root-left-merge' or 'test-root-right-merge', got: {}", result);
+            assert_eq!(result, "test-root-left-merge", 
+                   "Expected merge result to be deterministic 'test-root-left-merge', got: {}", result);
         } else {
             panic!("Expected success outcome for merge");
         }
@@ -599,7 +687,7 @@ mod tests {
         
         let mut processors = HashMap::new();
         processors.insert("entry1".to_string(), Arc::new(MockProcessor::new("entry1", 0, "-e1")) as Arc<dyn Processor>);
-        processors.insert("entry2".to_string(), Arc::new(MockProcessor::new("entry2", 0, "-e2")) as Arc<dyn Processor>);
+        processors.insert("entry2".to_string(), Arc::new(MockAnalyzeProcessor::new("entry2", 0, "E2_ANALYSIS")) as Arc<dyn Processor>);
         processors.insert("merge".to_string(), Arc::new(MockProcessor::new("merge", 0, "-merge")) as Arc<dyn Processor>);
         
         let graph = HashMap::from([
@@ -625,16 +713,18 @@ mod tests {
         }
         let response_entry2 = results.get("entry2").unwrap();
         if let Some(Outcome::NextPayload(payload)) = &response_entry2.outcome {
-            assert_eq!(String::from_utf8(payload.clone()).unwrap(), "test-e2");
+            // Entry2 is now an Analyze processor, so it receives an empty payload
+            assert_eq!(String::from_utf8(payload.clone()).unwrap(), "");
         } else {
             panic!("Expected success outcome for entry2");
         }
         let response_merge = results.get("merge").unwrap();
         if let Some(Outcome::NextPayload(payload)) = &response_merge.outcome {
-            // Merge processor gets input from one of its dependencies (order may vary)
+            // Merge processor gets canonical payload from entry1 (the only Transform at rank 0)
+            // This is now deterministic due to canonical payload architecture
             let result = String::from_utf8(payload.clone()).unwrap();
-            assert!(result == "test-e1-merge" || result == "test-e2-merge", 
-                   "Expected merge result to be either 'test-e1-merge' or 'test-e2-merge', got: {}", result);
+            assert_eq!(result, "test-e1-merge", 
+                   "Expected merge result to be deterministic 'test-e1-merge', got: {}", result);
         } else {
             panic!("Expected success outcome for merge");
         }
@@ -762,8 +852,8 @@ mod tests {
         if let Some(Outcome::NextPayload(payload)) = &analyze_result.outcome {
             let result_str = String::from_utf8(payload.clone()).unwrap();
             // Should be: "initial" -> transform1 -> "initial-T1" -> transform2 -> "initial-T1-T2"
-            // analyze1 should receive "initial-T1-T2" and add "-A1" metadata only
-            assert_eq!(result_str, "initial-T1-T2");
+            // analyze1 should receive an empty payload and add "-A1" metadata only
+            assert_eq!(result_str, "");
         } else {
             panic!("Expected NextPayload outcome for analyze1");
         }
@@ -980,7 +1070,11 @@ mod tests {
             payload: "test".to_string().into_bytes(),
             metadata: {
                 let mut m = HashMap::new();
-                m.insert("original".to_string(), "INPUT_META".to_string());
+                let mut original_metadata = HashMap::new();
+                original_metadata.insert("original".to_string(), "INPUT_META".to_string());
+                m.insert("self".to_string(), Metadata {
+                    metadata: original_metadata,
+                });
                 m
             },
         };
@@ -1002,22 +1096,22 @@ mod tests {
         
         // Verify metadata isolation: final should only have metadata from its direct dependency (proc1)
         
-        // Should have original metadata
-        assert!(final_result.metadata.contains_key("original"));
-        assert_eq!(final_result.metadata.get("original"), Some(&"INPUT_META".to_string()));
+        // Should have original metadata under "self" processor
+        assert!(final_result.metadata.contains_key("self"));
+        let self_metadata = final_result.metadata.get("self").unwrap();
+        assert_eq!(self_metadata.metadata.get("original"), Some(&"INPUT_META".to_string()));
         
-        // Should have metadata from proc1 (direct dependency) using new secure format
-        let proc1_key = crate::utils::metadata::create_namespaced_key("proc1", "analysis");
-        assert!(final_result.metadata.contains_key(&proc1_key));
-        assert_eq!(final_result.metadata.get(&proc1_key), Some(&"P1_META".to_string()));
+        // Should have its own analysis metadata (final processor's own metadata)
+        assert!(final_result.metadata.contains_key("self"));
+        let final_metadata = final_result.metadata.get("self").unwrap();
+        assert_eq!(final_metadata.metadata.get("analysis"), Some(&"FINAL_META".to_string()));
         
         // Should NOT have metadata from proc2 (unrelated processor)
-        let proc2_key = crate::utils::metadata::create_namespaced_key("proc2", "analysis");
-        assert!(!final_result.metadata.contains_key(&proc2_key));
+        // With the new structure, unrelated processors should not appear in metadata at all
+        assert!(!final_result.metadata.contains_key("proc2"));
         
         // Should NOT have metadata from entry2 (unrelated processor)
-        let entry2_key = crate::utils::metadata::create_namespaced_key("entry2", "analysis");
-        assert!(!final_result.metadata.contains_key(&entry2_key));
+        assert!(!final_result.metadata.contains_key("entry2"));
         
         // Note: entry1 metadata should NOT be directly present in final because
         // final only depends on proc1, not entry1. The metadata chain is:
@@ -1026,8 +1120,9 @@ mod tests {
         
         // Verify proc2 completed successfully but is isolated
         let proc2_result = result.get("proc2").unwrap();
-        assert!(proc2_result.metadata.contains_key("analysis"));
-        assert_eq!(proc2_result.metadata.get("analysis"), Some(&"P2_META".to_string()));
+        assert!(proc2_result.metadata.contains_key("self"));
+        let proc2_metadata = proc2_result.metadata.get("self").unwrap();
+        assert_eq!(proc2_metadata.metadata.get("analysis"), Some(&"P2_META".to_string()));
     }
 
     #[tokio::test]

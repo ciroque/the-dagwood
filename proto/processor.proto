@@ -2,10 +2,15 @@ syntax = "proto3";
 
 package processor.v1;
 
+// Metadata from a processor (own or dependency)
+message Metadata {
+  map<string, string> metadata = 1;  // Key-value metadata
+}
+
 // Request envelope for processors
 message ProcessorRequest {
   bytes payload = 1;                  // opaque data (engine-defined)
-  map<string, string> metadata = 2;   // tracing, auth, schema version, etc.
+  map<string, Metadata> metadata = 2; // nested metadata structure (processor_name -> metadata)
 }
 
 // Structured error for uniform handling
@@ -14,14 +19,13 @@ message ErrorDetail {
   string message = 2;                 // human-readable description
 }
 
-
 // Response envelope for processors
 message ProcessorResponse {
   oneof outcome {
     bytes next_payload = 1;           // success result
     ErrorDetail error = 2;            // error result
   }
-  map<string, string> metadata = 3;     // Metadata for chaining and enrichment
+  map<string, Metadata> metadata = 3; // nested metadata for chaining and enrichment
 }
 
 // Canonical processor service definition

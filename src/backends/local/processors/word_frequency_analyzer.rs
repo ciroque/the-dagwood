@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail};
+use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail, Metadata};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::traits::{Processor, processor::ProcessorIntent};
 
@@ -17,7 +17,7 @@ impl WordFrequencyAnalyzerProcessor {
 #[async_trait]
 impl Processor for WordFrequencyAnalyzerProcessor {
     async fn process(&self, req: ProcessorRequest) -> ProcessorResponse {
-        let input = match String::from_utf8(req.payload) {
+        let input = match String::from_utf8(req.payload.clone()) {
             Ok(text) => text,
             Err(e) => {
                 return ProcessorResponse {
@@ -45,22 +45,27 @@ impl Processor for WordFrequencyAnalyzerProcessor {
             }
         }
 
-        let json_result = match serde_json::to_string(&word_counts) {
-            Ok(json) => json,
-            Err(e) => {
-                return ProcessorResponse {
-                    outcome: Some(Outcome::Error(ErrorDetail {
-                        code: 500,
-                        message: format!("Failed to serialize result: {}", e),
-                    })),
-                    metadata: std::collections::HashMap::new(),
-                };
-            }
-        };
+        // Analyze processors MUST NOT modify payload - put analysis results in metadata
+        let mut analysis_metadata = HashMap::new();
+        
+        // Add word frequency analysis to metadata
+        for (word, count) in word_counts {
+            analysis_metadata.insert(format!("word_freq_{}", word), count.to_string());
+        }
+        
+        // Add summary statistics to metadata
+        let total_words: usize = analysis_metadata.len();
+        analysis_metadata.insert("total_unique_words".to_string(), total_words.to_string());
+        
+        // Create proper protobuf metadata structure
+        let mut metadata = HashMap::new();
+        metadata.insert("analysis".to_string(), Metadata {
+            metadata: analysis_metadata,
+        });
 
         ProcessorResponse {
-            outcome: Some(Outcome::NextPayload(json_result.into_bytes())),
-            metadata: std::collections::HashMap::new(),
+            outcome: Some(Outcome::NextPayload(req.payload)), // Pass through original payload unchanged
+            metadata,
         }
     }
 

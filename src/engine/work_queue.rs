@@ -9,7 +9,7 @@ use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::errors::{ExecutionError, FailureStrategy};
-use crate::utils::metadata::merge_metadata_from_responses;
+use crate::utils::metadata::{merge_metadata_from_responses, BASE_METADATA_KEY};
 
 use super::priority_work_queue::{PriorityWorkQueue, PrioritizedTask};
 
@@ -271,7 +271,7 @@ impl DagExecutor for WorkQueueExecutor {
                                     }
                                     
                                     // Extract base metadata from original input and merge with dependency metadata
-                                    let base_metadata = if let Some(input_metadata) = input_clone.metadata.get("input") {
+                                    let base_metadata = if let Some(input_metadata) = input_clone.metadata.get(BASE_METADATA_KEY) {
                                         input_metadata.metadata.clone()
                                     } else {
                                         HashMap::new()

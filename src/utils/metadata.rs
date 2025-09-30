@@ -1,17 +1,20 @@
 use std::collections::HashMap;
 use crate::proto::processor_v1::{ProcessorResponse, Metadata};
 
-/// Merge metadata from dependency responses with base metadata.
-/// Simple approach: collect all metadata from dependencies and merge with base.
+/// Key used to store base/original input metadata in the metadata map
+pub const BASE_METADATA_KEY: &str = "input";
+
+/// Constructs a new metadata map where base metadata is stored under the BASE_METADATA_KEY key,
+/// and each
 pub fn merge_metadata_from_responses(
     base_metadata: HashMap<String, String>,
     dependency_responses: &HashMap<String, ProcessorResponse>,
 ) -> HashMap<String, Metadata> {
     let mut result = HashMap::new();
     
-    // Add base metadata under "input" key if not empty
+    // Add base metadata under base metadata key if not empty
     if !base_metadata.is_empty() {
-        result.insert("input".to_string(), Metadata {
+        result.insert(BASE_METADATA_KEY.to_string(), Metadata {
             metadata: base_metadata,
         });
     }
@@ -49,8 +52,8 @@ mod tests {
         
         let merged = merge_metadata_from_responses(base, &responses);
         
-        // Verify base metadata is under "input"
-        assert_eq!(merged.get("input").unwrap().metadata.get("original"), Some(&"INPUT_META".to_string()));
+        // Verify base metadata is under base metadata key
+        assert_eq!(merged.get(BASE_METADATA_KEY).unwrap().metadata.get("original"), Some(&"INPUT_META".to_string()));
         
         // Verify dependency metadata is preserved
         assert_eq!(merged.get("processor1").unwrap().metadata.get("analysis"), Some(&"PROCESSED".to_string()));

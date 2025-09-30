@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use serde::Serialize;
 use std::collections::HashMap;
 
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail, Metadata};
@@ -13,13 +12,6 @@ impl TokenCounterProcessor {
     pub fn new() -> Self {
         Self
     }
-}
-
-#[derive(Serialize)]
-struct TokenCountResult {
-    char_count: usize,
-    word_count: usize,
-    line_count: usize,
 }
 
 #[async_trait]
@@ -42,25 +34,6 @@ impl Processor for TokenCounterProcessor {
         let word_count = input.split_whitespace().count();
         let line_count = input.lines().count().max(1); // At least 1 line even if empty
 
-        let result = TokenCountResult {
-            char_count,
-            word_count,
-            line_count,
-        };
-
-        let json_result = match serde_json::to_string(&result) {
-            Ok(json) => json,
-            Err(e) => {
-                return ProcessorResponse {
-                    outcome: Some(Outcome::Error(ErrorDetail {
-                        code: 500,
-                        message: format!("Failed to serialize result: {}", e),
-                    })),
-                    metadata: HashMap::new(),
-                };
-            }
-        };
-
         // Simple metadata: add our analysis results under our processor name
         let mut own_metadata = HashMap::new();
         own_metadata.insert("char_count".to_string(), char_count.to_string());
@@ -78,12 +51,12 @@ impl Processor for TokenCounterProcessor {
         
         // Return metadata under our processor name
         let mut response_metadata = HashMap::new();
-        response_metadata.insert("token_counter".to_string(), Metadata {
+        response_metadata.insert(self.name().to_string(), Metadata {
             metadata: own_metadata,
         });
 
         ProcessorResponse {
-            outcome: Some(Outcome::NextPayload(json_result.into_bytes())),
+            outcome: Some(Outcome::NextPayload(Vec::new())), // Analyze processors: empty payload, executor uses canonical payload
             metadata: response_metadata,
         }
     }

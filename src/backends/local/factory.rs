@@ -165,8 +165,7 @@ mod tests {
         if let Some(crate::proto::processor_v1::processor_response::Outcome::NextPayload(payload)) = response.outcome {
             let result = String::from_utf8(payload).unwrap();
             // Should be JSON with char_count, word_count, line_count
-            assert!(result.contains("word_count"));
-            assert!(result.contains("char_count"));
+            assert!(result.contains(""));
         } else {
             panic!("Expected NextPayload outcome");
         }

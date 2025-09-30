@@ -59,12 +59,12 @@ impl Processor for WordFrequencyAnalyzerProcessor {
         
         // Create proper protobuf metadata structure
         let mut metadata = HashMap::new();
-        metadata.insert("analysis".to_string(), Metadata {
+        metadata.insert(self.name().to_string(), Metadata {
             metadata: analysis_metadata,
         });
 
         ProcessorResponse {
-            outcome: Some(Outcome::NextPayload(req.payload)), // Pass through original payload unchanged
+            outcome: Some(Outcome::NextPayload(Vec::new())), // Pass through original payload unchanged
             metadata,
         }
     }

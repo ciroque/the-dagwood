@@ -3,13 +3,16 @@ use std::sync::Arc;
 
 use crate::backends::local::factory::LocalProcessorFactory;
 use crate::config::{BackendType, ProcessorConfig};
-use crate::engine::WorkQueueExecutor;
+use crate::engine::{WorkQueueExecutor, LevelByLevelExecutor};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::ProcessorRequest;
-use crate::traits::{DagExecutor, Processor, ProcessorMap, DependencyGraph, EntryPoints};
+use crate::traits::{DagExecutor, Processor};
+use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
 
 /// Integration tests for the Work Queue executor using real local processors
 #[cfg(test)]
+use serde_yaml::Value;
+
 mod tests {
     use super::*;
 
@@ -320,5 +323,288 @@ mod tests {
         } else {
             panic!("Expected successful outcome from reverse_text");
         }
+    }
+
+    /// Integration tests for the Level-by-Level executor using real local processors
+    #[tokio::test]
+    async fn test_level_by_level_change_text_case_to_reverse_text_pipeline() {
+        let executor = LevelByLevelExecutor::new(2);
+        
+        // Create processor configurations
+        let uppercase_config = ProcessorConfig {
+            id: "uppercase".to_string(),
+            backend: BackendType::Local,
+            processor: Some("change_text_case_upper".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec![],
+            options: HashMap::new(),
+        };
+        
+        let reverse_config = ProcessorConfig {
+            id: "reverse".to_string(),
+            backend: BackendType::Local,
+            processor: Some("reverse_text".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec!["uppercase".to_string()],
+            options: HashMap::new(),
+        };
+        
+        // Create processors using the factory
+        let uppercase_processor = LocalProcessorFactory::create_processor(&uppercase_config)
+            .expect("Failed to create uppercase processor");
+        let reverse_processor = LocalProcessorFactory::create_processor(&reverse_config)
+            .expect("Failed to create reverse processor");
+        
+        // Build the processor registry
+        let mut processors_map = HashMap::new();
+        processors_map.insert("uppercase".to_string(), uppercase_processor);
+        processors_map.insert("reverse".to_string(), reverse_processor);
+        let processors = ProcessorMap(processors_map);
+        
+        // Build the dependency graph
+        let mut graph_map = HashMap::new();
+        graph_map.insert("uppercase".to_string(), vec![]);
+        graph_map.insert("reverse".to_string(), vec!["uppercase".to_string()]);
+        let graph = DependencyGraph(graph_map);
+        
+        let entrypoints = EntryPoints(vec!["uppercase".to_string()]);
+        
+        // Create input
+        let input = ProcessorRequest {
+            payload: b"hello world".to_vec(),
+            metadata: HashMap::new(),
+        };
+        
+        // Execute the pipeline
+        let result = executor.execute(processors, graph, entrypoints, input).await;
+        assert!(result.is_ok(), "Pipeline execution failed: {:?}", result.err());
+        
+        let results = result.unwrap();
+        assert_eq!(results.len(), 2);
+        
+        // Verify uppercase processor result
+        let uppercase_result = results.get("uppercase").expect("uppercase result not found");
+        if let Some(Outcome::NextPayload(payload)) = &uppercase_result.outcome {
+            let output = String::from_utf8(payload.clone()).expect("Invalid UTF-8");
+            assert_eq!(output, "HELLO WORLD");
+        } else {
+            panic!("Expected successful outcome from uppercase");
+        }
+        
+        // Verify reverse processor result
+        let reverse_result = results.get("reverse").expect("reverse result not found");
+        if let Some(Outcome::NextPayload(payload)) = &reverse_result.outcome {
+            let output = String::from_utf8(payload.clone()).expect("Invalid UTF-8");
+            assert_eq!(output, "DLROW OLLEH");
+        } else {
+            panic!("Expected successful outcome from reverse_text");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_level_by_level_diamond_dependency_with_real_processors() {
+        let executor = LevelByLevelExecutor::new(4);
+        
+        // Create processor configurations for diamond pattern: case_change -> [token_counter, word_frequency] -> merge
+        let case_change_config = ProcessorConfig {
+            id: "case_change".to_string(),
+            backend: BackendType::Local,
+            processor: Some("change_text_case_upper".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec![],
+            options: HashMap::new(),
+        };
+        
+        let token_counter_config = ProcessorConfig {
+            id: "token_counter".to_string(),
+            backend: BackendType::Local,
+            processor: Some("token_counter".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec!["case_change".to_string()],
+            options: HashMap::new(),
+        };
+        
+        let word_frequency_config = ProcessorConfig {
+            id: "word_frequency".to_string(),
+            backend: BackendType::Local,
+            processor: Some("word_frequency_analyzer".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec!["case_change".to_string()],
+            options: HashMap::new(),
+        };
+        
+        let prefix_suffix_config = ProcessorConfig {
+            id: "prefix_suffix".to_string(),
+            backend: BackendType::Local,
+            processor: Some("prefix_suffix_adder".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec!["token_counter".to_string(), "word_frequency".to_string()],
+            options: {
+                let mut opts = HashMap::new();
+                opts.insert("prefix".to_string(), Value::String("PROCESSED: ".to_string()));
+                opts.insert("suffix".to_string(), Value::String(" [DONE]".to_string()));
+                opts
+            },
+        };
+        
+        // Create processors using the factory
+        let case_change_processor = LocalProcessorFactory::create_processor(&case_change_config)
+            .expect("Failed to create case_change processor");
+        let token_counter_processor = LocalProcessorFactory::create_processor(&token_counter_config)
+            .expect("Failed to create token_counter processor");
+        let word_frequency_processor = LocalProcessorFactory::create_processor(&word_frequency_config)
+            .expect("Failed to create word_frequency processor");
+        let prefix_suffix_processor = LocalProcessorFactory::create_processor(&prefix_suffix_config)
+            .expect("Failed to create prefix_suffix processor");
+        
+        // Build the processor registry
+        let mut processors_map = HashMap::new();
+        processors_map.insert("case_change".to_string(), case_change_processor);
+        processors_map.insert("token_counter".to_string(), token_counter_processor);
+        processors_map.insert("word_frequency".to_string(), word_frequency_processor);
+        processors_map.insert("prefix_suffix".to_string(), prefix_suffix_processor);
+        let processors = ProcessorMap(processors_map);
+        
+        // Build the dependency graph (diamond pattern)
+        let mut graph_map = HashMap::new();
+        graph_map.insert("case_change".to_string(), vec![]);
+        graph_map.insert("token_counter".to_string(), vec!["case_change".to_string()]);
+        graph_map.insert("word_frequency".to_string(), vec!["case_change".to_string()]);
+        graph_map.insert("prefix_suffix".to_string(), vec!["token_counter".to_string(), "word_frequency".to_string()]);
+        let graph = DependencyGraph(graph_map);
+        
+        let entrypoints = EntryPoints(vec!["case_change".to_string()]);
+        
+        // Create input
+        let input = ProcessorRequest {
+            payload: b"hello world test".to_vec(),
+            metadata: HashMap::new(),
+        };
+        
+        // Execute the pipeline
+        let result = executor.execute(processors, graph, entrypoints, input).await;
+        assert!(result.is_ok(), "Pipeline execution failed: {:?}", result.err());
+        
+        let results = result.unwrap();
+        assert_eq!(results.len(), 4);
+        
+        // Verify all processors completed successfully
+        assert!(results.contains_key("case_change"));
+        assert!(results.contains_key("token_counter"));
+        assert!(results.contains_key("word_frequency"));
+        assert!(results.contains_key("prefix_suffix"));
+        
+        // Verify final result has prefix and suffix
+        let final_result = results.get("prefix_suffix").expect("prefix_suffix result not found");
+        if let Some(Outcome::NextPayload(payload)) = &final_result.outcome {
+            let output = String::from_utf8(payload.clone()).expect("Invalid UTF-8");
+            assert!(output.starts_with("PROCESSED: "));
+            assert!(output.ends_with(" [DONE]"));
+            // Should contain the uppercase text from case_change processor
+            assert!(output.contains("HELLO WORLD TEST"));
+        } else {
+            panic!("Expected successful outcome from prefix_suffix");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_level_by_level_multiple_entrypoints() {
+        let executor = LevelByLevelExecutor::new(4);
+        
+        // Create two entry processors and one merge processor
+        let entry1_config = ProcessorConfig {
+            id: "entry1".to_string(),
+            backend: BackendType::Local,
+            processor: Some("prefix_suffix_adder".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec![],
+            options: {
+                let mut opts = HashMap::new();
+                opts.insert("prefix".to_string(), Value::String("ENTRY1: ".to_string()));
+                opts.insert("suffix".to_string(), Value::String("".to_string()));
+                opts
+            },
+        };
+        
+        let entry2_config = ProcessorConfig {
+            id: "entry2".to_string(),
+            backend: BackendType::Local,
+            processor: Some("prefix_suffix_adder".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec![],
+            options: {
+                let mut opts = HashMap::new();
+                opts.insert("prefix".to_string(), Value::String("ENTRY2: ".to_string()));
+                opts.insert("suffix".to_string(), Value::String("".to_string()));
+                opts
+            },
+        };
+        
+        let merge_config = ProcessorConfig {
+            id: "merge".to_string(),
+            backend: BackendType::Local,
+            processor: Some("token_counter".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec!["entry1".to_string(), "entry2".to_string()],
+            options: HashMap::new(),
+        };
+        
+        // Create processors using the factory
+        let entry1_processor = LocalProcessorFactory::create_processor(&entry1_config)
+            .expect("Failed to create entry1 processor");
+        let entry2_processor = LocalProcessorFactory::create_processor(&entry2_config)
+            .expect("Failed to create entry2 processor");
+        let merge_processor = LocalProcessorFactory::create_processor(&merge_config)
+            .expect("Failed to create merge processor");
+        
+        // Build the processor registry
+        let mut processors_map = HashMap::new();
+        processors_map.insert("entry1".to_string(), entry1_processor);
+        processors_map.insert("entry2".to_string(), entry2_processor);
+        processors_map.insert("merge".to_string(), merge_processor);
+        let processors = ProcessorMap(processors_map);
+        
+        // Build the dependency graph
+        let mut graph_map = HashMap::new();
+        graph_map.insert("entry1".to_string(), vec![]);
+        graph_map.insert("entry2".to_string(), vec![]);
+        graph_map.insert("merge".to_string(), vec!["entry1".to_string(), "entry2".to_string()]);
+        let graph = DependencyGraph(graph_map);
+        
+        let entrypoints = EntryPoints(vec!["entry1".to_string(), "entry2".to_string()]);
+        
+        // Create input
+        let input = ProcessorRequest {
+            payload: b"test input".to_vec(),
+            metadata: HashMap::new(),
+        };
+        
+        // Execute the pipeline
+        let result = executor.execute(processors, graph, entrypoints, input).await;
+        assert!(result.is_ok(), "Pipeline execution failed: {:?}", result.err());
+        
+        let results = result.unwrap();
+        assert_eq!(results.len(), 3);
+        
+        // Verify all processors completed successfully
+        assert!(results.contains_key("entry1"));
+        assert!(results.contains_key("entry2"));
+        assert!(results.contains_key("merge"));
+        
+        // The merge processor should receive the canonical payload and have metadata from both entries
+        let merge_result = results.get("merge").expect("merge result not found");
+        assert!(merge_result.outcome.is_some());
+        
+        // Check that merge processor has metadata from both dependencies
+        assert!(!merge_result.metadata.is_empty(), "Merge processor should have metadata from dependencies");
     }
 }

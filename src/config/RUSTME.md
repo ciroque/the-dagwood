@@ -136,26 +136,29 @@ pub fn load_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::error
 
 **Why this approach**: API flexibility without code duplication, zero-cost abstractions.
 
-### 3. HashMap for Dynamic Collections (`registry.rs`)
+### 3. HashMap for Dynamic Collections (`processor_map.rs`)
 
 **Why used here**: Processor registry needs fast lookups by ID and dynamic sizing based on configuration.
 
-**In our code** (lines 1, 10-11 in `registry.rs`):
+**In our code** (lines 1, 73-81 in `processor_map.rs`):
 ```rust
 use std::collections::HashMap;
 
-pub fn build_registry(cfg: &Config) -> HashMap<String, Arc<dyn Processor>> {
-    let mut registry: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-    // ...
+impl ProcessorMap {
+    pub fn from_config(cfg: &Config) -> Self {
+        let mut registry = HashMap::new();
+        // ... processor creation logic
+        Self(registry)
+    }
 }
 ```
 
 **Key concepts**:
 - `HashMap<K, V>` provides O(1) average lookup time
 - Mutable HashMap allows dynamic insertion during registry building
-- Type annotations help with complex generic types
+- Newtype wrapper (`ProcessorMap`) provides type safety and encapsulation
 
-**Why this approach**: Fast processor lookups during DAG execution, dynamic sizing based on configuration.
+**Why this approach**: Fast processor lookups during DAG execution, dynamic sizing based on configuration, type-safe API boundaries.
 
 ### 4. Iterator Patterns and Functional Programming (`validation.rs`)
 
@@ -216,26 +219,30 @@ pub fn validate_dependency_graph(config: &Config) -> Result<(), Vec<ValidationEr
 
 ## Advanced Level Concepts
 
-### 1. Arc and Trait Objects for Shared Ownership (`registry.rs`)
+### 1. Arc and Trait Objects for Shared Ownership (`processor_map.rs`)
 
 **Why used here**: Processors need to be shared across multiple parts of the DAG execution system, and we need runtime polymorphism for different processor types.
 
-**In our code** (lines 2, 4, 10-11, 14-31 in `registry.rs`):
+**In our code** (lines 2, 4, 73-95 in `processor_map.rs`):
 ```rust
 use std::sync::Arc;
 use crate::traits::Processor;
 
-pub fn build_registry(cfg: &Config) -> HashMap<String, Arc<dyn Processor>> {
-    let mut registry: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-
-    for p in &cfg.processors {
-        let processor: Arc<dyn Processor> = match p.backend {
-            BackendType::Local => {
-                Arc::new(StubProcessor::new(p.id.clone()))
-            }
-            // ... other backends
-        };
-        registry.insert(p.id.clone(), processor);
+impl ProcessorMap {
+    pub fn from_config(cfg: &Config) -> Self {
+        let mut registry = HashMap::new();
+        
+        for p in &cfg.processors {
+            let processor: Arc<dyn Processor> = match p.backend {
+                BackendType::Local => {
+                    LocalProcessorFactory::create_processor(p)
+                        .unwrap_or_else(|_| Arc::new(StubProcessor::new(p.id.clone())))
+                }
+                // ... other backends
+            };
+            registry.insert(p.id.clone(), processor);
+        }
+        Self(registry)
     }
 }
 ```
@@ -251,6 +258,8 @@ pub fn build_registry(cfg: &Config) -> HashMap<String, Arc<dyn Processor>> {
 - **Thread Safety**: Arc provides thread-safe reference counting
 - **Runtime Polymorphism**: Different processor implementations behind same interface
 - **Memory Efficiency**: Processors are created once and shared, not cloned
+- **Type Safety**: ProcessorMap newtype prevents raw HashMap misuse
+- **Factory Integration**: Uses LocalProcessorFactory for proper processor creation
 
 ### 2. Advanced Pattern Matching and Guard Clauses (`validation.rs`)
 
@@ -376,15 +385,93 @@ fn dfs_cycle_detection(
 - **Flexibility**: Mix of borrowed and owned data based on usage patterns
 - **API Design**: Return owned data for results, borrow for intermediate operations
 
+### 5. Orchestration Patterns with RuntimeBuilder (`runtime.rs`)
+
+**Why used here**: Complex runtime assembly requires coordinating multiple components (processors, executors, strategies) from configuration while maintaining clean separation of concerns.
+
+**In our code** (lines 1-52 in `runtime.rs`):
+```rust
+use crate::config::{Config, ProcessorMap};
+use crate::engine::factory::ExecutorFactory;
+use crate::traits::DagExecutor;
+
+pub struct RuntimeBuilder;
+
+impl RuntimeBuilder {
+    pub fn from_config(cfg: &Config) -> (ProcessorMap, Box<dyn DagExecutor>, FailureStrategy) {
+        let processors = ProcessorMap::from_config(cfg);
+        let executor = ExecutorFactory::from_config(cfg);
+        (processors, executor, cfg.failure_strategy)
+    }
+}
+```
+
+**Key concepts**:
+- **Builder Pattern**: `RuntimeBuilder` orchestrates complex object creation
+- **Factory Delegation**: Uses `ProcessorMap::from_config()` and `ExecutorFactory::from_config()`
+- **Tuple Return**: Returns all components needed for DAG execution
+- **Single Responsibility**: Each factory handles its own domain
+- **Composition over Inheritance**: RuntimeBuilder composes other factories
+
+**Why this approach**: 
+- **Separation of Concerns**: Each component handles its own creation logic
+- **Composition**: RuntimeBuilder composes other factories rather than duplicating logic
+- **Clean API**: Single entry point for complete runtime creation
+- **Testability**: Each component can be tested independently
+- **Modularity**: Easy to swap out individual components without affecting others
+
+### 6. Newtype Pattern for Type Safety (`processor_map.rs`)
+
+**Why used here**: Prevent misuse of raw HashMap and provide domain-specific API for processor registry operations.
+
+**In our code** (lines 1-20, 140-169 in `processor_map.rs`):
+```rust
+pub struct ProcessorMap(HashMap<String, Arc<dyn Processor>>);
+
+impl ProcessorMap {
+    pub fn from_config(cfg: &Config) -> Self {
+        // ... creation logic
+        Self(registry)
+    }
+    
+    pub fn get(&self, id: &str) -> Option<&Arc<dyn Processor>> {
+        self.0.get(id)
+    }
+    
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+```
+
+**Key concepts**:
+- **Newtype Pattern**: `ProcessorMap(HashMap<...>)` wraps existing type
+- **Encapsulation**: Private field prevents direct HashMap access
+- **Domain-Specific API**: Methods provide processor-specific operations
+- **Type Safety**: Prevents mixing processor maps with other HashMaps
+- **Zero-Cost Abstraction**: No runtime overhead over raw HashMap
+
+**Why this approach**:
+- **Type Safety**: Compiler prevents using wrong HashMap type
+- **API Control**: Can add processor-specific methods and validation
+- **Future Evolution**: Can change internal representation without breaking API
+- **Documentation**: Type name clearly indicates purpose and usage
+
 ## Summary
 
-The `src/config/` directory showcases Rust's strengths in building robust, type-safe configuration systems:
+The `src/config/` directory showcases Rust's strengths in building robust, type-safe configuration systems with clean architectural patterns:
 
-- **Type Safety**: Enums and structs prevent invalid configurations at compile time
+- **Type Safety**: Enums, structs, and newtype patterns prevent invalid configurations at compile time
 - **Error Handling**: Result types and custom errors provide comprehensive error reporting
 - **Performance**: Zero-cost abstractions, efficient data structures, and minimal allocations
 - **Memory Safety**: Automatic memory management with explicit ownership semantics
 - **Concurrency Ready**: Arc enables safe sharing across threads
 - **Maintainability**: Clear separation of concerns and comprehensive testing
+- **Modular Architecture**: RuntimeBuilder, ProcessorMap, and ExecutorFactory provide clean component boundaries
+- **Composition Patterns**: Factory delegation and builder patterns enable flexible system assembly
 
-Each language feature was chosen to solve specific problems in configuration management: serde for serialization, HashMap for fast lookups, recursive algorithms for graph validation, and trait objects for extensible processor types.
+Each language feature was chosen to solve specific problems in configuration management: serde for serialization, HashMap for fast lookups, recursive algorithms for graph validation, trait objects for extensible processor types, and newtype patterns for type-safe domain APIs. The refactored architecture demonstrates how Rust's type system enables building maintainable, modular systems without sacrificing performance.

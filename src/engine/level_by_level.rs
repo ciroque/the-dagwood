@@ -146,8 +146,11 @@ impl LevelByLevelExecutor {
                     if let Some(dependents) = dependents_map.get(&current_id) {
                         for dependent_id in dependents {
                             if !processed.contains(dependent_id) {
-                                // Decrease in-degree
-                                let current_in_degree = in_degree.get_mut(dependent_id).unwrap();
+                                // Decrease in-degree with proper error handling
+                                let current_in_degree = in_degree.get_mut(dependent_id)
+                                    .ok_or_else(|| ExecutionError::InternalError {
+                                        message: format!("Internal consistency error: processor '{}' not found in in-degree map during topological sorting", dependent_id)
+                                    })?;
                                 *current_in_degree -= 1;
 
                                 // If in-degree becomes 0, add to next level
@@ -233,7 +236,11 @@ impl LevelByLevelExecutor {
             let semaphore_clone = semaphore.clone();
 
             let task = tokio::spawn(async move {
-                let _permit = semaphore_clone.acquire().await.unwrap();
+                // Acquire semaphore permit with proper error handling
+                let _permit = semaphore_clone.acquire().await
+                    .map_err(|e| ExecutionError::InternalError {
+                        message: format!("Failed to acquire semaphore permit for processor '{}': {}", processor_id_clone, e)
+                    })?;
 
                 // Build input for this processor
                 let processor_input = Self::build_processor_input(

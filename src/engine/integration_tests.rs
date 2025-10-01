@@ -8,10 +8,11 @@ use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::ProcessorRequest;
 use crate::traits::{DagExecutor, Processor};
 use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
-use serde_yaml::Value;
 
 /// Integration tests for the Work Queue executor using real local processors
 #[cfg(test)]
+use serde_yaml::Value;
+
 mod tests {
     use super::*;
 

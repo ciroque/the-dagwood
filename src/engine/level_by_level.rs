@@ -347,7 +347,12 @@ impl LevelByLevelExecutor {
         if dependencies.is_empty() {
             // Entry point processor - use original input
             // We need to clone here since the processor trait expects owned ProcessorRequest
-            // TODO(steve) evaluate changing the Processor trait to take a reference or an Arc
+            // PERFORMANCE WARNING: This clone operation can be expensive for large payloads,
+            // as it duplicates the entire ProcessorRequest (including the payload Vec<u8>).
+            // This is a known performance issue (see CodeQL finding and TODO below).
+            // TODO(steve): Prioritize changing the Processor trait to accept Arc<ProcessorRequest>
+            // or a reference, to avoid unnecessary cloning and improve performance.
+
             Ok((**original_input).clone())
         } else {
             // Processor with dependencies - use canonical payload + merged metadata

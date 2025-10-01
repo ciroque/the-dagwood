@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::env;
-use the_dagwood::config::{load_and_validate_config, build_dag_runtime};
+use the_dagwood::config::{load_and_validate_config, RuntimeBuilder};
 use the_dagwood::proto::ProcessorRequest;
 use the_dagwood::traits::{ProcessorMap, DependencyGraph, EntryPoints};
 
@@ -22,7 +22,7 @@ async fn run_yaml_pipeline_demo(config_file: String, input_text: String) -> Resu
     
     // Build the DAG runtime from configuration
     println!("\nBuilding DAG runtime...");
-    let (processors, executor, failure_strategy) = build_dag_runtime(&config);
+    let (processors, executor, failure_strategy) = RuntimeBuilder::from_config(&config);
     
     println!("DAG runtime built successfully!");
     println!("- Processors registered: {}", processors.len());

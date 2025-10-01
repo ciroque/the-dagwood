@@ -13,11 +13,23 @@ pub trait DagExecutor: Send + Sync {
     /// - `graph`: adjacency list (id -> list of dependents)
     /// - `entrypoints`: processors with no dependencies
     /// - `input`: initial request payload
-    /// - `failure_strategy`: how to handle processor failures (optional, defaults to FailFast)
+    /// - `failure_strategy`: how to handle processor failures
     ///
     /// Returns a Result containing either:
     /// - Ok(HashMap): Successful execution results for all processors
     /// - Err(ExecutionError): Details about what went wrong during execution
+    async fn execute_with_strategy(
+        &self,
+        processors: ProcessorMap,
+        graph: DependencyGraph,
+        entrypoints: EntryPoints,
+        input: ProcessorRequest,
+        failure_strategy: FailureStrategy,
+    ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError>;
+
+    /// Test convenience method that uses the default failure strategy (FailFast).
+    /// Production code should use `execute_with_strategy` to explicitly specify failure handling.
+    #[cfg(test)]
     async fn execute(
         &self,
         processors: ProcessorMap,
@@ -27,14 +39,4 @@ pub trait DagExecutor: Send + Sync {
     ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError> {
         self.execute_with_strategy(processors, graph, entrypoints, input, FailureStrategy::default()).await
     }
-
-    /// Execute with a specific failure handling strategy
-    async fn execute_with_strategy(
-        &self,
-        processors: ProcessorMap,
-        graph: DependencyGraph,
-        entrypoints: EntryPoints,
-        input: ProcessorRequest,
-        failure_strategy: FailureStrategy,
-    ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError>;
 }

@@ -104,17 +104,7 @@ impl LevelByLevelExecutor {
         // Build reverse dependency map for O(1) lookups during level computation
         // Maps: processor_id -> [processors that depend on it]
         // This optimizes the O(n²) lookup in the main algorithm
-        let mut dependents_map = HashMap::new();
-        for (processor_id, _) in &graph.0 {
-            dependents_map.insert(processor_id.clone(), Vec::new());
-        }
-        for (processor_id, dependencies) in &graph.0 {
-            for dependency_id in dependencies {
-                dependents_map.entry(dependency_id.clone())
-                    .or_insert_with(Vec::new)
-                    .push(processor_id.clone());
-            }
-        }
+        let dependents_map = graph.build_reverse_dependencies();
 
         // Add entry points to level 0
         let mut current_level = Vec::new();

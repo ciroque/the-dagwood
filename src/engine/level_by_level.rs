@@ -271,7 +271,7 @@ impl LevelByLevelExecutor {
 
                     // Store result
                     let mut results_guard = results_clone.lock().await;
-                    results_guard.insert(processor_id_clone.clone(), processor_response);
+                    results_guard.insert(processor_id_clone, processor_response);
                     
                     Ok(())
                 } else {
@@ -328,7 +328,7 @@ impl LevelByLevelExecutor {
     /// - Each dependency's metadata is nested under the dependency's processor ID
     /// 
     /// ## Metadata Structure
-    /// ```
+    /// ```text
     /// {
     ///   "input": { /* original input metadata */ },
     ///   "dependency_processor_1": { /* processor 1 metadata */ },
@@ -347,6 +347,7 @@ impl LevelByLevelExecutor {
         if dependencies.is_empty() {
             // Entry point processor - use original input
             // We need to clone here since the processor trait expects owned ProcessorRequest
+            // TODO(steve) evaluate changing the Processor trait to take a reference or an Arc
             Ok((**original_input).clone())
         } else {
             // Processor with dependencies - use canonical payload + merged metadata
@@ -415,9 +416,13 @@ impl DagExecutor for LevelByLevelExecutor {
             ).await?;
         }
 
-        // Return final results
-        let final_results = results.lock().await;
-        Ok(final_results.clone())
+        // Return final results by taking ownership of the Arc contents
+        let final_results = Arc::try_unwrap(results)
+            .map_err(|_| ExecutionError::InternalError {
+                message: "Failed to unwrap results Arc - multiple references still exist".into()
+            })?
+            .into_inner();
+        Ok(final_results)
     }
 }
 

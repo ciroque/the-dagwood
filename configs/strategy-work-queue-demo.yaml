@@ -1,0 +1,27 @@
+strategy: work_queue
+failure_strategy: fail_fast
+executor_options:
+  max_concurrency: 4
+
+processors:
+  - id: entry_processor
+    backend: local
+    impl_: change_text_case_upper
+    
+  - id: analyze_tokens
+    backend: local
+    impl_: token_counter
+    depends_on: [entry_processor]
+    
+  - id: analyze_words
+    backend: local
+    impl_: word_frequency_analyzer
+    depends_on: [entry_processor]
+    
+  - id: final_processor
+    backend: local
+    impl_: prefix_suffix_adder
+    depends_on: [analyze_tokens, analyze_words]
+    options:
+      prefix: "RESULT: "
+      suffix: " [COMPLETE]"

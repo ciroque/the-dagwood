@@ -1,0 +1,14 @@
+# This config demonstrates backward compatibility - no strategy field specified
+# Should default to work_queue strategy
+
+failure_strategy: fail_fast
+
+processors:
+  - id: entry_processor
+    backend: local
+    impl_: change_text_case_upper
+    
+  - id: final_processor
+    backend: local
+    impl_: reverse_text
+    depends_on: [entry_processor]

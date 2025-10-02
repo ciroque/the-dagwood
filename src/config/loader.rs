@@ -11,7 +11,7 @@ use crate::errors::FailureStrategy;
 /// It is typically loaded from a YAML configuration file.
 ///
 /// # Fields
-/// * `strategy` - The execution strategy to use for the DAG
+/// * `strategy` - The execution strategy to use for the DAG (optional, defaults to WorkQueue)
 /// * `failure_strategy` - How to handle processor failures (optional, defaults to FailFast)
 /// * `executor_options` - Executor-specific configuration options (optional)
 /// * `processors` - Vector of processor configurations that define the DAG nodes
@@ -30,6 +30,7 @@ use crate::errors::FailureStrategy;
 /// ```
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    #[serde(default)]
     pub strategy: Strategy,
     #[serde(default)]
     pub failure_strategy: FailureStrategy,
@@ -56,6 +57,12 @@ pub enum Strategy {
     Level,
     Reactive,
     Hybrid,
+}
+
+impl Default for Strategy {
+    fn default() -> Self {
+        Strategy::WorkQueue
+    }
 }
 
 /// Executor-specific configuration options.
@@ -311,5 +318,88 @@ processors:
         assert!(processor.options.contains_key("mode"));
         assert!(processor.options.contains_key("timeout"));
         assert!(processor.options.contains_key("enabled"));
+    }
+
+    #[test]
+    fn test_strategy_selection_work_queue() {
+        let yaml = r#"
+strategy: work_queue
+processors:
+  - id: processor1
+    type: local
+    impl_: TestProcessor
+"#;
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(cfg.strategy, Strategy::WorkQueue);
+    }
+
+    #[test]
+    fn test_strategy_selection_level() {
+        let yaml = r#"
+strategy: level
+processors:
+  - id: processor1
+    type: local
+    impl_: TestProcessor
+"#;
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(cfg.strategy, Strategy::Level);
+    }
+
+    #[test]
+    fn test_strategy_selection_reactive() {
+        let yaml = r#"
+strategy: reactive
+processors:
+  - id: processor1
+    type: local
+    impl_: TestProcessor
+"#;
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(cfg.strategy, Strategy::Reactive);
+    }
+
+    #[test]
+    fn test_strategy_selection_hybrid() {
+        let yaml = r#"
+strategy: hybrid
+processors:
+  - id: processor1
+    type: local
+    impl_: TestProcessor
+"#;
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(cfg.strategy, Strategy::Hybrid);
+    }
+
+    #[test]
+    fn test_default_strategy_when_omitted() {
+        let yaml = r#"
+processors:
+  - id: processor1
+    type: local
+    impl_: TestProcessor
+"#;
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(cfg.strategy, Strategy::WorkQueue); // Should default to WorkQueue
+    }
+
+    #[test]
+    fn test_backward_compatibility_existing_configs() {
+        // Test that existing configs without strategy field still work
+        let yaml = r#"
+processors:
+  - id: logger
+    type: local
+    impl_: Logger
+  - id: auth
+    type: grpc
+    endpoint: https://auth-service:50051
+    depends_on: [logger]
+"#;
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(cfg.strategy, Strategy::WorkQueue); // Should default
+        assert_eq!(cfg.processors.len(), 2);
+        assert_eq!(cfg.processors[1].depends_on, vec!["logger"]);
     }
 }

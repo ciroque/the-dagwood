@@ -58,7 +58,7 @@ The following processors will be completed for this phase:
 * [X] Implement **Level-by-Level executor** (Kahn’s algorithm).
 * [ ] Implement **Reactive/Event-Driven executor**.
 * [ ] Implement **Hybrid Scheduler** (decouple DAG resolution from backend scheduling).
-* [ ] Add `strategy:` option in config to select executor.
+* [X] Add `strategy:` option in config to select executor.
 
 ---
 

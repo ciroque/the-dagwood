@@ -95,9 +95,9 @@ impl LevelByLevelExecutor {
         let mut queue = VecDeque::new();
         let mut processed = HashSet::new();
 
-        // Build reverse dependency map to get actual dependencies for each processor
-        // The graph stores forward dependencies (processor -> [dependents]), but we need
-        // backward dependencies (processor -> [dependencies]) for in-degree calculation
+        // Build a mapping from processor to its dependencies (processor -> [dependencies])
+        // The graph stores forward dependencies (processor -> [dependents]), but for in-degree calculation,
+        // we need to know, for each processor, which processors it depends on.
         let reverse_deps = graph.build_reverse_dependencies();
         
         // Initialize in-degree count for all processors using correct dependency format

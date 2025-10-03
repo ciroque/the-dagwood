@@ -210,7 +210,7 @@ impl LevelByLevelExecutor {
         processors: &ProcessorMap,
         results: &Arc<Mutex<HashMap<String, ProcessorResponse>>>,
         canonical_payload: &Arc<Mutex<Vec<u8>>>,
-        graph: &DependencyGraph,
+        reverse_deps: &HashMap<String, Vec<String>>,
         input: &Arc<ProcessorRequest>,
         failure_strategy: FailureStrategy,
     ) -> Result<(), ExecutionError> {
@@ -224,7 +224,7 @@ impl LevelByLevelExecutor {
             let processor_id_clone = processor_id.clone();
             let results_clone = results.clone();
             let canonical_payload_clone = canonical_payload.clone();
-            let graph_clone = graph.clone();
+            let reverse_deps_clone = reverse_deps.clone();
             let input_arc = input.clone(); // Arc::clone is cheap - only increments reference count
             let semaphore_clone = semaphore.clone();
 
@@ -238,7 +238,7 @@ impl LevelByLevelExecutor {
                 // Build input for this processor
                 let processor_input = Self::build_processor_input(
                     &processor_id_clone,
-                    &graph_clone,
+                    &reverse_deps_clone,
                     &results_clone,
                     &canonical_payload_clone,
                     &input_arc,
@@ -330,13 +330,12 @@ impl LevelByLevelExecutor {
     /// ```
     async fn build_processor_input(
         processor_id: &str,
-        graph: &DependencyGraph,
+        reverse_deps: &HashMap<String, Vec<String>>,
         results: &Arc<Mutex<HashMap<String, ProcessorResponse>>>,
         canonical_payload: &Arc<Mutex<Vec<u8>>>,
         original_input: &Arc<ProcessorRequest>,
     ) -> Result<ProcessorRequest, ExecutionError> {
-        // Get actual dependencies (backward dependencies) for this processor
-        let reverse_deps = graph.build_reverse_dependencies();
+        // Get actual dependencies (backward dependencies) for this processor from pre-built map
         let dependencies = reverse_deps.get(processor_id).cloned().unwrap_or_default();
 
         if dependencies.is_empty() {
@@ -396,6 +395,9 @@ impl DagExecutor for LevelByLevelExecutor {
         // Compute topological levels
         let levels = self.compute_topological_levels(&graph, &entrypoints)?;
 
+        // Build reverse dependencies map once for the entire execution
+        let reverse_deps = graph.build_reverse_dependencies();
+
         // Initialize shared state
         let results = Arc::new(Mutex::new(HashMap::new()));
         let canonical_payload = Arc::new(Mutex::new(input.payload.clone()));
@@ -410,7 +412,7 @@ impl DagExecutor for LevelByLevelExecutor {
                 &processors,
                 &results,
                 &canonical_payload,
-                &graph,
+                &reverse_deps,
                 &input_arc,
                 failure_strategy,
             ).await?;

@@ -363,10 +363,10 @@ mod tests {
         processors_map.insert("reverse".to_string(), reverse_processor);
         let processors = ProcessorMap(processors_map);
         
-        // Build the dependency graph
+        // Build the dependency graph (forward dependencies: uppercase -> reverse)
         let mut graph_map = HashMap::new();
-        graph_map.insert("uppercase".to_string(), vec![]);
-        graph_map.insert("reverse".to_string(), vec!["uppercase".to_string()]);
+        graph_map.insert("uppercase".to_string(), vec!["reverse".to_string()]);
+        graph_map.insert("reverse".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
         
         let entrypoints = EntryPoints(vec!["uppercase".to_string()]);
@@ -471,12 +471,12 @@ mod tests {
         processors_map.insert("prefix_suffix".to_string(), prefix_suffix_processor);
         let processors = ProcessorMap(processors_map);
         
-        // Build the dependency graph (diamond pattern)
+        // Build the dependency graph (diamond pattern - forward dependencies)
         let mut graph_map = HashMap::new();
-        graph_map.insert("case_change".to_string(), vec![]);
-        graph_map.insert("token_counter".to_string(), vec!["case_change".to_string()]);
-        graph_map.insert("word_frequency".to_string(), vec!["case_change".to_string()]);
-        graph_map.insert("prefix_suffix".to_string(), vec!["token_counter".to_string(), "word_frequency".to_string()]);
+        graph_map.insert("case_change".to_string(), vec!["token_counter".to_string(), "word_frequency".to_string()]);
+        graph_map.insert("token_counter".to_string(), vec!["prefix_suffix".to_string()]);
+        graph_map.insert("word_frequency".to_string(), vec!["prefix_suffix".to_string()]);
+        graph_map.insert("prefix_suffix".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
         
         let entrypoints = EntryPoints(vec!["case_change".to_string()]);
@@ -573,11 +573,11 @@ mod tests {
         processors_map.insert("merge".to_string(), merge_processor);
         let processors = ProcessorMap(processors_map);
         
-        // Build the dependency graph
+        // Build the dependency graph (forward dependencies: [entry1, entry2] -> merge)
         let mut graph_map = HashMap::new();
-        graph_map.insert("entry1".to_string(), vec![]);
-        graph_map.insert("entry2".to_string(), vec![]);
-        graph_map.insert("merge".to_string(), vec!["entry1".to_string(), "entry2".to_string()]);
+        graph_map.insert("entry1".to_string(), vec!["merge".to_string()]);
+        graph_map.insert("entry2".to_string(), vec!["merge".to_string()]);
+        graph_map.insert("merge".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
         
         let entrypoints = EntryPoints(vec!["entry1".to_string(), "entry2".to_string()]);

@@ -95,16 +95,19 @@ impl LevelByLevelExecutor {
         let mut queue = VecDeque::new();
         let mut processed = HashSet::new();
 
-        // Initialize in-degree count for all processors
+        // Build a mapping from processor to its dependencies (processor -> [dependencies])
+        // The graph stores forward dependencies (processor -> [dependents]), but for in-degree calculation,
+        // we need to know, for each processor, which processors it depends on.
+        let reverse_deps = graph.build_reverse_dependencies();
+        
+        // Initialize in-degree count for all processors using correct dependency format
         let mut in_degree = HashMap::new();
-        for (processor_id, dependencies) in &graph.0 {
+        for (processor_id, dependencies) in &reverse_deps {
             in_degree.insert(processor_id.clone(), dependencies.len());
         }
         
-        // Build reverse dependency map for O(1) lookups during level computation
-        // Maps: processor_id -> [processors that depend on it]
-        // This optimizes the O(n²) lookup in the main algorithm
-        let dependents_map = graph.build_reverse_dependencies();
+        // Use the graph directly for forward dependencies (processor -> [dependents])
+        // The graph already stores this format correctly
 
         // Add entry points to level 0
         let mut current_level = Vec::new();
@@ -132,8 +135,8 @@ impl LevelByLevelExecutor {
             // Process all processors in current level
             for _ in 0..current_level_size {
                 if let Some(current_id) = queue.pop_front() {
-                    // Use dependents map for O(1) lookup instead of O(n) iteration
-                    if let Some(dependents) = dependents_map.get(&current_id) {
+                    // Use graph directly for O(1) lookup of dependents
+                    if let Some(dependents) = graph.0.get(&current_id) {
                         for dependent_id in dependents {
                             if !processed.contains(dependent_id) {
                                 // Decrease in-degree with proper error handling
@@ -207,7 +210,7 @@ impl LevelByLevelExecutor {
         processors: &ProcessorMap,
         results: &Arc<Mutex<HashMap<String, ProcessorResponse>>>,
         canonical_payload: &Arc<Mutex<Vec<u8>>>,
-        graph: &DependencyGraph,
+        reverse_deps: &HashMap<String, Vec<String>>,
         input: &Arc<ProcessorRequest>,
         failure_strategy: FailureStrategy,
     ) -> Result<(), ExecutionError> {
@@ -221,7 +224,7 @@ impl LevelByLevelExecutor {
             let processor_id_clone = processor_id.clone();
             let results_clone = results.clone();
             let canonical_payload_clone = canonical_payload.clone();
-            let graph_clone = graph.clone();
+            let reverse_deps_clone = reverse_deps.clone();
             let input_arc = input.clone(); // Arc::clone is cheap - only increments reference count
             let semaphore_clone = semaphore.clone();
 
@@ -235,7 +238,7 @@ impl LevelByLevelExecutor {
                 // Build input for this processor
                 let processor_input = Self::build_processor_input(
                     &processor_id_clone,
-                    &graph_clone,
+                    &reverse_deps_clone,
                     &results_clone,
                     &canonical_payload_clone,
                     &input_arc,
@@ -327,12 +330,13 @@ impl LevelByLevelExecutor {
     /// ```
     async fn build_processor_input(
         processor_id: &str,
-        graph: &DependencyGraph,
+        reverse_deps: &HashMap<String, Vec<String>>,
         results: &Arc<Mutex<HashMap<String, ProcessorResponse>>>,
         canonical_payload: &Arc<Mutex<Vec<u8>>>,
         original_input: &Arc<ProcessorRequest>,
     ) -> Result<ProcessorRequest, ExecutionError> {
-        let dependencies = graph.0.get(processor_id).cloned().unwrap_or_default();
+        // Get actual dependencies (backward dependencies) for this processor from pre-built map
+        let dependencies = reverse_deps.get(processor_id).cloned().unwrap_or_default();
 
         if dependencies.is_empty() {
             // Entry point processor - use original input
@@ -391,6 +395,9 @@ impl DagExecutor for LevelByLevelExecutor {
         // Compute topological levels
         let levels = self.compute_topological_levels(&graph, &entrypoints)?;
 
+        // Build reverse dependencies map once for the entire execution
+        let reverse_deps = graph.build_reverse_dependencies();
+
         // Initialize shared state
         let results = Arc::new(Mutex::new(HashMap::new()));
         let canonical_payload = Arc::new(Mutex::new(input.payload.clone()));
@@ -405,7 +412,7 @@ impl DagExecutor for LevelByLevelExecutor {
                 &processors,
                 &results,
                 &canonical_payload,
-                &graph,
+                &reverse_deps,
                 &input_arc,
                 failure_strategy,
             ).await?;
@@ -464,10 +471,11 @@ mod tests {
         processors_map.insert("proc3".to_string(), create_test_processor("proc3"));
         let processors = ProcessorMap(processors_map);
         
+        // Build forward dependency graph: proc1 -> proc2 -> proc3
         let mut graph_map = HashMap::new();
-        graph_map.insert("proc1".to_string(), vec![]);
-        graph_map.insert("proc2".to_string(), vec!["proc1".to_string()]);
-        graph_map.insert("proc3".to_string(), vec!["proc2".to_string()]);
+        graph_map.insert("proc1".to_string(), vec!["proc2".to_string()]);
+        graph_map.insert("proc2".to_string(), vec!["proc3".to_string()]);
+        graph_map.insert("proc3".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
         
         let entrypoints = EntryPoints(vec!["proc1".to_string()]);
@@ -497,11 +505,12 @@ mod tests {
         processors_map.insert("D".to_string(), create_test_processor("D"));
         let processors = ProcessorMap(processors_map);
         
+        // Build forward dependency graph: A -> [B, C] -> D
         let mut graph_map = HashMap::new();
-        graph_map.insert("A".to_string(), vec![]);
-        graph_map.insert("B".to_string(), vec!["A".to_string()]);
-        graph_map.insert("C".to_string(), vec!["A".to_string()]);
-        graph_map.insert("D".to_string(), vec!["B".to_string(), "C".to_string()]);
+        graph_map.insert("A".to_string(), vec!["B".to_string(), "C".to_string()]);
+        graph_map.insert("B".to_string(), vec!["D".to_string()]);
+        graph_map.insert("C".to_string(), vec!["D".to_string()]);
+        graph_map.insert("D".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
         
         let entrypoints = EntryPoints(vec!["A".to_string()]);
@@ -531,10 +540,11 @@ mod tests {
         processors_map.insert("merge".to_string(), create_test_processor("merge"));
         let processors = ProcessorMap(processors_map);
         
+        // Build forward dependency graph: [entry1, entry2] -> merge
         let mut graph_map = HashMap::new();
-        graph_map.insert("entry1".to_string(), vec![]);
-        graph_map.insert("entry2".to_string(), vec![]);
-        graph_map.insert("merge".to_string(), vec!["entry1".to_string(), "entry2".to_string()]);
+        graph_map.insert("entry1".to_string(), vec!["merge".to_string()]);
+        graph_map.insert("entry2".to_string(), vec!["merge".to_string()]);
+        graph_map.insert("merge".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
         
         let entrypoints = EntryPoints(vec!["entry1".to_string(), "entry2".to_string()]);
@@ -557,12 +567,12 @@ mod tests {
     async fn test_topological_levels_computation() {
         let executor = LevelByLevelExecutor::new(2);
         
-        // Diamond dependency: A -> [B, C] -> D
+        // Diamond dependency: A -> [B, C] -> D (forward dependencies)
         let mut graph_map = HashMap::new();
-        graph_map.insert("A".to_string(), vec![]);
-        graph_map.insert("B".to_string(), vec!["A".to_string()]);
-        graph_map.insert("C".to_string(), vec!["A".to_string()]);
-        graph_map.insert("D".to_string(), vec!["B".to_string(), "C".to_string()]);
+        graph_map.insert("A".to_string(), vec!["B".to_string(), "C".to_string()]);
+        graph_map.insert("B".to_string(), vec!["D".to_string()]);
+        graph_map.insert("C".to_string(), vec!["D".to_string()]);
+        graph_map.insert("D".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
         
         let entrypoints = EntryPoints(vec!["A".to_string()]);
@@ -581,11 +591,12 @@ mod tests {
     async fn test_cycle_detection() {
         let executor = LevelByLevelExecutor::new(2);
         
-        // Create a cycle with a valid entry point: Entry -> A -> B -> C -> A
+        // Create a cycle with a valid entry point: Entry -> A -> B -> C -> A (forward dependencies)
         let mut graph_map = HashMap::new();
-        graph_map.insert("A".to_string(), vec!["Entry".to_string(), "C".to_string()]); // A depends on both Entry and C (cycle)
-        graph_map.insert("B".to_string(), vec!["A".to_string()]);
-        graph_map.insert("C".to_string(), vec!["B".to_string()]);
+        graph_map.insert("Entry".to_string(), vec!["A".to_string()]);
+        graph_map.insert("A".to_string(), vec!["B".to_string()]);
+        graph_map.insert("B".to_string(), vec!["C".to_string()]);
+        graph_map.insert("C".to_string(), vec!["A".to_string()]); // Creates cycle
         let graph = DependencyGraph(graph_map);
         
         let entrypoints = EntryPoints(vec!["Entry".to_string()]);

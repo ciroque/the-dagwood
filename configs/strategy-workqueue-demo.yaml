@@ -1,0 +1,39 @@
+# Reactive Strategy Demo
+# Demonstrates event-driven execution with immediate dependency notification
+# Compare with simple-text-pipeline.yaml (work_queue) for same DAG, different execution strategy
+
+# DAG execution strategy - using reactive/event-driven approach
+strategy: work_queue
+
+# Failure handling strategy
+failure_strategy: fail_fast
+
+# Executor configuration
+executor_options:
+  max_concurrency: 2
+  timeout_seconds: 30
+  retry_attempts: 1
+
+# Simple linear pipeline: input -> uppercase -> reverse -> add brackets
+# Same processors as simple-text-pipeline.yaml but with reactive execution
+processors:
+  - id: to_uppercase
+    type: local
+    processor: change_text_case_upper
+    depends_on: []
+
+  - id: reverse_text
+    type: local
+    processor: reverse_text
+    depends_on: [to_uppercase]
+
+  - id: add_brackets
+    type: local
+    processor: prefix_suffix_adder
+    options:
+      prefix: "["
+      suffix: "]"
+    depends_on: [reverse_text]
+
+# Flow: input -> TO_UPPERCASE -> ESACREPPU_OT -> [ESACREPPU_OT]
+# Execution: Event-driven with immediate notifications between processors

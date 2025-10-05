@@ -1,9 +1,9 @@
-# Reactive Strategy Demo
-# Demonstrates event-driven execution with immediate dependency notification
-# Compare with simple-text-pipeline.yaml (work_queue) for same DAG, different execution strategy
+# Level-by-Level Strategy Demo
+# Demonstrates topological level batching execution
+# Compare with strategy-workqueue-demo.yaml and strategy-reactive-demo.yaml for same DAG, different execution strategies
 
-# DAG execution strategy - using reactive/event-driven approach
-strategy: level_by_level
+# DAG execution strategy - using level-by-level approach
+strategy: level
 
 # Failure handling strategy
 failure_strategy: fail_fast

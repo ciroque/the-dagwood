@@ -15,7 +15,7 @@ executor_options:
   retry_attempts: 1
 
 # Simple linear pipeline: input -> uppercase -> reverse -> add brackets
-# Same processors as simple-text-pipeline.yaml but with reactive execution
+# Same processors as other strategy demos but with reactive execution
 processors:
   - id: to_uppercase
     type: local

@@ -708,11 +708,11 @@ mod tests {
         // Check that all executors have the same processor results
         for processor_id in ["uppercase", "reverse"] {
             let work_queue_response = work_queue_result.get(processor_id)
-                .expect(&format!("WorkQueue missing {}", processor_id));
+                .unwrap_or_else(|| panic!("WorkQueue missing {}", processor_id));
             let level_response = level_result.get(processor_id)
-                .expect(&format!("LevelByLevel missing {}", processor_id));
+                .unwrap_or_else(|| panic!("LevelByLevel missing {}", processor_id));
             let reactive_response = reactive_result.get(processor_id)
-                .expect(&format!("Reactive missing {}", processor_id));
+                .unwrap_or_else(|| panic!("Reactive missing {}", processor_id));
             
             // Compare payloads
             if let (Some(Outcome::NextPayload(wq_payload)), 

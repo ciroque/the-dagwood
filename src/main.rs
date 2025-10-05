@@ -6,6 +6,16 @@ use the_dagwood::config::{load_config, RuntimeBuilder, DependencyGraph, EntryPoi
 use the_dagwood::proto::processor_v1::ProcessorRequest;
 use the_dagwood::proto::processor_v1::processor_response::Outcome;
 
+/// Get the default concurrency level based on system capabilities
+/// 
+/// Returns the number of available CPU cores, falling back to 4 if detection fails.
+/// This provides a sensible default for concurrent processor execution.
+fn default_concurrency() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+}
+
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = env::args().collect();
@@ -89,9 +99,7 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
     println!("📋 Configuration: {}", config_file);
     println!("🔧 Strategy: {:?}", config.strategy);
     println!("⚙️  Max Concurrency: {}", 
-        config.executor_options.max_concurrency.unwrap_or_else(|| {
-            std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4)
-        })
+        config.executor_options.max_concurrency.unwrap_or_else(default_concurrency)
     );
     println!("🛡️  Failure Strategy: {:?}", config.failure_strategy);
     

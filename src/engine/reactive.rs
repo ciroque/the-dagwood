@@ -129,7 +129,7 @@ impl ReactiveExecutor {
         canonical_payload_mutex: Arc<Mutex<Vec<u8>>>,
         results_mutex: Arc<Mutex<HashMap<String, ProcessorResponse>>>,
         senders: Arc<HashMap<String, mpsc::UnboundedSender<ProcessorEvent>>>,
-        _failure_strategy: FailureStrategy,
+        failure_strategy: FailureStrategy,
         semaphore: Arc<tokio::sync::Semaphore>,
     ) -> Result<(), ExecutionError> {
         // Wait for all dependencies to complete
@@ -181,15 +181,12 @@ impl ReactiveExecutor {
 
         // Use existing metadata merging utility (same as other executors)
         // Extract base metadata from original input and merge with dependency metadata
-        let base_metadata = if let Some(input_metadata) = node.dependency_results.get(BASE_METADATA_KEY) {
-            if let Some(base_meta) = input_metadata.metadata.get(BASE_METADATA_KEY) {
-                base_meta.metadata.clone()
-            } else {
-                HashMap::new()
-            }
-        } else {
-            HashMap::new()
-        };
+        let base_metadata = node
+            .dependency_results
+            .get(BASE_METADATA_KEY)
+            .and_then(|input_metadata| input_metadata.metadata.get(BASE_METADATA_KEY))
+            .map(|base_meta| base_meta.metadata.clone())
+            .unwrap_or_default();
 
         let all_metadata = merge_dependency_metadata_for_execution(
             base_metadata,
@@ -204,28 +201,77 @@ impl ReactiveExecutor {
         // Execute processor
         let processor_response = processor.process(processor_input).await;
 
-        // Update canonical payload if this is a Transform processor (same pattern as other executors)
-        if processor.declared_intent() == ProcessorIntent::Transform {
-            if let Some(Outcome::NextPayload(new_payload)) = &processor_response.outcome {
-                let mut canonical_guard = canonical_payload_mutex.lock().await;
-                *canonical_guard = new_payload.clone();
+        // Handle processor execution result based on failure strategy
+        match &processor_response.outcome {
+            Some(Outcome::NextPayload(_)) => {
+                // Success case - update canonical payload if this is a Transform processor
+                if processor.declared_intent() == ProcessorIntent::Transform {
+                    if let Some(Outcome::NextPayload(new_payload)) = &processor_response.outcome {
+                        let mut canonical_guard = canonical_payload_mutex.lock().await;
+                        *canonical_guard = new_payload.clone();
+                    }
+                }
+
+                // Store successful result
+                {
+                    let mut results_guard = results_mutex.lock().await;
+                    results_guard.insert(processor_id.clone(), processor_response.clone());
+                }
+
+                // Notify all dependents (event-driven core)
+                for dependent_id in &node.dependents {
+                    if let Some(sender) = senders.get(dependent_id) {
+                        let _ = sender.send(ProcessorEvent::DependencyCompleted {
+                            dependency_id: processor_id.clone(),
+                            metadata: processor_response.metadata.clone(),
+                        });
+                    }
+                }
             }
-        }
-
-        // Store result
-        {
-            let mut results_guard = results_mutex.lock().await;
-            results_guard.insert(processor_id.clone(), processor_response.clone());
-        }
-
-        // Notify all dependents (event-driven core)
-        // Use the dependents list from the forward graph (fixed notification network)
-        for dependent_id in &node.dependents {
-            if let Some(sender) = senders.get(dependent_id) {
-                let _ = sender.send(ProcessorEvent::DependencyCompleted {
-                    dependency_id: processor_id.clone(),
-                    metadata: processor_response.metadata.clone(),
-                });
+            Some(Outcome::Error(error_detail)) => {
+                // Processor failed - apply failure strategy
+                match failure_strategy {
+                    FailureStrategy::FailFast => {
+                        // Fail immediately on first error
+                        return Err(ExecutionError::ProcessorFailed {
+                            processor_id: processor_id.clone(),
+                            error: error_detail.message.clone(),
+                        });
+                    }
+                    FailureStrategy::ContinueOnError | FailureStrategy::BestEffort => {
+                        // Continue processing despite error - store failed result but don't notify dependents
+                        // This prevents cascade failures while still recording the error
+                        let mut results_guard = results_mutex.lock().await;
+                        results_guard.insert(processor_id.clone(), processor_response.clone());
+                        
+                        // For ContinueOnError and BestEffort, we don't propagate to dependents
+                        // This stops the error from cascading through the DAG
+                    }
+                }
+            }
+            None => {
+                // Processor returned no outcome - treat as error
+                let error_msg = "Processor returned no outcome".to_string();
+                match failure_strategy {
+                    FailureStrategy::FailFast => {
+                        return Err(ExecutionError::ProcessorFailed {
+                            processor_id: processor_id.clone(),
+                            error: error_msg.clone(),
+                        });
+                    }
+                    FailureStrategy::ContinueOnError | FailureStrategy::BestEffort => {
+                        // Store error result but don't notify dependents
+                        let error_response = ProcessorResponse {
+                            outcome: Some(Outcome::Error(crate::proto::processor_v1::ErrorDetail {
+                                code: 500,
+                                message: error_msg,
+                            })),
+                            metadata: HashMap::new(),
+                        };
+                        let mut results_guard = results_mutex.lock().await;
+                        results_guard.insert(processor_id.clone(), error_response);
+                    }
+                }
             }
         }
 

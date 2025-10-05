@@ -15,7 +15,7 @@ executor_options:
   retry_attempts: 1
 
 # Simple linear pipeline: input -> uppercase -> reverse -> add brackets
-# Same processors as simple-text-pipeline.yaml but with reactive execution
+# Same processors as other strategy demos but with work queue execution
 processors:
   - id: to_uppercase
     type: local
@@ -36,4 +36,4 @@ processors:
     depends_on: [reverse_text]
 
 # Flow: input -> TO_UPPERCASE -> ESACREPPU_OT -> [ESACREPPU_OT]
-# Execution: Event-driven with immediate notifications between processors
+# Execution: Dependency counting with priority work queue management

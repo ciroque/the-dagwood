@@ -152,8 +152,18 @@ impl ReactiveExecutor {
                             metadata,
                         };
                         node.dependency_results.insert(BASE_METADATA_KEY.to_string(), base_response);
-                        // For entry points, pending_dependencies should already be 0
-                        break; // Exit the loop for entry points
+                        
+                        // Validate that entry points have no pending dependencies
+                        if node.pending_dependencies == 0 {
+                            break; // Exit the loop for entry points
+                        } else {
+                            return Err(ExecutionError::InternalError {
+                                message: format!(
+                                    "Received Execute event for processor '{}' with pending_dependencies = {} (expected 0)",
+                                    processor_id, node.pending_dependencies
+                                ),
+                            });
+                        }
                     }
                 }
             } else {
@@ -221,10 +231,15 @@ impl ReactiveExecutor {
                 // Notify all dependents (event-driven core)
                 for dependent_id in &node.dependents {
                     if let Some(sender) = senders.get(dependent_id) {
-                        let _ = sender.send(ProcessorEvent::DependencyCompleted {
+                        if let Err(e) = sender.send(ProcessorEvent::DependencyCompleted {
                             dependency_id: processor_id.clone(),
                             metadata: processor_response.metadata.clone(),
-                        });
+                        }) {
+                            eprintln!(
+                                "Failed to notify dependent '{}' from processor '{}': {}",
+                                dependent_id, processor_id, e
+                            );
+                        }
                     }
                 }
             }
@@ -324,19 +339,24 @@ impl DagExecutor for ReactiveExecutor {
         // Trigger entry point processors
         for entrypoint in entrypoints.iter() {
             if let Some(sender) = senders_arc.get(entrypoint) {
-                let _ = sender.send(ProcessorEvent::Execute {
+                if let Err(e) = sender.send(ProcessorEvent::Execute {
                     metadata: input.metadata.clone(),
-                });
+                }) {
+                    eprintln!(
+                        "Failed to trigger entry point processor '{}': {}",
+                        entrypoint, e
+                    );
+                }
             }
         }
 
         // Wait for all tasks to complete
         for task in tasks {
-            if let Err(e) = task.await {
-                return Err(ExecutionError::InternalError {
-                    message: format!("Task execution failed: {}", e),
-                });
-            }
+            task.await
+                .map_err(|e| ExecutionError::InternalError {
+                    message: format!("Task join failed: {}", e),
+                })?
+                .map_err(|e| e)?;
         }
 
         // Return final results

@@ -169,10 +169,10 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
             // Show metadata if present
             if !result.metadata.is_empty() {
                 println!("     📝 Metadata: {} entries", result.metadata.len());
+                const UNKNOWN_KEY: &str = "unknown";
                 for (key, metadata) in result.metadata.iter().take(3) { // Show first 3 metadata entries
                     if !metadata.metadata.is_empty() {
-                        let unknown_key = "unknown".to_string();
-                        let sample_key = metadata.metadata.keys().next().unwrap_or(&unknown_key);
+                        let sample_key = metadata.metadata.keys().next().map(|k| k.as_str()).unwrap_or(UNKNOWN_KEY);
                         println!("        • {}: {} keys (e.g., {})", key, metadata.metadata.len(), sample_key);
                     }
                 }

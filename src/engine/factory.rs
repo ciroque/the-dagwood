@@ -1,6 +1,8 @@
 use crate::config::{Config, Strategy};
 use crate::traits::DagExecutor;
 use crate::engine::work_queue::WorkQueueExecutor;
+use crate::engine::level_by_level::LevelByLevelExecutor;
+use crate::engine::reactive::ReactiveExecutor;
 
 /// Factory for creating DAG executors from configuration
 pub struct ExecutorFactory;
@@ -20,14 +22,10 @@ impl ExecutorFactory {
                 Box::new(WorkQueueExecutor::new(max_concurrency))
             }
             Strategy::Level => {
-                // TODO: Implement Level executor
-                // For now, fallback to WorkQueue
-                Box::new(WorkQueueExecutor::new(max_concurrency))
+                Box::new(LevelByLevelExecutor::new(max_concurrency))
             }
             Strategy::Reactive => {
-                // TODO: Implement Reactive executor
-                // For now, fallback to WorkQueue
-                Box::new(WorkQueueExecutor::new(max_concurrency))
+                Box::new(ReactiveExecutor::new(max_concurrency))
             }
             Strategy::Hybrid => {
                 // TODO: Implement Hybrid executor

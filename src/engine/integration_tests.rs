@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::backends::local::factory::LocalProcessorFactory;
 use crate::config::{BackendType, ProcessorConfig};
-use crate::engine::{WorkQueueExecutor, LevelByLevelExecutor};
+use crate::engine::{WorkQueueExecutor, LevelByLevelExecutor, ReactiveExecutor};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::ProcessorRequest;
 use crate::traits::{DagExecutor, Processor};
@@ -606,5 +606,138 @@ mod tests {
         
         // Check that merge processor has metadata from both dependencies
         assert!(!merge_result.metadata.is_empty(), "Merge processor should have metadata from dependencies");
+    }
+
+    /// Test that compares all three executors (WorkQueue, LevelByLevel, Reactive) 
+    /// with the same DAG to ensure they produce identical results
+    #[tokio::test]
+    async fn test_executor_comparison_identical_results() {
+        // Create processor configurations for a simple linear pipeline
+        let uppercase_config = ProcessorConfig {
+            id: "uppercase".to_string(),
+            backend: BackendType::Local,
+            processor: Some("change_text_case_upper".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec![],
+            options: HashMap::new(),
+        };
+        
+        let reverse_config = ProcessorConfig {
+            id: "reverse".to_string(),
+            backend: BackendType::Local,
+            processor: Some("reverse_text".to_string()),
+            endpoint: None,
+            module: None,
+            depends_on: vec!["uppercase".to_string()],
+            options: HashMap::new(),
+        };
+        
+        // Helper function to create processor map
+        let create_processor_map = || -> ProcessorMap {
+            let uppercase_processor = LocalProcessorFactory::create_processor(&uppercase_config)
+                .expect("Failed to create uppercase processor");
+            let reverse_processor = LocalProcessorFactory::create_processor(&reverse_config)
+                .expect("Failed to create reverse processor");
+            
+            let mut processors: HashMap<String, Arc<dyn Processor>> = HashMap::new();
+            processors.insert("uppercase".to_string(), uppercase_processor);
+            processors.insert("reverse".to_string(), reverse_processor);
+            
+            ProcessorMap(processors)
+        };
+        
+        // Create dependency graph
+        let mut graph_map = HashMap::new();
+        graph_map.insert("uppercase".to_string(), vec!["reverse".to_string()]);
+        graph_map.insert("reverse".to_string(), vec![]);
+        let graph = DependencyGraph(graph_map);
+        
+        let entrypoints = EntryPoints(vec!["uppercase".to_string()]);
+        
+        // Create input
+        let input = ProcessorRequest {
+            payload: b"hello world".to_vec(),
+            metadata: HashMap::new(),
+        };
+        
+        // Execute with WorkQueue executor
+        let work_queue_executor = WorkQueueExecutor::new(2);
+        let work_queue_result = work_queue_executor
+            .execute_with_strategy(
+                create_processor_map(),
+                graph.clone(),
+                entrypoints.clone(),
+                input.clone(),
+                crate::errors::FailureStrategy::FailFast,
+            )
+            .await
+            .expect("WorkQueue execution failed");
+        
+        // Execute with LevelByLevel executor  
+        let level_executor = LevelByLevelExecutor::new(2);
+        let level_result = level_executor
+            .execute_with_strategy(
+                create_processor_map(),
+                graph.clone(),
+                entrypoints.clone(),
+                input.clone(),
+                crate::errors::FailureStrategy::FailFast,
+            )
+            .await
+            .expect("LevelByLevel execution failed");
+        
+        // Execute with Reactive executor
+        let reactive_executor = ReactiveExecutor::new(2);
+        let reactive_result = reactive_executor
+            .execute_with_strategy(
+                create_processor_map(),
+                graph.clone(),
+                entrypoints.clone(),
+                input.clone(),
+                crate::errors::FailureStrategy::FailFast,
+            )
+            .await
+            .expect("Reactive execution failed");
+        
+        // Verify all executors produced the same results
+        assert_eq!(work_queue_result.len(), 2);
+        assert_eq!(level_result.len(), 2);
+        assert_eq!(reactive_result.len(), 2);
+        
+        // Check that all executors have the same processor results
+        for processor_id in ["uppercase", "reverse"] {
+            let work_queue_response = work_queue_result.get(processor_id)
+                .unwrap_or_else(|| panic!("WorkQueue missing {}", processor_id));
+            let level_response = level_result.get(processor_id)
+                .unwrap_or_else(|| panic!("LevelByLevel missing {}", processor_id));
+            let reactive_response = reactive_result.get(processor_id)
+                .unwrap_or_else(|| panic!("Reactive missing {}", processor_id));
+            
+            // Compare payloads
+            if let (Some(Outcome::NextPayload(wq_payload)), 
+                    Some(Outcome::NextPayload(level_payload)),
+                    Some(Outcome::NextPayload(reactive_payload))) = 
+                (&work_queue_response.outcome, &level_response.outcome, &reactive_response.outcome) {
+                assert_eq!(wq_payload, level_payload, 
+                    "WorkQueue and LevelByLevel payloads differ for {}", processor_id);
+                assert_eq!(wq_payload, reactive_payload, 
+                    "WorkQueue and Reactive payloads differ for {}", processor_id);
+                assert_eq!(level_payload, reactive_payload, 
+                    "LevelByLevel and Reactive payloads differ for {}", processor_id);
+            } else {
+                panic!("One or more executors failed to produce NextPayload for {}", processor_id);
+            }
+        }
+        
+        // Verify the expected transformation: "hello world" -> "HELLO WORLD" -> "DLROW OLLEH"
+        let final_result = reactive_result.get("reverse").unwrap();
+        if let Some(Outcome::NextPayload(final_payload)) = &final_result.outcome {
+            let final_text = String::from_utf8_lossy(final_payload);
+            assert_eq!(final_text, "DLROW OLLEH", "Final result should be reversed uppercase text");
+        }
+        
+        println!("✅ All three executors (WorkQueue, LevelByLevel, Reactive) produced identical results!");
+        println!("   Input: 'hello world' -> Output: 'DLROW OLLEH'");
     }
 }

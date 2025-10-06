@@ -5,7 +5,9 @@ pub mod factory;
 pub mod metadata;
 #[cfg(test)]
 pub mod integration_tests;
+pub mod reactive;
 
 pub use work_queue::WorkQueueExecutor;
 pub use level_by_level::LevelByLevelExecutor;
+pub use reactive::ReactiveExecutor;
 pub use factory::ExecutorFactory;

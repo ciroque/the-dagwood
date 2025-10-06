@@ -155,7 +155,8 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
             }
         }
     }
-    
+
+    const UNKNOWN_KEY: &str = "unknown";
     for (i, processor_id) in ordered_processors.iter().enumerate() {
         if let Some(result) = results.get(processor_id) {
             let output = if let Some(Outcome::NextPayload(payload)) = &result.outcome {
@@ -169,7 +170,6 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
             // Show metadata if present
             if !result.metadata.is_empty() {
                 println!("     📝 Metadata: {} entries", result.metadata.len());
-                const UNKNOWN_KEY: &str = "unknown";
                 for (key, metadata) in result.metadata.iter().take(3) { // Show first 3 metadata entries
                     if !metadata.metadata.is_empty() {
                         let sample_key = metadata.metadata.keys().next().map(|k| k.as_str()).unwrap_or(UNKNOWN_KEY);

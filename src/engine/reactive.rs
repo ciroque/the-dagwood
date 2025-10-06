@@ -96,9 +96,10 @@ impl ReactiveExecutor {
 
         // Create channels for each processor
         for processor_id in graph.keys() {
+            // TODO(steve): switch to bounded_channel
             let (sender, receiver) = mpsc::unbounded_channel();
 
-            // Use forward graph (graph.0) to get dependents for notification network
+            // Use th forward graph (graph.0) to get dependents for notification network
             let dependents = graph.0.get(processor_id)
                 .cloned()
                 .unwrap_or_default();

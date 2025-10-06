@@ -2,6 +2,12 @@
 
 This directory defines the core trait abstractions for The DAGwood project, establishing contracts for processors and executors. It demonstrates advanced Rust concepts around trait design, async programming, and polymorphism that enable pluggable architectures.
 
+**Related Documentation:**
+- [`../engine/RUSTME.md`](../engine/RUSTME.md) - Core async/await patterns and concurrency primitives
+- [`../config/RUSTME.md`](../config/RUSTME.md) - Configuration system that uses these traits
+- [`../engine/RUSTME-WorkQueue.md`](../engine/RUSTME-WorkQueue.md) - DagExecutor trait implementation example
+- [`../engine/RUSTME-LevelByLevel.md`](../engine/RUSTME-LevelByLevel.md) - Alternative DagExecutor implementation
+
 ## Beginner Level Concepts
 
 ### 1. Trait Definitions as Contracts (`processor.rs`)
@@ -36,10 +42,11 @@ trait Processor {
 }
 ```
 
-**In our code** (lines 7, 9 in `processor.rs`):
+**In our code** (`processor.rs` lines 17-21):
 - `&self` means methods can be called on shared references
 - `&'static str` indicates the name string lives for the entire program duration
 - Immutable methods allow safe concurrent access
+- `declared_intent()` method returns ProcessorIntent enum for Transform vs Analyze classification
 
 **Key benefits**: Thread safety, clear ownership semantics, efficient memory usage.
 
@@ -53,7 +60,7 @@ pub mod processor;
 pub use processor::Processor;  // Re-export for convenience
 ```
 
-**In our code** (lines 1, 3 in `mod.rs`):
+**In our code** (`mod.rs`):
 - `pub mod processor` makes the module publicly accessible
 - `pub use` creates a shortcut so users can write `use crate::traits::Processor`
 - Keeps implementation details in submodules while providing clean API
@@ -66,7 +73,7 @@ pub use processor::Processor;  // Re-export for convenience
 
 **Why used here**: Processors need to perform I/O operations (file access, network calls) without blocking the entire system.
 
-**In our code** (lines 1, 5-7 in `processor.rs`):
+**In our code** (`processor.rs`):
 ```rust
 use async_trait::async_trait;
 
@@ -83,11 +90,34 @@ pub trait Processor: Send + Sync {
 
 **Why this approach**: Allows processors to perform network calls, file I/O, or database operations without blocking other processors in the DAG execution.
 
-### 2. Trait Bounds for Thread Safety (`processor.rs`, `executor.rs`)
+### 2. ProcessorIntent Enum for Architectural Separation (`processor.rs`)
+
+**Why used here**: The system needs to distinguish between processors that modify payloads (Transform) vs those that only analyze data (Analyze) for safe parallelism.
+
+**In our code** (`processor.rs` lines 5-12):
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessorIntent {
+    /// Modifies payload, may modify metadata - must run sequentially
+    Transform,
+    /// Payload pass-through, may add metadata - can run in parallel
+    Analyze,
+}
+```
+
+**Key concepts**:
+- `Transform` processors can modify both payload and metadata
+- `Analyze` processors should only add metadata (payload pass-through)
+- Enables safe parallel execution of Analyze processors
+- Enforces architectural separation at the type level
+
+**Why this approach**: Prevents race conditions in diamond dependency patterns while enabling maximum parallelism for read-only analysis operations.
+
+### 3. Trait Bounds for Thread Safety (`processor.rs`, `executor.rs`)
 
 **Why used here**: DAG execution happens concurrently, so processors must be safely shareable across threads.
 
-**In our code** (lines 6, 8 in `processor.rs` and `executor.rs`):
+**In our code** (`processor.rs` line 16, `executor.rs` line 9):
 ```rust
 pub trait Processor: Send + Sync {
     // ...
@@ -105,27 +135,29 @@ pub trait DagExecutor: Send + Sync {
 
 **Why this approach**: Essential for parallel DAG execution where multiple processors run simultaneously across different threads.
 
-### 3. Complex Generic Parameters (`executor.rs`)
+### 4. Complex Generic Parameters (`executor.rs`)
 
 **Why used here**: The executor needs to work with collections of processors and dependency graphs with flexible ownership.
 
-**In our code** (lines 15-21 in `executor.rs`):
+**In our code** (`executor.rs`):
 ```rust
-async fn execute(
+async fn execute_with_strategy(
     &self,
-    processors: HashMap<String, Arc<dyn Processor>>,  // Shared ownership
-    graph: HashMap<String, Vec<String>>,              // Owned data
-    entrypoints: Vec<String>,                         // Owned data
-    input: ProcessorRequest,                          // Owned data
-) -> HashMap<String, ProcessorResponse>;              // Owned return
+    processors: ProcessorMap,                         // Type alias for processor registry
+    graph: DependencyGraph,                          // Type alias for dependency graph
+    entrypoints: EntryPoints,                        // Type alias for entry points
+    input: ProcessorRequest,                         // Owned data
+    failure_strategy: FailureStrategy,               // How to handle failures
+) -> Result<HashMap<String, ProcessorResponse>, ExecutionError>;
 ```
 
 **Key concepts**:
-- `HashMap<String, Arc<dyn Processor>>` combines hash maps with shared smart pointers
-- `Arc<dyn Processor>` enables shared ownership of trait objects
-- Mix of owned and shared data based on usage patterns
+- `ProcessorMap`, `DependencyGraph`, `EntryPoints` are type aliases for better readability
+- `Result<T, ExecutionError>` provides comprehensive error handling
+- `FailureStrategy` enum controls how execution failures are handled
+- All parameters use owned data for clear ownership semantics
 
-**Why this approach**: Processors are expensive to create and need to be shared, while graph data is lightweight and can be owned.
+**Why this approach**: Type aliases improve readability while maintaining flexibility, and Result types enable robust error handling in async contexts.
 
 ### 4. Protobuf Integration (`processor.rs`, `executor.rs`)
 
@@ -149,7 +181,7 @@ use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 
 **Why used here**: The executor needs to work with different processor implementations at runtime without knowing their concrete types at compile time.
 
-**In our code** (lines 17 in `executor.rs`):
+**In our code** (`executor.rs`):
 ```rust
 processors: HashMap<String, Arc<dyn Processor>>,
 ```
@@ -195,7 +227,7 @@ async fn execute(
 
 **Why used here**: Trait methods need to work efficiently with string data without unnecessary allocations.
 
-**In our code** (line 9 in `processor.rs`):
+**In our code** (`processor.rs`):
 ```rust
 fn name(&self) -> &'static str;
 ```

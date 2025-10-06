@@ -1,6 +1,13 @@
-# RUSTME.md - WorkQueue Executor (`src/engine/work_queue.rs`)
+# RUSTME.md - Work Queue Executor (`src/engine/work_queue.rs`)
 
 This file implements the WorkQueue executor, a sophisticated DAG execution engine that uses dependency counting and canonical payload tracking. It demonstrates advanced Rust concepts around concurrency, async programming, and complex state management for deterministic DAG execution.
+
+**Related Documentation:**
+- [`RUSTME.md`](./RUSTME.md) - Core async/await patterns and concurrency fundamentals
+- [`RUSTME-LevelByLevel.md`](./RUSTME-LevelByLevel.md) - Alternative level-based execution strategy
+- [`RUSTME-Reactive.md`](./RUSTME-Reactive.md) - Event-driven execution approach
+- [`../traits/RUSTME.md`](../traits/RUSTME.md) - DagExecutor trait definition and async traits
+- [`../config/RUSTME.md`](../config/RUSTME.md) - Configuration system and executor factory
 
 ## Beginner Level Concepts
 
@@ -23,7 +30,7 @@ impl WorkQueueExecutor {
 }
 ```
 
-**In our code** (lines 35-46):
+**In our code** (`work_queue.rs`):
 - `WorkQueueExecutor` struct encapsulates execution configuration
 - Constructor validates input (ensures minimum concurrency of 1)
 - `Self` keyword provides clean constructor pattern
@@ -45,7 +52,7 @@ impl DagExecutor for WorkQueueExecutor {
 }
 ```
 
-**In our code** (lines 66-75):
+**In our code** (`work_queue.rs`):
 - `#[async_trait]` macro enables async methods in traits
 - `async fn` allows awaiting other async operations
 - `Result<T, E>` return type for comprehensive error handling
@@ -63,7 +70,7 @@ let mut results = HashMap::<String, ProcessorResponse>::new();
 let dependency_counts = graph.build_dependency_counts();
 ```
 
-**In our code** (lines 103, 85):
+**In our code** (`work_queue.rs`):
 - `HashMap<String, ProcessorResponse>` stores execution results by processor ID
 - Type annotations clarify complex generic types
 - Mutable HashMap allows dynamic updates during execution
@@ -76,7 +83,7 @@ let dependency_counts = graph.build_dependency_counts();
 
 **Why used here**: DAG execution has multiple failure modes that need specific handling and context.
 
-**In our code** (lines 86-88, 127-131):
+**In our code** (`work_queue.rs`):
 ```rust
 let (dependency_counts, topological_ranks) = graph.dependency_counts_and_ranks()
     .ok_or_else(|| ExecutionError::InternalError { 
@@ -108,7 +115,7 @@ match failure_strategy {
 
 **Why used here**: DAG execution requires understanding processor dependencies and execution order.
 
-**In our code** (lines 84-98):
+**In our code** (`work_queue.rs`):
 ```rust
 let (dependency_counts, topological_ranks) = graph.dependency_counts_and_ranks()
     .ok_or_else(|| ExecutionError::InternalError { 
@@ -137,7 +144,7 @@ for entrypoint in entrypoints.iter() {
 
 **Why used here**: Complex data transformations and filtering operations are common in DAG execution.
 
-**In our code** (lines 212-218, 344-350):
+**In our code** (`work_queue.rs`):
 ```rust
 // Collect metadata only from actual dependencies
 let mut dependency_results = HashMap::new();
@@ -168,43 +175,31 @@ let failures: Vec<ExecutionError> = failed.iter()
 
 ### 1. Canonical Payload Architecture (`work_queue.rs`)
 
-**Why used here**: Diamond dependency patterns create race conditions where multiple processors might modify the same data. The canonical payload ensures deterministic behavior.
+**Why used here**: Diamond dependency patterns create race conditions where multiple processors might modify the same data. The canonical payload ensures deterministic behavior by enforcing that only Transform processors can modify payloads.
 
-**In our code** (lines 109-112, 272-296):
+**In our code** (`work_queue.rs`):
 ```rust
-// Track canonical payload from Transform processors with topological ranking
-let canonical_payload_mutex = Arc<Mutex<Arc<Vec<u8>>>>::new(Arc::new(input.payload.clone()));
-let highest_transform_rank_mutex = Arc<Mutex<Option<usize>>>::new(None);
+// Initialize canonical payload tracking
+let canonical_payload_mutex = Arc::new(Mutex::new(input.payload.clone()));
 
-// Update canonical payload if this is a Transform processor with higher topological rank
-if let Some(processor) = processors_clone.get(&processor_id_clone) {
-    if processor.declared_intent() == ProcessorIntent::Transform {
-        if let Some(Outcome::NextPayload(new_payload)) = &response_clone.outcome {
-            if let Some(&processor_rank) = topological_ranks_clone.get(&processor_id_clone) {
-                let mut highest_rank = highest_transform_rank_mutex_clone.lock().await;
-                
-                let should_update = match *highest_rank {
-                    None => true, // First Transform processor
-                    Some(current_highest) => processor_rank > current_highest,
-                };
-                
-                if should_update {
-                    let mut canonical_payload = canonical_payload_mutex_clone.lock().await;
-                    *canonical_payload = Arc::new(new_payload.clone());
-                    *highest_rank = Some(processor_rank);
-                }
-            }
-        }
+// Only Transform processors update the canonical payload
+if processor.declared_intent() == ProcessorIntent::Transform {
+    if let Some(Outcome::NextPayload(new_payload)) = &response.outcome {
+        let mut canonical_guard = canonical_payload_mutex.lock().await;
+        *canonical_guard = new_payload.clone();
     }
 }
+
+// Analyze processors receive canonical payload but only contribute metadata
+// This ensures deterministic behavior in diamond dependency patterns
 ```
 
 **Key concepts**:
 - **Canonical Payload**: Single source of truth for payload data
-- **Topological Ranking**: Ensures deterministic updates based on DAG structure
-- **Strict Rank Comparison**: `processor_rank > current_highest` prevents race conditions
-- **Transform vs Analyze Separation**: Only Transform processors can modify payload
-- **Arc<Vec<u8>>**: Efficient sharing of large payloads without copying
+- **Transform Intent**: Only Transform processors can modify payloads
+- **Analyze Constraint**: Analyze processors only contribute metadata
+- **Arc<Mutex<T>>**: Thread-safe shared state for concurrent access
+- **Deterministic Updates**: Consistent payload selection regardless of execution order
 
 **Why this approach**:
 - **Deterministic Behavior**: Eliminates race conditions in diamond dependencies
@@ -216,7 +211,7 @@ if let Some(processor) = processors_clone.get(&processor_id_clone) {
 
 **Why used here**: Multiple processors need to execute concurrently while sharing state safely across async tasks.
 
-**In our code** (lines 101-107, 150-177):
+**In our code** (`work_queue.rs`):
 ```rust
 // Shared state across async tasks
 let active_tasks = Arc::new(Mutex::new(0));
@@ -257,7 +252,7 @@ tokio::spawn(async move {
 
 **Why used here**: Processors must execute in topological order, with Transform processors prioritized over Analyze processors at the same level.
 
-**In our code** (lines 90, 98, 313):
+**In our code** (`work_queue.rs`):
 ```rust
 let mut work_queue = PriorityWorkQueue::new();
 
@@ -289,7 +284,7 @@ queue.pop_next_available(&blocked)
 
 **Why used here**: Complex async execution requires careful state tracking and cleanup to prevent resource leaks and inconsistent state.
 
-**In our code** (lines 180-325):
+**In our code** (`work_queue.rs`):
 ```rust
 // Careful state management in async task
 tokio::spawn(async move {

@@ -1,8 +1,15 @@
-# RUSTME-Reactive.md
+# RUSTME.md - Reactive Executor (`src/engine/reactive.rs`)
 
 This document explores the Rust language features and patterns used in the Reactive Executor implementation. The reactive executor demonstrates advanced async programming, event-driven architecture, and concurrent data structures.
 
-## Beginner Level
+**Related Documentation:**
+- [`RUSTME.md`](./RUSTME.md) - Core async/await patterns and concurrency fundamentals
+- [`RUSTME-WorkQueue.md`](./RUSTME-WorkQueue.md) - Dependency-counting execution strategy
+- [`RUSTME-LevelByLevel.md`](./RUSTME-LevelByLevel.md) - Level-based execution approach
+- [`../traits/RUSTME.md`](../traits/RUSTME.md) - DagExecutor trait definition and async traits
+- [`../config/RUSTME.md`](../config/RUSTME.md) - Configuration system and executor factory
+
+## Beginner Level Concepts
 
 ### 1. **Enum Pattern Matching with Data**
 The reactive executor uses enums to represent different types of events in the system:
@@ -52,7 +59,7 @@ let mut nodes = HashMap::new();
 
 **Why HashMap?** O(1) average lookup time makes processor and result retrieval very fast, which is crucial for the event-driven architecture.
 
-## Intermediate Level
+## Intermediate Level Concepts
 
 ### 1. **Multi-Producer, Single-Consumer Channels (MPSC)**
 The reactive executor uses unbounded channels for event communication:
@@ -133,7 +140,7 @@ tokio::select! {
 
 **Why select?** It allows a task to wait on multiple async operations simultaneously and react to whichever completes first - essential for cancellation and event handling.
 
-## Advanced Level
+## Advanced Level Concepts
 
 ### 1. **Cancellation Token Pattern**
 The reactive executor implements graceful shutdown using cancellation tokens:
@@ -259,3 +266,16 @@ match failure_strategy {
 **Why pattern matching for strategies?** It makes the different behaviors explicit and ensures all strategies are handled. The compiler enforces completeness.
 
 This reactive executor demonstrates how Rust's ownership system, async capabilities, and type system combine to create safe, efficient, and maintainable concurrent systems.
+
+## Summary
+
+The Reactive Executor showcases Rust's advanced async and concurrency features for building event-driven DAG execution systems:
+
+- **Event-Driven Architecture**: MPSC channels and `tokio::select!` enable responsive, non-blocking processor coordination
+- **Safe Concurrency**: `Arc<Mutex<T>>` and cancellation tokens provide thread-safe shared state management
+- **Resource Control**: Semaphores and configurable concurrency prevent system overload
+- **Graceful Failure**: Comprehensive error handling with contextual information and failure strategy support
+- **Performance Optimization**: Canonical payload architecture eliminates race conditions while maintaining efficiency
+- **Type Safety**: Rust's ownership system prevents data races and ensures memory safety in complex async scenarios
+
+The key innovation is the event-driven state machine approach where each processor reacts to dependency completion events rather than polling, combined with sophisticated cancellation and error propagation mechanisms. This creates a highly responsive and scalable execution model that maintains deterministic behavior while maximizing concurrent throughput.

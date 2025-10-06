@@ -1,10 +1,20 @@
-# Rust Language Features: Async Execution and Concurrency Patterns
+# RUSTME.md - Engine Core (`src/engine/`)
 
-This directory showcases Rust's powerful async/await system and safe concurrency primitives for building high-performance DAG execution engines.
+This directory implements the core DAG execution engines for The DAGwood project, showcasing Rust's powerful async/await system and safe concurrency primitives for building high-performance workflow orchestration systems.
 
-## Beginner: Async/Await Fundamentals
+**Related Documentation:**
+- [`RUSTME-WorkQueue.md`](./RUSTME-WorkQueue.md) - Work Queue executor implementation details
+- [`RUSTME-LevelByLevel.md`](./RUSTME-LevelByLevel.md) - Level-by-Level executor implementation details  
+- [`RUSTME-Reactive.md`](./RUSTME-Reactive.md) - Reactive executor implementation details
+- [`../traits/RUSTME.md`](../traits/RUSTME.md) - Trait definitions and async trait patterns
+- [`../config/RUSTME.md`](../config/RUSTME.md) - Configuration system and executor factory patterns
 
-### The `async fn` Declaration
+## Beginner Level Concepts
+
+### 1. The `async fn` Declaration
+
+**Why used here**: DAG execution involves I/O operations and concurrent processor execution that benefit from async programming.
+
 ```rust
 async fn execute_processor(processor: Arc<dyn Processor>, input: ProcessorRequest) -> ProcessorResponse {
     processor.process(input).await
@@ -16,7 +26,10 @@ async fn execute_processor(processor: Arc<dyn Processor>, input: ProcessorReques
 - `await` yields control back to the async runtime
 - Enables concurrent execution without blocking threads
 
-### The `#[async_trait]` Macro
+### 2. The `#[async_trait]` Macro
+
+**Why used here**: Trait definitions need async methods, but Rust doesn't natively support this yet.
+
 ```rust
 #[async_trait]
 pub trait DagExecutor: Send + Sync {
@@ -29,9 +42,12 @@ pub trait DagExecutor: Send + Sync {
 - `async_trait` macro transforms async trait methods into regular methods returning `Pin<Box<dyn Future>>`
 - `Send + Sync` bounds ensure the trait can be used across threads
 
-## Intermediate: Concurrency with Arc and Mutex
+## Intermediate Level Concepts
 
-### Shared Ownership with `Arc<T>`
+### 1. Shared Ownership with `Arc<T>`
+
+**Why used here**: Multiple async tasks need to share access to the same processor registry without expensive cloning.
+
 ```rust
 let processors = Arc::new(ProcessorMap::from(processor_map));
 let processor_clone = processors.clone();  // Cheap reference count increment
@@ -47,7 +63,10 @@ tokio::spawn(async move {
 - Thread-safe reference counting
 - Data is dropped when the last `Arc` is dropped
 
-### Safe Mutation with `Mutex<T>`
+### 2. Safe Mutation with `Mutex<T>`
+
+**Why used here**: Multiple async tasks need to safely update shared state without data races.
+
 ```rust
 let results = Arc::new(Mutex::new(HashMap::<String, ProcessorResponse>::new()));
 let results_clone = results.clone();
@@ -64,7 +83,10 @@ tokio::spawn(async move {
 - Async-aware locking with `tokio::sync::Mutex`
 - RAII (Resource Acquisition Is Initialization) - lock released automatically
 
-### The `tokio::spawn` Pattern
+### 3. The `tokio::spawn` Pattern
+
+**Why used here**: Create concurrent async tasks that can run independently while the main thread continues.
+
 ```rust
 let task_handle = tokio::spawn(async move {
     // This closure takes ownership of moved variables
@@ -76,7 +98,7 @@ let task_handle = tokio::spawn(async move {
 let result = task_handle.await?;  // Wait for task completion
 ```
 
-## Advanced: Complex Concurrency Orchestration
+## Advanced Level Concepts
 
 ### Fine-Grained Locking Strategy
 Our WorkQueue executor uses multiple mutexes to minimize contention:

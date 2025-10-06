@@ -1,3 +1,168 @@
+//! Work Queue DAG executor with dependency counting and canonical payload architecture.
+//!
+//! This module implements a sophisticated work queue-based execution strategy that combines
+//! dependency counting algorithms with a revolutionary canonical payload architecture to
+//! eliminate race conditions and ensure deterministic DAG execution. The executor is
+//! particularly well-suited for CPU-bound workloads and scenarios requiring predictable
+//! execution order and resource utilization.
+//!
+//! # Architecture Overview
+//!
+//! The Work Queue executor uses a **priority queue** combined with **dependency counting**:
+//! - Processors are queued based on topological rank and processor intent
+//! - Dependency counting tracks how many dependencies each processor is waiting for
+//! - When dependencies complete, dependent processors are added to the work queue
+//! - Configurable concurrency limits prevent resource exhaustion
+//!
+//! # Canonical Payload Innovation
+//!
+//! The executor implements a groundbreaking **canonical payload architecture** that solves
+//! the fundamental race condition problem in diamond dependency patterns:
+//!
+//! ```text
+//! Diamond Pattern Race Condition (SOLVED):
+//!     A (Transform)
+//!    / \
+//!   B   C (parallel execution)
+//!    \ /
+//!     D (which payload should D receive?)
+//! ```
+//!
+//! ## Solution: Canonical Payload Tracking
+//! - **Single Source of Truth**: One canonical payload flows through the DAG
+//! - **Transform Processors**: Only Transform processors can update the canonical payload
+//! - **Analyze Processors**: Receive canonical payload but only contribute metadata
+//! - **Topological Ranking**: Higher-ranked Transform processors override lower-ranked ones
+//! - **Deterministic Updates**: Race conditions eliminated through strict ordering rules
+//!
+//! # Key Features
+//!
+//! - **Dependency Counting**: Efficient O(1) dependency resolution using counters
+//! - **Priority Scheduling**: Topological rank + processor intent-based prioritization
+//! - **Canonical Payload**: Revolutionary architecture eliminating race conditions
+//! - **Failure Strategies**: Comprehensive error handling (FailFast, ContinueOnError, BestEffort)
+//! - **Concurrency Control**: Configurable limits with efficient task management
+//! - **Metadata Isolation**: Processors only receive metadata from direct dependencies
+//!
+//! # Performance Characteristics
+//!
+//! - **Best for**: CPU-bound processors, predictable execution patterns, priority-based scheduling
+//! - **Time Complexity**: O(V + E) where V = processors, E = dependencies
+//! - **Space Complexity**: O(V) for dependency tracking and work queue
+//! - **Concurrency**: Configurable with efficient semaphore-like task limiting
+//! - **Determinism**: Fully deterministic execution order and results
+//!
+//! # Execution Flow
+//!
+//! 1. **Validation**: Verify all processors exist and graph is valid
+//! 2. **Initialization**: Build dependency counts and topological ranks
+//! 3. **Queue Setup**: Initialize priority work queue with entry points
+//! 4. **Execution Loop**: Process work queue with dependency counting
+//! 5. **Result Collection**: Gather results from all completed processors
+//!
+//! # Examples
+//!
+//! ## Basic work queue execution
+//! ```rust
+//! use std::collections::HashMap;
+//! use std::sync::Arc;
+//! use the_dagwood::engine::work_queue::WorkQueueExecutor;
+//! use the_dagwood::traits::executor::DagExecutor;
+//! use the_dagwood::config::{ProcessorMap, DependencyGraph, EntryPoints};
+//! use the_dagwood::backends::stub::StubProcessor;
+//! use the_dagwood::traits::Processor;
+//! use the_dagwood::proto::processor_v1::ProcessorRequest;
+//! use the_dagwood::errors::FailureStrategy;
+//! 
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let executor = WorkQueueExecutor::new(4); // 4 concurrent processors max
+//! 
+//! // Build processor map
+//! let mut processor_map = HashMap::new();
+//! processor_map.insert("input".to_string(), Arc::new(StubProcessor::new("input".to_string())) as Arc<dyn Processor>);
+//! processor_map.insert("process".to_string(), Arc::new(StubProcessor::new("process".to_string())) as Arc<dyn Processor>);
+//! processor_map.insert("output".to_string(), Arc::new(StubProcessor::new("output".to_string())) as Arc<dyn Processor>);
+//! 
+//! // Build dependency graph: input -> process -> output
+//! let mut dependency_graph = HashMap::new();
+//! dependency_graph.insert("input".to_string(), vec!["process".to_string()]);
+//! dependency_graph.insert("process".to_string(), vec!["output".to_string()]);
+//! dependency_graph.insert("output".to_string(), vec![]);
+//! 
+//! let entry_points = vec!["input".to_string()];
+//! let input = ProcessorRequest {
+//!     payload: b"work queue execution".to_vec(),
+//!     metadata: HashMap::new(),
+//! };
+//! 
+//! // Execute with dependency counting and canonical payload
+//! let results = executor.execute_with_strategy(
+//!     ProcessorMap(processor_map),
+//!     DependencyGraph(dependency_graph),
+//!     EntryPoints(entry_points),
+//!     input,
+//!     FailureStrategy::FailFast,
+//! ).await?;
+//! 
+//! // All processors executed in dependency order
+//! assert_eq!(results.len(), 3);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Diamond dependency with canonical payload
+//! ```rust
+//! use std::collections::HashMap;
+//! use std::sync::Arc;
+//! use the_dagwood::engine::work_queue::WorkQueueExecutor;
+//! use the_dagwood::traits::executor::DagExecutor;
+//! use the_dagwood::config::{ProcessorMap, DependencyGraph, EntryPoints};
+//! use the_dagwood::backends::stub::StubProcessor;
+//! use the_dagwood::traits::Processor;
+//! use the_dagwood::proto::processor_v1::ProcessorRequest;
+//! use the_dagwood::errors::FailureStrategy;
+//! 
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let executor = WorkQueueExecutor::new(4);
+//! 
+//! // Diamond pattern: source -> [left, right] -> sink
+//! let mut processor_map = HashMap::new();
+//! processor_map.insert("source".to_string(), Arc::new(StubProcessor::new("source".to_string())) as Arc<dyn Processor>);
+//! processor_map.insert("left".to_string(), Arc::new(StubProcessor::new("left".to_string())) as Arc<dyn Processor>);
+//! processor_map.insert("right".to_string(), Arc::new(StubProcessor::new("right".to_string())) as Arc<dyn Processor>);
+//! processor_map.insert("sink".to_string(), Arc::new(StubProcessor::new("sink".to_string())) as Arc<dyn Processor>);
+//! 
+//! let mut dependency_graph = HashMap::new();
+//! dependency_graph.insert("source".to_string(), vec!["left".to_string(), "right".to_string()]);
+//! dependency_graph.insert("left".to_string(), vec!["sink".to_string()]);
+//! dependency_graph.insert("right".to_string(), vec!["sink".to_string()]);
+//! dependency_graph.insert("sink".to_string(), vec![]);
+//! 
+//! let entry_points = vec!["source".to_string()];
+//! let input = ProcessorRequest {
+//!     payload: b"canonical payload test".to_vec(),
+//!     metadata: HashMap::new(),
+//! };
+//! 
+//! // Canonical payload eliminates race conditions:
+//! // - Left and right execute in parallel after source
+//! // - Sink receives canonical payload from source (deterministic)
+//! // - No race condition despite parallel execution
+//! let results = executor.execute_with_strategy(
+//!     ProcessorMap(processor_map),
+//!     DependencyGraph(dependency_graph),
+//!     EntryPoints(entry_points),
+//!     input,
+//!     FailureStrategy::FailFast,
+//! ).await?;
+//! 
+//! assert_eq!(results.len(), 4);
+//! # Ok(())
+//! # }
+//! ```
+
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -14,38 +179,190 @@ use crate::engine::metadata::{merge_dependency_metadata_for_execution, BASE_META
 use super::priority_work_queue::{PriorityWorkQueue, PrioritizedTask};
 
 /// Work Queue executor that uses dependency counting and canonical payload tracking.
+///
+/// This executor represents a sophisticated approach to DAG execution that combines classical
+/// dependency counting algorithms with a revolutionary canonical payload architecture. It
+/// maintains a priority queue of ready-to-execute processors and uses efficient dependency
+/// counting to track execution readiness, making it ideal for CPU-bound workloads and
+/// scenarios requiring predictable execution order.
+///
+/// # Canonical Payload Architecture
+///
+/// The executor's most innovative feature is its **canonical payload architecture** that
+/// solves the fundamental race condition problem in diamond dependency patterns:
+///
+/// ## The Problem
+/// ```text
+/// Traditional Approach (RACE CONDITION):
+///     A (Transform: "hello" -> "HELLO")
+///    / \
+///   B   C (parallel: both receive "HELLO")
+///    \ /
+///     D (receives first completion - non-deterministic!)
+/// ```
+///
+/// ## The Solution
+/// ```text
+/// Canonical Payload Approach (DETERMINISTIC):
+///     A (Transform: updates canonical payload to "HELLO")
+///    / \
+///   B   C (parallel: both receive "HELLO", only contribute metadata)
+///    \ /
+///     D (receives canonical "HELLO" + merged metadata - deterministic!)
+/// ```
+///
+/// ## Architecture Rules
+/// - **Transform processors**: Can update the canonical payload (based on topological rank)
+/// - **Analyze processors**: Receive canonical payload but only contribute metadata
+/// - **Downstream processors**: Always receive canonical payload + merged dependency metadata
+/// - **Rank-based updates**: Higher topological rank Transform processors override lower ones
+///
+/// This eliminates race conditions while enforcing proper architectural separation between
+/// data transformation and analysis operations.
+///
+/// # Priority Scheduling
+///
+/// Uses a sophisticated priority queue that orders processors by:
+/// 1. **Topological Rank**: Higher ranks (later in DAG) have higher priority
+/// 2. **Processor Intent**: Transform processors prioritized over Analyze at same rank
+/// 3. **Processor ID**: Lexicographic ordering for deterministic behavior
+///
+/// This ensures optimal execution order for both performance and correctness.
+///
+/// # Concurrency and Resource Management
+///
+/// - **Configurable Concurrency**: Limits concurrent processor executions
+/// - **Efficient Task Management**: Uses Arc<Mutex<T>> pattern for thread-safe state
+/// - **Deadlock Detection**: Identifies and handles blocked processor scenarios
+/// - **Failure Strategies**: Comprehensive error handling with different propagation modes
+///
+/// # Performance Characteristics
+///
+/// **Best suited for**:
+/// - CPU-bound processors with predictable execution times
+/// - Workloads requiring deterministic execution order
+/// - Scenarios with complex dependency patterns (diamonds, fan-out/fan-in)
+/// - Applications needing priority-based processor scheduling
+///
+/// **Performance metrics**:
+/// - **Dependency Resolution**: O(1) per processor completion
+/// - **Queue Operations**: O(log V) for priority queue operations
+/// - **Memory Usage**: O(V) for dependency tracking and state management
+/// - **Concurrency**: Configurable limits with efficient resource utilization
+///
+/// # Examples
+///
+/// ## Creating a work queue executor
+/// ```rust
+/// use the_dagwood::engine::work_queue::WorkQueueExecutor;
 /// 
-/// This executor maintains a queue of ready-to-execute processors and tracks
-/// the number of unresolved dependencies for each processor. When a processor
-/// completes, it decrements the dependency count for all its dependents,
-/// adding them to the work queue when their count reaches zero.
+/// // Create with specific concurrency limit
+/// let executor = WorkQueueExecutor::new(8);
 /// 
-/// ## Canonical Payload Architecture
+/// // Create with default concurrency (CPU core count)
+/// let executor = WorkQueueExecutor::default();
+/// ```
+///
+/// ## Comparing with other execution strategies
+/// ```rust
+/// use the_dagwood::engine::work_queue::WorkQueueExecutor;
+/// use the_dagwood::engine::level_by_level::LevelByLevelExecutor;
+/// use the_dagwood::engine::reactive::ReactiveExecutor;
 /// 
-/// The executor implements a canonical payload approach to ensure deterministic
-/// execution and proper architectural separation between Transform and Analyze processors:
+/// // WorkQueue: Best for CPU-bound, priority-based, deterministic execution
+/// let work_queue = WorkQueueExecutor::new(4);
 /// 
-/// - **Transform processors**: Modify the payload and update the canonical payload
-/// - **Analyze processors**: Receive the canonical payload but only contribute metadata
-/// - **Downstream processors**: Always receive the canonical payload from the last Transform
-///   processor, plus merged metadata from all dependencies
+/// // LevelByLevel: Best for debugging, predictable patterns, level-wise execution
+/// let level_by_level = LevelByLevelExecutor::new(4);
 /// 
-/// This eliminates race conditions in diamond dependency patterns and enforces
-/// the architectural principle that only Transform processors should modify payloads.
+/// // Reactive: Best for I/O-bound, low-latency, event-driven execution
+/// let reactive = ReactiveExecutor::new(4);
+/// ```
 pub struct WorkQueueExecutor {
-    /// Maximum number of concurrent processor executions
+    /// Maximum number of concurrent processor executions.
+    ///
+    /// This limit is enforced through careful task counting and queue management.
+    /// When the limit is reached, new processors wait in the priority queue until
+    /// running processors complete. This prevents resource exhaustion while
+    /// maintaining optimal parallelism within the constraint.
     max_concurrency: usize,
 }
 
 impl WorkQueueExecutor {
-    /// Create a new Work Queue executor with the specified concurrency limit
+    /// Creates a new Work Queue executor with the specified concurrency limit.
+    ///
+    /// The concurrency limit controls how many processors can execute simultaneously,
+    /// preventing resource exhaustion while allowing optimal parallelism within the
+    /// constraint. The work queue continues to accept and prioritize processors even
+    /// when the concurrency limit is reached.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_concurrency` - Maximum number of processors that can execute concurrently.
+    ///                       Will be clamped to a minimum of 1.
+    ///
+    /// # Returns
+    ///
+    /// A new `WorkQueueExecutor` configured with the specified concurrency limit.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use the_dagwood::engine::work_queue::WorkQueueExecutor;
+    /// 
+    /// // Create executor with specific concurrency
+    /// let executor = WorkQueueExecutor::new(8);
+    /// 
+    /// // Minimum concurrency is enforced
+    /// let executor = WorkQueueExecutor::new(0); // Actually creates with concurrency = 1
+    /// ```
+    ///
+    /// # Performance Considerations
+    ///
+    /// - **Higher concurrency**: Better for independent processors, may increase memory usage
+    /// - **Lower concurrency**: Better for resource-constrained environments, reduces contention
+    /// - **Rule of thumb**: Start with CPU core count, adjust based on processor characteristics
+    /// - **Work queue benefits**: Priority scheduling works well with moderate concurrency limits
     pub fn new(max_concurrency: usize) -> Self {
         Self {
             max_concurrency: max_concurrency.max(1), // Ensure at least 1
         }
     }
 
-    /// Create a new Work Queue executor with default concurrency (number of CPU cores)
+    /// Creates a new Work Queue executor with default concurrency based on system capabilities.
+    ///
+    /// The default concurrency is set to the number of available CPU cores, which provides
+    /// a good balance for most CPU-bound workloads. Falls back to 4 if the system's
+    /// parallelism cannot be determined.
+    ///
+    /// # Returns
+    ///
+    /// A new `WorkQueueExecutor` with concurrency set to the number of CPU cores.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use the_dagwood::engine::work_queue::WorkQueueExecutor;
+    /// 
+    /// // Create with system-appropriate concurrency
+    /// let executor = WorkQueueExecutor::default();
+    /// 
+    /// // Equivalent to:
+    /// let core_count = std::thread::available_parallelism()
+    ///     .map(|n| n.get())
+    ///     .unwrap_or(4);
+    /// let executor = WorkQueueExecutor::new(core_count);
+    /// ```
+    ///
+    /// # System Detection
+    ///
+    /// The executor attempts to detect the number of available CPU cores using
+    /// `std::thread::available_parallelism()`. This accounts for:
+    /// - Physical CPU cores
+    /// - System-imposed limits (cgroups, etc.)
+    /// - Process-specific constraints
+    ///
+    /// If detection fails, defaults to 4 concurrent processors.
     pub fn default() -> Self {
         let concurrency = std::thread::available_parallelism()
             .map(|n| n.get())

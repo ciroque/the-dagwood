@@ -30,7 +30,7 @@ impl LevelByLevelExecutor {
 }
 ```
 
-**In our code** (lines 48-58):
+**In our code** (`level_by_level.rs`):
 - `LevelByLevelExecutor` struct encapsulates execution configuration
 - Constructor validates input (ensures minimum concurrency of 1)
 - `Self` keyword provides clean constructor pattern
@@ -52,7 +52,7 @@ impl DagExecutor for LevelByLevelExecutor {
 }
 ```
 
-**In our code** (lines 305-342):
+**In our code** (`level_by_level.rs`):
 - `#[async_trait]` macro enables async methods in traits
 - `async fn` allows awaiting other async operations
 - `Result<T, E>` return type for comprehensive error handling
@@ -73,7 +73,7 @@ if let Some(current_id) = queue.pop_front() {
 }
 ```
 
-**In our code** (lines 66, 95, 115):
+**In our code** (`level_by_level.rs`):
 - `VecDeque<String>` provides O(1) push/pop operations at both ends
 - Essential for Kahn's algorithm implementation
 - Efficient memory usage with contiguous storage
@@ -86,7 +86,7 @@ if let Some(current_id) = queue.pop_front() {
 
 **Why used here**: Level computation requires efficient dependency resolution, and naive approaches are O(n²).
 
-**In our code** (lines 75-88):
+**In our code** (`level_by_level.rs`):
 ```rust
 // Build reverse dependency map for O(1) lookups during level computation
 // Maps: processor_id -> [processors that depend on it]
@@ -116,7 +116,7 @@ for (processor_id, dependencies) in &graph.0 {
 
 **Why used here**: Processors at the same topological level can execute concurrently without violating dependencies.
 
-**In our code** (lines 162-255):
+**In our code** (`level_by_level.rs`):
 ```rust
 async fn execute_level(
     &self,
@@ -153,7 +153,7 @@ async fn execute_level(
 
 **Why used here**: Multiple processors in a level might produce payloads, requiring deterministic payload selection.
 
-**In our code** (lines 204-215):
+**In our code** (`level_by_level.rs`):
 ```rust
 // Update canonical payload only for Transform processors with NextPayload outcome
 if let Some(Outcome::NextPayload(ref payload)) = processor_response.outcome {
@@ -182,7 +182,7 @@ if let Some(Outcome::NextPayload(ref payload)) = processor_response.outcome {
 
 **Why used here**: Topological sorting with level awareness requires careful state management and cycle detection.
 
-**In our code** (lines 60-160):
+**In our code** (`level_by_level.rs`):
 ```rust
 fn compute_topological_levels(
     &self,
@@ -241,7 +241,7 @@ fn compute_topological_levels(
 
 **Why used here**: Processors with multiple dependencies need metadata from all dependencies without key collisions.
 
-**In our code** (lines 276-295):
+**In our code** (`level_by_level.rs`):
 ```rust
 // Collect metadata only from actual dependencies, not all completed processors
 let mut dependency_results = HashMap::new();
@@ -281,7 +281,7 @@ let all_metadata = merge_metadata_from_responses(
 
 **Why used here**: Multiple processors within a level need to share state safely while executing concurrently.
 
-**In our code** (lines 318-340):
+**In our code** (`level_by_level.rs`):
 ```rust
 // Initialize shared state
 let results = Arc::new(Mutex::new(HashMap::new()));
@@ -320,7 +320,7 @@ for level_processors in levels.iter() {
 
 **Why used here**: Level-based execution requires careful error propagation and failure handling strategies.
 
-**In our code** (lines 234-252):
+**In our code** (`level_by_level.rs`):
 ```rust
 // Wait for all tasks in this level to complete
 for task in tasks {

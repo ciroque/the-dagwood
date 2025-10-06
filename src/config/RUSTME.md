@@ -22,7 +22,7 @@ struct Config {
 }
 ```
 
-**In our code** (lines 23-27 in `loader.rs`):
+**In our code** (`loader.rs`):
 - `Config` struct models the complete DAG configuration
 - `ProcessorConfig` struct models individual processor definitions
 - Public fields (`pub`) allow direct access while maintaining structure
@@ -43,7 +43,7 @@ enum Strategy {
 }
 ```
 
-**In our code** (lines 40-47 in `loader.rs`):
+**In our code** (`loader.rs`):
 - `Strategy` enum ensures only valid execution strategies can be specified
 - `BackendType` enum constrains processor implementations to supported types
 - Prevents invalid configuration values at compile time
@@ -63,7 +63,7 @@ struct ProcessorConfig {
 }
 ```
 
-**In our code** (lines 75-77 in `loader.rs`):
+**In our code** (`loader.rs`):
 - Optional fields prevent null pointer errors
 - Makes the API explicit about what's required vs. optional
 - Compiler enforces proper handling of missing values
@@ -81,7 +81,7 @@ fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
 }
 ```
 
-**In our code** (lines 106-110 in `loader.rs`):
+**In our code** (`loader.rs`):
 - Functions return `Result<T, E>` instead of throwing exceptions
 - Forces callers to handle both success and failure cases
 - `?` operator provides clean error propagation
@@ -94,7 +94,7 @@ fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
 
 **Why used here**: YAML configuration files need to be automatically converted to Rust structs with proper field mapping and validation.
 
-**In our code** (lines 1, 23, 40, 70 in `loader.rs`):
+**In our code** (`loader.rs`):
 ```rust
 use serde::Deserialize;
 
@@ -127,7 +127,7 @@ pub struct ProcessorConfig {
 
 **Why used here**: File loading should work with any path-like type (String, &str, Path, PathBuf) for maximum flexibility.
 
-**In our code** (lines 106, 116 in `loader.rs`):
+**In our code** (`loader.rs`):
 ```rust
 pub fn load_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::error::Error>> {
     let content = fs::read_to_string(path)?;  // AsRef<Path> allows multiple types
@@ -146,7 +146,7 @@ pub fn load_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::error
 
 **Why used here**: Processor registry needs fast lookups by ID and dynamic sizing based on configuration.
 
-**In our code** (lines 1, 73-81 in `processor_map.rs`):
+**In our code** (`processor_map.rs`):
 ```rust
 use std::collections::HashMap;
 
@@ -170,7 +170,7 @@ impl ProcessorMap {
 
 **Why used here**: Configuration validation involves complex data transformations and filtering operations.
 
-**In our code** (lines 55, 122-127 in `validation.rs`):
+**In our code** (`validation.rs`):
 ```rust
 // Collecting processor IDs for validation
 let processor_ids: HashSet<&String> = config.processors.iter().map(|p| &p.id).collect();
@@ -195,7 +195,7 @@ let combined_error = format!("Configuration validation failed:\n{}", error_messa
 
 **Why used here**: Configuration validation needs specific error types with detailed context for debugging.
 
-**In our code** (lines 3, 6-31 in `validation.rs`):
+**In our code** (`validation.rs`):
 ```rust
 use crate::errors::ValidationError;
 
@@ -229,7 +229,7 @@ pub fn validate_dependency_graph(config: &Config) -> Result<(), Vec<ValidationEr
 
 **Why used here**: Processors need to be shared across multiple parts of the DAG execution system, and we need runtime polymorphism for different processor types.
 
-**In our code** (lines 2, 4, 73-95 in `processor_map.rs`):
+**In our code** (`processor_map.rs`):
 ```rust
 use std::sync::Arc;
 use crate::traits::Processor;
@@ -271,7 +271,7 @@ impl ProcessorMap {
 
 **Why used here**: Complex validation logic requires sophisticated control flow and pattern matching.
 
-**In our code** (lines 19-24, 134-140 in `validation.rs`):
+**In our code** (`validation.rs`):
 ```rust
 // Conditional validation based on previous results
 if errors.is_empty() {
@@ -302,7 +302,7 @@ if errors.is_empty() {
 
 **Why used here**: Cycle detection in graphs requires depth-first search with mutable tracking state.
 
-**In our code** (lines 117-147 in `validation.rs`):
+**In our code** (`validation.rs`):
 ```rust
 fn dfs_cycle_detection(
     node: &str,
@@ -350,7 +350,7 @@ fn dfs_cycle_detection(
 
 **Why used here**: The configuration system needs to work with various string types and manage memory efficiently across function boundaries.
 
-**In our code** (lines 78-92, 117-123 in `validation.rs`):
+**In our code** (`validation.rs`):
 ```rust
 // Complex generic constraints with lifetimes
 fn validate_acyclic_graph(config: &Config) -> Result<(), Vec<ValidationError>> {
@@ -395,7 +395,7 @@ fn dfs_cycle_detection(
 
 **Why used here**: Complex runtime assembly requires coordinating multiple components (processors, executors, strategies) from configuration while maintaining clean separation of concerns.
 
-**In our code** (lines 1-52 in `runtime.rs`):
+**In our code** (`runtime.rs`):
 ```rust
 use crate::config::{Config, ProcessorMap};
 use crate::engine::factory::ExecutorFactory;
@@ -430,7 +430,7 @@ impl RuntimeBuilder {
 
 **Why used here**: Prevent misuse of raw HashMap and provide domain-specific API for processor registry operations.
 
-**In our code** (lines 1-20, 140-169 in `processor_map.rs`):
+**In our code** (`processor_map.rs`):
 ```rust
 pub struct ProcessorMap(HashMap<String, Arc<dyn Processor>>);
 

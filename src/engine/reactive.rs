@@ -119,22 +119,69 @@ impl ReactiveExecutor {
         Ok((senders, nodes))
     }
 
-    /// Spawn an async task for a processor in the reactive network
-    ///
-    /// This reuses the canonical payload architecture and declared_intent() pattern
-    /// from the existing executors to maintain consistency.
-    async fn spawn_processor_task(
-        processor_id: String,
+    /// Handle a dependency completion event
+    fn handle_dependency_completed(
+        node: &mut ProcessorNode,
+        dependency_id: String,
+        metadata: HashMap<String, crate::proto::processor_v1::Metadata>,
+    ) {
+        let dependency_response = ProcessorResponse {
+            outcome: Some(Outcome::NextPayload(vec![])), // Payload not used in metadata merging
+            metadata,
+        };
+        node.dependency_results.insert(dependency_id, dependency_response);
+        node.pending_dependencies -= 1;
+    }
+
+    /// Handle an execute event for entry point processors
+    fn handle_execute_event(
+        node: &mut ProcessorNode,
+        processor_id: &str,
+        metadata: HashMap<String, crate::proto::processor_v1::Metadata>,
+    ) -> Result<bool, ExecutionError> {
+        // Entry point execution - store as base metadata
+        let base_response = ProcessorResponse {
+            outcome: Some(Outcome::NextPayload(vec![])),
+            metadata,
+        };
+        node.dependency_results.insert(BASE_METADATA_KEY.to_string(), base_response);
+        
+        // Validate that entry points have no pending dependencies
+        if node.pending_dependencies == 0 {
+            Ok(true) // Signal to break from dependency waiting loop
+        } else {
+            Err(ExecutionError::InternalError {
+                message: format!(
+                    "Received Execute event for processor '{}' with pending_dependencies = {} (expected 0)",
+                    processor_id, node.pending_dependencies
+                ),
+            })
+        }
+    }
+
+    /// Process a single event received by a processor
+    async fn process_event(
+        node: &mut ProcessorNode,
+        processor_id: &str,
+        event: ProcessorEvent,
+    ) -> Result<bool, ExecutionError> {
+        match event {
+            ProcessorEvent::DependencyCompleted { dependency_id, metadata } => {
+                Self::handle_dependency_completed(node, dependency_id, metadata);
+                Ok(false) // Continue waiting for more dependencies
+            }
+            ProcessorEvent::Execute { metadata } => {
+                Self::handle_execute_event(node, processor_id, metadata)
+            }
+        }
+    }
+
+    /// Wait for all dependencies to complete before processor execution
+    async fn wait_for_dependencies(
         mut node: ProcessorNode,
-        processors: Arc<ProcessorMap>,
-        canonical_payload_mutex: Arc<Mutex<Vec<u8>>>,
-        results_mutex: Arc<Mutex<HashMap<String, ProcessorResponse>>>,
-        senders: Arc<HashMap<String, mpsc::UnboundedSender<ProcessorEvent>>>,
-        failure_strategy: FailureStrategy,
-        semaphore: Arc<tokio::sync::Semaphore>,
-        cancellation_token: CancellationToken,
-    ) -> Result<(), ExecutionError> {
-        // Wait for all dependencies to complete
+        processor_id: &str,
+        cancellation_token: &CancellationToken,
+    ) -> Result<ProcessorNode, ExecutionError> {
         while node.pending_dependencies > 0 {
             tokio::select! {
                 // Check for cancellation first
@@ -146,36 +193,9 @@ impl ReactiveExecutor {
                 // Wait for dependency events
                 event_result = node.receiver.recv() => {
                     if let Some(event) = event_result {
-                        match event {
-                            ProcessorEvent::DependencyCompleted { dependency_id, metadata } => {
-                                // Store dependency result for metadata merging
-                                let dependency_response = ProcessorResponse {
-                                    outcome: Some(Outcome::NextPayload(vec![])), // Payload not used in metadata merging
-                                    metadata,
-                                };
-                                node.dependency_results.insert(dependency_id, dependency_response);
-                                node.pending_dependencies -= 1;
-                            }
-                            ProcessorEvent::Execute { metadata } => {
-                                // Entry point execution - store as base metadata
-                                let base_response = ProcessorResponse {
-                                    outcome: Some(Outcome::NextPayload(vec![])),
-                                    metadata,
-                                };
-                                node.dependency_results.insert(BASE_METADATA_KEY.to_string(), base_response);
-                                
-                                // Validate that entry points have no pending dependencies
-                                if node.pending_dependencies == 0 {
-                                    break; // Exit the loop for entry points
-                                } else {
-                                    return Err(ExecutionError::InternalError {
-                                        message: format!(
-                                            "Received Execute event for processor '{}' with pending_dependencies = {} (expected 0)",
-                                            processor_id, node.pending_dependencies
-                                        ),
-                                    });
-                                }
-                            }
+                        let should_break = Self::process_event(&mut node, processor_id, event).await?;
+                        if should_break {
+                            break;
                         }
                     } else {
                         return Err(ExecutionError::InternalError {
@@ -185,6 +205,26 @@ impl ReactiveExecutor {
                 }
             }
         }
+        Ok(node)
+    }
+
+    /// Spawn an async task for a processor in the reactive network
+    ///
+    /// This reuses the canonical payload architecture and declared_intent() pattern
+    /// from the existing executors to maintain consistency.
+    async fn spawn_processor_task(
+        processor_id: String,
+        node: ProcessorNode,
+        processors: Arc<ProcessorMap>,
+        canonical_payload_mutex: Arc<Mutex<Vec<u8>>>,
+        results_mutex: Arc<Mutex<HashMap<String, ProcessorResponse>>>,
+        senders: Arc<HashMap<String, mpsc::UnboundedSender<ProcessorEvent>>>,
+        failure_strategy: FailureStrategy,
+        semaphore: Arc<tokio::sync::Semaphore>,
+        cancellation_token: CancellationToken,
+    ) -> Result<(), ExecutionError> {
+        // Wait for all dependencies to complete
+        let node = Self::wait_for_dependencies(node, &processor_id, &cancellation_token).await?;
 
         // Acquire semaphore permit for concurrency control
         let _permit = semaphore.acquire().await
@@ -244,10 +284,14 @@ impl ReactiveExecutor {
                 // Notify all dependents (event-driven core)
                 for dependent_id in &node.dependents {
                     if let Some(sender) = senders.get(dependent_id) {
-                        let _ = sender.send(ProcessorEvent::DependencyCompleted {
+                        if let Err(_) = sender.send(ProcessorEvent::DependencyCompleted {
                             dependency_id: processor_id.clone(),
                             metadata: processor_response.metadata.clone(),
-                        });
+                        }) {
+                            // Channel closed - dependent processor likely cancelled or failed
+                            // This is expected during cancellation scenarios, so we continue
+                            // without treating it as an error
+                        }
                     }
                 }
             }
@@ -354,9 +398,15 @@ impl DagExecutor for ReactiveExecutor {
         // Trigger entry point processors
         for entrypoint in entrypoints.iter() {
             if let Some(sender) = senders_arc.get(entrypoint) {
-                let _ = sender.send(ProcessorEvent::Execute {
+                if let Err(_) = sender.send(ProcessorEvent::Execute {
                     metadata: input.metadata.clone(),
-                });
+                }) {
+                    // Entry point processor channel closed - this indicates a serious issue
+                    // since entry points should be ready to receive at startup
+                    return Err(ExecutionError::InternalError {
+                        message: format!("Failed to trigger entry point processor '{}' - channel closed", entrypoint),
+                    });
+                }
             }
         }
 
@@ -719,6 +769,164 @@ mod tests {
                 assert_eq!(error_detail.code, 500);
             }
             _ => panic!("Expected Error outcome for no outcome processor"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_channel_error_handling_resilience() {
+        use crate::backends::stub::StubProcessor;
+
+        let executor = ReactiveExecutor::new(1);
+
+        let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
+        processor_map.insert("simple".to_string(), Arc::new(StubProcessor::new("simple".to_string())));
+
+        let mut dependency_graph = HashMap::new();
+        dependency_graph.insert("simple".to_string(), vec![]);
+
+        let entry_points = vec!["simple".to_string()];
+
+        let input = ProcessorRequest {
+            payload: b"test".to_vec(),
+            metadata: HashMap::new(),
+        };
+
+        // This test verifies that our channel error handling improvements
+        // don't break normal execution of simple processors
+        let result = executor.execute_with_strategy(
+            ProcessorMap(processor_map),
+            DependencyGraph(dependency_graph),
+            EntryPoints(entry_points),
+            input,
+            FailureStrategy::FailFast,
+        ).await;
+
+        // Should succeed - this tests that our error handling improvements
+        // don't break normal execution
+        match result {
+            Ok(responses) => {
+                assert_eq!(responses.len(), 1);
+                assert!(responses.contains_key("simple"));
+            },
+            Err(e) => panic!("Unexpected error: {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_entry_point_triggering_success() {
+        use crate::backends::stub::StubProcessor;
+
+        let executor = ReactiveExecutor::new(1);
+
+        let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
+        processor_map.insert("entry".to_string(), Arc::new(StubProcessor::new("entry".to_string())));
+
+        let mut dependency_graph = HashMap::new();
+        dependency_graph.insert("entry".to_string(), vec![]);
+
+        let entry_points = vec!["entry".to_string()];
+
+        let input = ProcessorRequest {
+            payload: b"test".to_vec(),
+            metadata: HashMap::new(),
+        };
+
+        // This test verifies that entry point triggering works correctly
+        // and that our error handling doesn't interfere with normal operation
+        let result = executor.execute_with_strategy(
+            ProcessorMap(processor_map),
+            DependencyGraph(dependency_graph),
+            EntryPoints(entry_points),
+            input,
+            FailureStrategy::FailFast,
+        ).await;
+
+        assert!(result.is_ok());
+        let responses = result.unwrap();
+        assert_eq!(responses.len(), 1);
+        assert!(responses.contains_key("entry"));
+    }
+
+    #[tokio::test]
+    async fn test_error_handling_with_failing_processor() {
+        use crate::backends::stub::FailingProcessor;
+
+        let executor = ReactiveExecutor::new(1);
+
+        let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
+        processor_map.insert("failing".to_string(), Arc::new(FailingProcessor::new("failing".to_string())));
+
+        let mut dependency_graph = HashMap::new();
+        dependency_graph.insert("failing".to_string(), vec![]);
+
+        let entry_points = vec!["failing".to_string()];
+
+        let input = ProcessorRequest {
+            payload: b"test".to_vec(),
+            metadata: HashMap::new(),
+        };
+
+        // This test verifies that processor failures are handled correctly
+        // and that our channel error handling doesn't interfere with failure reporting
+        let result = executor.execute_with_strategy(
+            ProcessorMap(processor_map),
+            DependencyGraph(dependency_graph),
+            EntryPoints(entry_points),
+            input,
+            FailureStrategy::FailFast,
+        ).await;
+
+        // Should fail due to the failing processor
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ExecutionError::ProcessorFailed { processor_id, .. } => {
+                assert_eq!(processor_id, "failing");
+            }
+            other_error => panic!("Expected ProcessorFailed error, got: {:?}", other_error),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_multiple_processors_execution() {
+        use crate::backends::stub::StubProcessor;
+
+        let executor = ReactiveExecutor::new(3);
+
+        let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
+        processor_map.insert("proc1".to_string(), Arc::new(StubProcessor::new("proc1".to_string())));
+        processor_map.insert("proc2".to_string(), Arc::new(StubProcessor::new("proc2".to_string())));
+        processor_map.insert("proc3".to_string(), Arc::new(StubProcessor::new("proc3".to_string())));
+
+        let mut dependency_graph = HashMap::new();
+        dependency_graph.insert("proc1".to_string(), vec![]);
+        dependency_graph.insert("proc2".to_string(), vec![]);
+        dependency_graph.insert("proc3".to_string(), vec![]);
+
+        let entry_points = vec!["proc1".to_string(), "proc2".to_string(), "proc3".to_string()];
+
+        let input = ProcessorRequest {
+            payload: b"test".to_vec(),
+            metadata: HashMap::new(),
+        };
+
+        // Test that multiple independent processors can execute successfully
+        // and that our channel error handling doesn't interfere
+        let result = executor.execute_with_strategy(
+            ProcessorMap(processor_map),
+            DependencyGraph(dependency_graph),
+            EntryPoints(entry_points),
+            input,
+            FailureStrategy::FailFast,
+        ).await;
+
+        match result {
+            Ok(responses) => {
+                assert_eq!(responses.len(), 3);
+                assert!(responses.contains_key("proc1"));
+                assert!(responses.contains_key("proc2"));
+                assert!(responses.contains_key("proc3"));
+            }
+            Err(e) => panic!("Unexpected error: {:?}", e),
         }
     }
 }

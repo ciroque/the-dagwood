@@ -2,6 +2,12 @@
 
 This directory defines the core trait abstractions for The DAGwood project, establishing contracts for processors and executors. It demonstrates advanced Rust concepts around trait design, async programming, and polymorphism that enable pluggable architectures.
 
+**Related Documentation:**
+- [`../engine/RUSTME.md`](../engine/RUSTME.md) - Core async/await patterns and concurrency primitives
+- [`../config/RUSTME.md`](../config/RUSTME.md) - Configuration system that uses these traits
+- [`../engine/RUSTME-WorkQueue.md`](../engine/RUSTME-WorkQueue.md) - DagExecutor trait implementation example
+- [`../engine/RUSTME-LevelByLevel.md`](../engine/RUSTME-LevelByLevel.md) - Alternative DagExecutor implementation
+
 ## Beginner Level Concepts
 
 ### 1. Trait Definitions as Contracts (`processor.rs`)

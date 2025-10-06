@@ -2,6 +2,12 @@
 
 This directory implements configuration loading, validation, and processor registry management for The DAGwood project. It demonstrates key Rust language features chosen specifically for robust configuration handling in a DAG execution system.
 
+**Related Documentation:**
+- [`../traits/RUSTME.md`](../traits/RUSTME.md) - Trait definitions used by the configuration system
+- [`../engine/RUSTME.md`](../engine/RUSTME.md) - Executor implementations that use these configurations
+- [`../engine/RUSTME-WorkQueue.md`](../engine/RUSTME-WorkQueue.md) - Work Queue executor configuration examples
+- [`../engine/RUSTME-LevelByLevel.md`](../engine/RUSTME-LevelByLevel.md) - Level-by-Level executor configuration examples
+
 ## Beginner Level Concepts
 
 ### 1. Structs and Data Modeling (`loader.rs`)

@@ -2,6 +2,13 @@
 
 This file implements the Level-by-Level executor, a sophisticated DAG execution engine that uses optimized topological sorting and level-based parallel execution. It demonstrates advanced Rust concepts around concurrency, async programming, and algorithmic optimization for deterministic DAG execution with canonical payload tracking.
 
+**Related Documentation:**
+- [`RUSTME.md`](./RUSTME.md) - Core async/await patterns and concurrency fundamentals
+- [`RUSTME-WorkQueue.md`](./RUSTME-WorkQueue.md) - Alternative dependency-counting execution strategy
+- [`RUSTME-Reactive.md`](./RUSTME-Reactive.md) - Event-driven execution approach
+- [`../traits/RUSTME.md`](../traits/RUSTME.md) - DagExecutor trait definition and async traits
+- [`../config/RUSTME.md`](../config/RUSTME.md) - Configuration system and executor factory
+
 ## Beginner Level Concepts
 
 ### 1. Struct Definition and Constructor Patterns (`level_by_level.rs`)

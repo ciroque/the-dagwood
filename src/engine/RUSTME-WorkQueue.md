@@ -1,6 +1,13 @@
-# RUSTME.md - WorkQueue Executor (`src/engine/work_queue.rs`)
+# RUSTME.md - Work Queue Executor (`src/engine/work_queue.rs`)
 
 This file implements the WorkQueue executor, a sophisticated DAG execution engine that uses dependency counting and canonical payload tracking. It demonstrates advanced Rust concepts around concurrency, async programming, and complex state management for deterministic DAG execution.
+
+**Related Documentation:**
+- [`RUSTME.md`](./RUSTME.md) - Core async/await patterns and concurrency fundamentals
+- [`RUSTME-LevelByLevel.md`](./RUSTME-LevelByLevel.md) - Alternative level-based execution strategy
+- [`RUSTME-Reactive.md`](./RUSTME-Reactive.md) - Event-driven execution approach
+- [`../traits/RUSTME.md`](../traits/RUSTME.md) - DagExecutor trait definition and async traits
+- [`../config/RUSTME.md`](../config/RUSTME.md) - Configuration system and executor factory
 
 ## Beginner Level Concepts
 

@@ -1,7 +1,136 @@
+//! Priority-based work queue for efficient DAG processor scheduling.
+//!
+//! This module provides a sophisticated priority queue implementation optimized for DAG execution
+//! scenarios where processors have different priorities based on their position in the dependency
+//! graph and their execution characteristics. The queue handles blocked processors efficiently
+//! without expensive queue reconstruction operations.
+//!
+//! # Key Features
+//!
+//! - **Topological Priority**: Processors with higher topological ranks execute first (critical path optimization)
+//! - **Transform Priority**: Transform processors get priority over Analyze processors at the same rank
+//! - **Blocked Task Optimization**: Separate storage for blocked tasks to avoid repeated heap operations
+//! - **Fast Path Optimization**: O(1) operation when the highest priority task is available
+//!
+//! # Priority Ordering
+//!
+//! Tasks are ordered by:
+//! 1. **Topological Rank** (higher = higher priority)
+//! 2. **Processor Intent** (Transform > Analyze at same rank)
+//! 3. **Processor ID** (stable sort for deterministic behavior)
+//!
+//! # Performance Characteristics
+//!
+//! - **Best Case**: O(1) when no blocking occurs
+//! - **Worst Case**: O(n) with optimized batch operations for blocked tasks
+//! - **Memory**: O(n) with separate storage for blocked vs. ready tasks
+//!
+//! # Examples
+//!
+//! ## Basic usage with priority ordering
+//! ```rust
+//! use std::collections::HashSet;
+//! use the_dagwood::engine::priority_work_queue::{PriorityWorkQueue, PrioritizedTask};
+//! 
+//! let mut queue = PriorityWorkQueue::new();
+//! 
+//! // Add tasks with different priorities
+//! queue.push(PrioritizedTask::new("low_priority".to_string(), 0, false));
+//! queue.push(PrioritizedTask::new("high_priority".to_string(), 5, true));
+//! queue.push(PrioritizedTask::new("mid_priority".to_string(), 3, false));
+//! 
+//! let blocked = HashSet::new();
+//! 
+//! // Processors execute in priority order: high -> mid -> low
+//! assert_eq!(queue.pop_next_available(&blocked), Some("high_priority".to_string()));
+//! assert_eq!(queue.pop_next_available(&blocked), Some("mid_priority".to_string()));
+//! assert_eq!(queue.pop_next_available(&blocked), Some("low_priority".to_string()));
+//! ```
+//!
+//! ## Handling blocked processors
+//! ```rust
+//! use std::collections::HashSet;
+//! use the_dagwood::engine::priority_work_queue::{PriorityWorkQueue, PrioritizedTask};
+//! 
+//! let mut queue = PriorityWorkQueue::new();
+//! queue.push(PrioritizedTask::new("blocked_high".to_string(), 10, true));
+//! queue.push(PrioritizedTask::new("available_low".to_string(), 1, false));
+//! 
+//! let mut blocked = HashSet::new();
+//! blocked.insert("blocked_high".to_string());
+//! 
+//! // Skips blocked processor, returns available one
+//! assert_eq!(queue.pop_next_available(&blocked), Some("available_low".to_string()));
+//! 
+//! // Later, when processor becomes unblocked
+//! blocked.clear();
+//! assert_eq!(queue.pop_next_available(&blocked), Some("blocked_high".to_string()));
+//! ```
+
 use std::collections::{BinaryHeap, HashSet, HashMap};
 use std::cmp::Ordering;
 
-/// Prioritized task for the work queue, ordered by topological rank and processor intent
+/// A prioritized task representing a processor ready for execution in the DAG.
+///
+/// `PrioritizedTask` encapsulates the information needed to schedule processors in optimal
+/// execution order. The priority is determined by topological rank (critical path position)
+/// and processor intent (Transform vs Analyze), enabling efficient DAG execution strategies.
+///
+/// # Priority Ordering Rules
+///
+/// Tasks are ordered by the following criteria (in order of precedence):
+///
+/// 1. **Topological Rank**: Higher ranks execute first (critical path optimization)
+///    - Rank 5 executes before Rank 3
+///    - Optimizes for reducing overall DAG execution time
+///
+/// 2. **Processor Intent**: Transform processors prioritized over Analyze at same rank
+///    - Transform processors modify the canonical payload
+///    - Analyze processors only contribute metadata
+///    - Ensures payload modifications happen before analysis
+///
+/// 3. **Processor ID**: Lexicographic ordering for deterministic behavior
+///    - Provides stable sort when all other criteria are equal
+///    - Ensures reproducible execution order
+///
+/// # Examples
+///
+/// ## Creating prioritized tasks
+/// ```rust
+/// use the_dagwood::engine::priority_work_queue::PrioritizedTask;
+/// 
+/// // High priority Transform processor (critical path)
+/// let critical_transform = PrioritizedTask::new(
+///     "data_transformer".to_string(),
+///     10, // High topological rank
+///     true // Transform processor
+/// );
+/// 
+/// // Lower priority Analyze processor
+/// let analyzer = PrioritizedTask::new(
+///     "data_analyzer".to_string(),
+///     10, // Same rank as transform
+///     false // Analyze processor
+/// );
+/// 
+/// // Transform processor will execute first due to intent priority
+/// assert!(critical_transform > analyzer);
+/// ```
+///
+/// ## Priority comparison examples
+/// ```rust
+/// use the_dagwood::engine::priority_work_queue::PrioritizedTask;
+/// 
+/// let high_rank = PrioritizedTask::new("proc1".to_string(), 5, false);
+/// let low_rank = PrioritizedTask::new("proc2".to_string(), 2, false);
+/// let transform_same_rank = PrioritizedTask::new("proc3".to_string(), 5, true);
+/// 
+/// // Higher topological rank wins
+/// assert!(high_rank > low_rank);
+/// 
+/// // Transform intent wins at same rank
+/// assert!(transform_same_rank > high_rank);
+/// ```
 #[derive(Debug, Clone)]
 pub struct PrioritizedTask {
     pub processor_id: String,
@@ -10,6 +139,34 @@ pub struct PrioritizedTask {
 }
 
 impl PrioritizedTask {
+    /// Creates a new prioritized task for DAG execution scheduling.
+    ///
+    /// # Arguments
+    ///
+    /// * `processor_id` - Unique identifier for the processor
+    /// * `topological_rank` - Position in topological sort (higher = more critical)
+    /// * `is_transform` - Whether this is a Transform processor (true) or Analyze processor (false)
+    ///
+    /// # Returns
+    ///
+    /// A new `PrioritizedTask` ready for insertion into the priority queue.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use the_dagwood::engine::priority_work_queue::PrioritizedTask;
+    /// 
+    /// // Create a high-priority Transform processor
+    /// let task = PrioritizedTask::new(
+    ///     "critical_processor".to_string(),
+    ///     8, // High topological rank
+    ///     true // Transform processor
+    /// );
+    /// 
+    /// assert_eq!(task.processor_id, "critical_processor");
+    /// assert_eq!(task.topological_rank, 8);
+    /// assert_eq!(task.is_transform, true);
+    /// ```
     pub fn new(processor_id: String, topological_rank: usize, is_transform: bool) -> Self {
         Self {
             processor_id,
@@ -20,6 +177,11 @@ impl PrioritizedTask {
 }
 
 impl PartialEq for PrioritizedTask {
+    /// Equality based solely on processor ID for task identity.
+    ///
+    /// Two tasks are considered equal if they represent the same processor,
+    /// regardless of their priority attributes. This ensures that the same
+    /// processor cannot be queued multiple times.
     fn eq(&self, other: &Self) -> bool {
         self.processor_id == other.processor_id
     }
@@ -28,12 +190,50 @@ impl PartialEq for PrioritizedTask {
 impl Eq for PrioritizedTask {}
 
 impl PartialOrd for PrioritizedTask {
+    /// Partial comparison delegating to total ordering implementation.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for PrioritizedTask {
+    /// Total ordering implementation for priority queue scheduling.
+    ///
+    /// This implements the core scheduling logic for DAG execution. The ordering
+    /// is designed to optimize DAG execution time by prioritizing critical path
+    /// processors and ensuring Transform processors execute before Analyze processors.
+    ///
+    /// # Ordering Rules (in precedence order)
+    ///
+    /// 1. **Topological Rank**: Higher ranks first (critical path optimization)
+    /// 2. **Processor Intent**: Transform before Analyze at same rank
+    /// 3. **Processor ID**: Lexicographic for deterministic behavior
+    ///
+    /// # BinaryHeap Behavior
+    ///
+    /// Since `BinaryHeap` is a max-heap, higher values are popped first:
+    /// - Higher topological ranks → executed first (critical path)
+    /// - Transform processors → executed before Analyze at same rank
+    /// - Lexicographic ID ordering → deterministic execution order
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use the_dagwood::engine::priority_work_queue::PrioritizedTask;
+    /// use std::cmp::Ordering;
+    /// 
+    /// let high_rank = PrioritizedTask::new("proc1".to_string(), 5, false);
+    /// let low_rank = PrioritizedTask::new("proc2".to_string(), 2, false);
+    /// 
+    /// // Higher rank has greater priority
+    /// assert_eq!(high_rank.cmp(&low_rank), Ordering::Greater);
+    /// 
+    /// let transform = PrioritizedTask::new("transform".to_string(), 3, true);
+    /// let analyze = PrioritizedTask::new("analyze".to_string(), 3, false);
+    /// 
+    /// // Transform beats Analyze at same rank
+    /// assert_eq!(transform.cmp(&analyze), Ordering::Greater);
+    /// ```
     fn cmp(&self, other: &Self) -> Ordering {
         // BinaryHeap is a max-heap: higher topological ranks are popped first
         // This prioritizes critical path processors (higher ranks = executed first)

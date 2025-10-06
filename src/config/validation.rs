@@ -35,10 +35,29 @@
 //!
 //! ## Basic validation usage
 //! ```rust
-//! use the_dagwood::config::validation::validate_dependency_graph;
-//! use the_dagwood::config::Config;
+//! use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions};
+//! use the_dagwood::errors::FailureStrategy;
+//! use std::collections::HashMap;
 //! 
-//! // Validate a loaded configuration
+//! // Create a sample configuration
+//! let config = Config {
+//!     strategy: Strategy::WorkQueue,
+//!     failure_strategy: FailureStrategy::FailFast,
+//!     executor_options: ExecutorOptions::default(),
+//!     processors: vec![
+//!         ProcessorConfig {
+//!             id: "processor1".to_string(),
+//!             backend: BackendType::Local,
+//!             processor: Some("test".to_string()),
+//!             endpoint: None,
+//!             module: None,
+//!             depends_on: vec![],
+//!             options: HashMap::new(),
+//!         }
+//!     ],
+//! };
+//! 
+//! // Validate the configuration
 //! match validate_dependency_graph(&config) {
 //!     Ok(()) => println!("Configuration is valid"),
 //!     Err(errors) => {
@@ -51,8 +70,27 @@
 //!
 //! ## Handling specific validation errors
 //! ```rust
-//! use the_dagwood::config::validation::validate_dependency_graph;
-//! use the_dagwood::errors::ValidationError;
+//! use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions};
+//! use the_dagwood::errors::{ValidationError, FailureStrategy};
+//! use std::collections::HashMap;
+//! 
+//! // Create a configuration with validation errors
+//! let config = Config {
+//!     strategy: Strategy::WorkQueue,
+//!     failure_strategy: FailureStrategy::FailFast,
+//!     executor_options: ExecutorOptions::default(),
+//!     processors: vec![
+//!         ProcessorConfig {
+//!             id: "processor1".to_string(),
+//!             backend: BackendType::Local,
+//!             processor: Some("test".to_string()),
+//!             endpoint: None,
+//!             module: None,
+//!             depends_on: vec!["nonexistent".to_string()], // This will cause an error
+//!             options: HashMap::new(),
+//!         }
+//!     ],
+//! };
 //! 
 //! if let Err(errors) = validate_dependency_graph(&config) {
 //!     for error in errors {
@@ -100,7 +138,36 @@ use crate::errors::ValidationError;
 /// # Examples
 ///
 /// ```rust
-/// use the_dagwood::config::{Config, validation::validate_dependency_graph};
+/// use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions};
+/// use the_dagwood::errors::FailureStrategy;
+/// use std::collections::HashMap;
+/// 
+/// // Create a valid configuration
+/// let config = Config {
+///     strategy: Strategy::WorkQueue,
+///     failure_strategy: FailureStrategy::FailFast,
+///     executor_options: ExecutorOptions::default(),
+///     processors: vec![
+///         ProcessorConfig {
+///             id: "input".to_string(),
+///             backend: BackendType::Local,
+///             processor: Some("test".to_string()),
+///             endpoint: None,
+///             module: None,
+///             depends_on: vec![],
+///             options: HashMap::new(),
+///         },
+///         ProcessorConfig {
+///             id: "output".to_string(),
+///             backend: BackendType::Local,
+///             processor: Some("test".to_string()),
+///             endpoint: None,
+///             module: None,
+///             depends_on: vec!["input".to_string()],
+///             options: HashMap::new(),
+///         }
+///     ],
+/// };
 /// 
 /// // Validate before execution
 /// match validate_dependency_graph(&config) {

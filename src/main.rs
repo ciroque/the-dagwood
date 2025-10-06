@@ -1,8 +1,8 @@
 use std::env;
 use std::time::Instant;
 use std::collections::HashMap;
-
-use the_dagwood::config::{load_config, RuntimeBuilder, DependencyGraph, EntryPoints};
+use the_dagwood::config::{RuntimeBuilder, DependencyGraph, EntryPoints, load_and_validate_config};
+use the_dagwood::engine::metadata::BASE_METADATA_KEY;
 use the_dagwood::proto::processor_v1::ProcessorRequest;
 use the_dagwood::proto::processor_v1::processor_response::Outcome;
 
@@ -29,7 +29,7 @@ async fn main() {
         std::process::exit(1);
     }
     
-    // Last argument is the input text
+    // The last argument is the input text
     let input_text = &args[args.len() - 1];
     // All arguments except the first (program name) and last (input) are config files
     let config_files = &args[1..args.len() - 1];
@@ -42,7 +42,7 @@ async fn main() {
     
     for (i, config_file) in config_files.iter().enumerate() {
         if i > 0 {
-            println!("\n{}", "─".repeat(80));
+            println!("\n{}", "─".repeat(80)); // This is neat, the `repeat` function to generate a string of a certain length
         }
         
         match run_single_config(config_file, input_text).await {
@@ -60,8 +60,8 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
     let start_time = Instant::now();
     
     // Load configuration
-    let config = load_config(config_file)?;
-    
+    let config = load_and_validate_config(config_file)?;
+
     // Build runtime components from configuration
     let (processors, executor, failure_strategy) = RuntimeBuilder::from_config(&config);
     
@@ -91,11 +91,25 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
     
     let dependency_graph = DependencyGraph(graph_map);
     let entry_points = EntryPoints(entry_points_vec);
-    
+
+    use the_dagwood::proto::processor_v1::Metadata;
+    let request_metadata = HashMap::from([{
+        (BASE_METADATA_KEY.to_string(), Metadata {
+            metadata: HashMap::from([
+                ("config_file".to_string(), config_file.to_string()),
+                ("hostname".to_string(), std::env::var("HOSTNAME").unwrap_or_else(|_| "unknown".to_string())),
+                (
+                    "input_text".to_string(),
+                    input_text.to_string(),
+                )
+            ]),
+        })
+    }]);
+
     // Prepare input
     let input = ProcessorRequest {
         payload: input_text.as_bytes().to_vec(),
-        metadata: HashMap::new(),
+        metadata: request_metadata,
     };
     
     println!("📋 Configuration: {}", config_file);
@@ -171,7 +185,7 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
             // Show metadata if present
             if !result.metadata.is_empty() {
                 println!("     📝 Metadata: {} entries", result.metadata.len());
-                for (key, metadata) in result.metadata.iter().take(3) { // Show first 3 metadata entries
+                for (key, metadata) in result.metadata.iter().take(3) { // Show the first 3 metadata entries
                     if !metadata.metadata.is_empty() {
                         let sample_key = metadata.metadata.keys().next().map(|k| k.as_str()).unwrap_or(UNKNOWN_KEY);
                         println!("        • {}: {} keys (e.g., {})", key, metadata.metadata.len(), sample_key);
@@ -180,6 +194,8 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
                 if result.metadata.len() > 3 {
                     println!("        • ... and {} more", result.metadata.len() - 3);
                 }
+            } else {
+                println!("     📝 Metadata: no entries");
             }
         }
     }
@@ -192,6 +208,17 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
                 println!("\n🎯 Final Transformation:");
                 println!("   Input:  \"{}\"", input_text);
                 println!("   Output: \"{}\"", final_output);
+            }
+
+            if final_result.metadata.is_empty() {
+                println!("   No metadata");
+            } else {
+                for (processor_name, metadata) in final_result.metadata.iter() {
+                    println!("   {}:", processor_name);
+                    for (key, value) in metadata.metadata.iter() {
+                        println!("      • {}: {}", key, value);
+                    }
+                }
             }
         }
     }

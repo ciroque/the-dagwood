@@ -1,3 +1,143 @@
+//! Reactive/Event-Driven DAG executor with async channel-based processor communication.
+//!
+//! This module implements a sophisticated event-driven execution strategy that uses async channels
+//! to create a reactive network where processors are notified immediately when their dependencies
+//! complete. This approach enables natural parallelism, low-latency execution, and efficient
+//! resource utilization without artificial batching or level computation.
+//!
+//! # Architecture Overview
+//!
+//! The Reactive executor builds a **notification network** using async channels:
+//! - Each processor has a dedicated receiver channel for dependency completion events
+//! - When a processor completes, it broadcasts events to all its dependents
+//! - Processors execute immediately when all dependencies are satisfied
+//! - No polling, no artificial delays - pure event-driven execution
+//!
+//! # Key Features
+//!
+//! - **Event-Driven**: Processors react immediately to dependency completion
+//! - **Natural Parallelism**: No artificial batching - processors run as soon as ready
+//! - **Low Latency**: Minimal delay between dependency completion and dependent execution
+//! - **Canonical Payload**: Maintains architectural consistency with Transform/Analyze separation
+//! - **Failure Resilience**: Sophisticated error handling with cancellation support
+//! - **Concurrency Control**: Configurable semaphore-based concurrency limiting
+//!
+//! # Execution Flow
+//!
+//! 1. **Network Setup**: Build async channel network based on dependency graph
+//! 2. **Task Spawning**: Spawn async task for each processor
+//! 3. **Entry Point Triggering**: Send execute events to entry point processors
+//! 4. **Event Propagation**: Processors notify dependents upon completion
+//! 5. **Result Collection**: Gather results from all completed processors
+//!
+//! # Performance Characteristics
+//!
+//! - **Latency**: O(1) notification propagation (async channel send)
+//! - **Throughput**: Limited by `max_concurrency` and processor execution time
+//! - **Memory**: O(V) for channel network where V = number of processors
+//! - **Scalability**: Excellent for I/O-bound processors with natural parallelism
+//!
+//! # Examples
+//!
+//! ## Basic reactive execution
+//! ```rust
+//! use std::collections::HashMap;
+//! use std::sync::Arc;
+//! use the_dagwood::engine::reactive::ReactiveExecutor;
+//! use the_dagwood::traits::executor::DagExecutor;
+//! use the_dagwood::config::{ProcessorMap, DependencyGraph, EntryPoints};
+//! use the_dagwood::backends::stub::StubProcessor;
+//! use the_dagwood::traits::Processor;
+//! use the_dagwood::proto::processor_v1::ProcessorRequest;
+//! use the_dagwood::errors::FailureStrategy;
+//! 
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let executor = ReactiveExecutor::new(4); // 4 concurrent processors max
+//! 
+//! // Build processor map
+//! let mut processor_map = HashMap::new();
+//! processor_map.insert("input".to_string(), Arc::new(StubProcessor::new("input".to_string())) as Arc<dyn Processor>);
+//! processor_map.insert("transform".to_string(), Arc::new(StubProcessor::new("transform".to_string())) as Arc<dyn Processor>);
+//! processor_map.insert("output".to_string(), Arc::new(StubProcessor::new("output".to_string())) as Arc<dyn Processor>);
+//! 
+//! // Build dependency graph: input -> transform -> output
+//! let mut dependency_graph = HashMap::new();
+//! dependency_graph.insert("input".to_string(), vec!["transform".to_string()]);
+//! dependency_graph.insert("transform".to_string(), vec!["output".to_string()]);
+//! dependency_graph.insert("output".to_string(), vec![]);
+//! 
+//! let entry_points = vec!["input".to_string()];
+//! let input = ProcessorRequest {
+//!     payload: b"reactive execution test".to_vec(),
+//!     metadata: HashMap::new(),
+//! };
+//! 
+//! // Execute with event-driven approach
+//! let results = executor.execute_with_strategy(
+//!     ProcessorMap(processor_map),
+//!     DependencyGraph(dependency_graph),
+//!     EntryPoints(entry_points),
+//!     input,
+//!     FailureStrategy::FailFast,
+//! ).await?;
+//! 
+//! // All processors executed reactively
+//! assert_eq!(results.len(), 3);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Diamond dependency with parallel execution
+//! ```rust
+//! use std::collections::HashMap;
+//! use std::sync::Arc;
+//! use the_dagwood::engine::reactive::ReactiveExecutor;
+//! use the_dagwood::traits::executor::DagExecutor;
+//! use the_dagwood::config::{ProcessorMap, DependencyGraph, EntryPoints};
+//! use the_dagwood::backends::stub::StubProcessor;
+//! use the_dagwood::traits::Processor;
+//! use the_dagwood::proto::processor_v1::ProcessorRequest;
+//! use the_dagwood::errors::FailureStrategy;
+//! 
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let executor = ReactiveExecutor::new(4);
+//! 
+//! // Diamond pattern: source -> [left, right] -> sink
+//! let mut processor_map = HashMap::new();
+//! processor_map.insert("source".to_string(), Arc::new(StubProcessor::new("source".to_string())) as Arc<dyn Processor>);
+//! processor_map.insert("left".to_string(), Arc::new(StubProcessor::new("left".to_string())) as Arc<dyn Processor>);
+//! processor_map.insert("right".to_string(), Arc::new(StubProcessor::new("right".to_string())) as Arc<dyn Processor>);
+//! processor_map.insert("sink".to_string(), Arc::new(StubProcessor::new("sink".to_string())) as Arc<dyn Processor>);
+//! 
+//! let mut dependency_graph = HashMap::new();
+//! dependency_graph.insert("source".to_string(), vec!["left".to_string(), "right".to_string()]);
+//! dependency_graph.insert("left".to_string(), vec!["sink".to_string()]);
+//! dependency_graph.insert("right".to_string(), vec!["sink".to_string()]);
+//! dependency_graph.insert("sink".to_string(), vec![]);
+//! 
+//! let entry_points = vec!["source".to_string()];
+//! let input = ProcessorRequest {
+//!     payload: b"diamond pattern".to_vec(),
+//!     metadata: HashMap::new(),
+//! };
+//! 
+//! // Left and right processors execute in parallel after source completes
+//! // Sink executes immediately when both left and right complete
+//! let results = executor.execute_with_strategy(
+//!     ProcessorMap(processor_map),
+//!     DependencyGraph(dependency_graph),
+//!     EntryPoints(entry_points),
+//!     input,
+//!     FailureStrategy::FailFast,
+//! ).await?;
+//! 
+//! assert_eq!(results.len(), 4);
+//! # Ok(())
+//! # }
+//! ```
+
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -14,27 +154,84 @@ use crate::engine::metadata::{merge_dependency_metadata_for_execution, BASE_META
 
 /// Reactive/Event-Driven executor that uses async channels for processor communication.
 ///
-/// This executor implements an event-driven approach where processors are notified
-/// immediately when their dependencies complete, enabling natural parallelism and
-/// low-latency execution without artificial batching or level computation.
+/// This executor implements a sophisticated event-driven approach where processors are notified
+/// immediately when their dependencies complete, enabling natural parallelism and low-latency
+/// execution without artificial batching or level computation. It's particularly well-suited
+/// for I/O-bound workloads and scenarios requiring minimal execution latency.
 ///
-/// ## Event-Driven Architecture
+/// # Event-Driven Architecture
 ///
-/// The executor builds a notification network using async channels where:
-/// - Each processor has a receiver channel for dependency completion events
-/// - When a processor completes, it sends events to all its dependents
-/// - Processors execute immediately when all dependencies are satisfied
+/// The executor builds a **notification network** using async channels where:
+/// - Each processor has a dedicated receiver channel for dependency completion events
+/// - When a processor completes, it broadcasts events to all its dependents via async channels
+/// - Processors execute immediately when all dependencies are satisfied (no polling)
+/// - Natural parallelism emerges from the dependency structure without artificial constraints
 ///
-/// ## Canonical Payload Architecture
+/// # Canonical Payload Architecture
 ///
-/// Like WorkQueue and LevelByLevel executors, this implements canonical payload tracking:
-/// - **Transform processors**: Update the canonical payload when they complete
+/// Maintains architectural consistency with other executors through canonical payload tracking:
+/// - **Transform processors**: Update the canonical payload when they complete successfully
 /// - **Analyze processors**: Receive canonical payload but only contribute metadata
-/// - **Downstream processors**: Always receive canonical payload + merged metadata
+/// - **Downstream processors**: Always receive canonical payload + merged dependency metadata
+/// - **Deterministic execution**: Same payload/metadata combination regardless of execution order
 ///
-/// This ensures deterministic execution and proper architectural separation.
+/// This ensures proper architectural separation and deterministic results across all execution strategies.
+///
+/// # Concurrency and Resource Management
+///
+/// - **Semaphore-based concurrency control**: Limits concurrent processor executions
+/// - **Async task spawning**: Each processor runs in its own async task
+/// - **Cancellation support**: Failed processors can cancel remaining tasks (FailFast mode)
+/// - **Memory efficient**: O(V) memory usage for channel network where V = processor count
+///
+/// # Performance Characteristics
+///
+/// **Best suited for**:
+/// - I/O-bound processors (network requests, file operations, database queries)
+/// - Workloads requiring low latency between dependency completion and execution
+/// - DAGs with natural parallelism and irregular execution times
+///
+/// **Performance metrics**:
+/// - **Notification latency**: O(1) - async channel send
+/// - **Execution latency**: Minimal - processors start immediately when ready
+/// - **Memory overhead**: O(V) for channel infrastructure
+/// - **Throughput**: Limited by `max_concurrency` and processor execution time
+///
+/// # Examples
+///
+/// ## Creating a reactive executor
+/// ```rust
+/// use the_dagwood::engine::reactive::ReactiveExecutor;
+/// 
+/// // Create with specific concurrency limit
+/// let executor = ReactiveExecutor::new(8);
+/// 
+/// // Create with default concurrency (CPU core count)
+/// let executor = ReactiveExecutor::default();
+/// ```
+///
+/// ## Comparing with other execution strategies
+/// ```rust
+/// use the_dagwood::engine::reactive::ReactiveExecutor;
+/// use the_dagwood::engine::work_queue::WorkQueueExecutor;
+/// use the_dagwood::engine::level_by_level::LevelByLevelExecutor;
+/// 
+/// // Reactive: Best for I/O-bound, low-latency requirements
+/// let reactive = ReactiveExecutor::new(4);
+/// 
+/// // WorkQueue: Best for CPU-bound, priority-based scheduling
+/// let work_queue = WorkQueueExecutor::new(4);
+/// 
+/// // LevelByLevel: Best for predictable execution patterns, debugging
+/// let level_by_level = LevelByLevelExecutor::new(4);
+/// ```
 pub struct ReactiveExecutor {
-    /// Maximum number of concurrent processor executions
+    /// Maximum number of concurrent processor executions.
+    /// 
+    /// This limit is enforced using a tokio Semaphore to prevent resource exhaustion
+    /// while still allowing natural parallelism within the constraint. Processors
+    /// will wait for permits before executing, but the event-driven notification
+    /// system continues to operate without blocking.
     max_concurrency: usize,
 }
 
@@ -65,14 +262,69 @@ struct ProcessorNode {
 }
 
 impl ReactiveExecutor {
-    /// Create a new Reactive executor with the specified concurrency limit
+    /// Creates a new Reactive executor with the specified concurrency limit.
+    ///
+    /// The concurrency limit controls how many processors can execute simultaneously,
+    /// preventing resource exhaustion while still allowing natural parallelism within
+    /// the constraint. The event-driven notification system operates independently
+    /// of this limit.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_concurrency` - Maximum number of processors that can execute concurrently.
+    ///                       Will be clamped to a minimum of 1.
+    ///
+    /// # Returns
+    ///
+    /// A new `ReactiveExecutor` configured with the specified concurrency limit.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use the_dagwood::engine::reactive::ReactiveExecutor;
+    /// 
+    /// // Create executor with specific concurrency
+    /// let executor = ReactiveExecutor::new(8);
+    /// 
+    /// // Minimum concurrency is enforced
+    /// let executor = ReactiveExecutor::new(0); // Actually creates with concurrency = 1
+    /// ```
+    ///
+    /// # Performance Considerations
+    ///
+    /// - **Higher concurrency**: Better for I/O-bound processors, may increase memory usage
+    /// - **Lower concurrency**: Better for CPU-bound processors, reduces context switching
+    /// - **Rule of thumb**: Start with CPU core count, adjust based on processor characteristics
     pub fn new(max_concurrency: usize) -> Self {
         Self {
             max_concurrency: max_concurrency.max(1), // Ensure at least 1
         }
     }
 
-    /// Create a new Reactive executor with default concurrency (number of CPU cores)
+    /// Creates a new Reactive executor with default concurrency based on system capabilities.
+    ///
+    /// The default concurrency is set to the number of available CPU cores, which provides
+    /// a good balance for most workloads. Falls back to 4 if the system's parallelism
+    /// cannot be determined.
+    ///
+    /// # Returns
+    ///
+    /// A new `ReactiveExecutor` with concurrency set to the number of CPU cores.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use the_dagwood::engine::reactive::ReactiveExecutor;
+    /// 
+    /// // Create with system-appropriate concurrency
+    /// let executor = ReactiveExecutor::default();
+    /// 
+    /// // Equivalent to:
+    /// let core_count = std::thread::available_parallelism()
+    ///     .map(|n| n.get())
+    ///     .unwrap_or(4);
+    /// let executor = ReactiveExecutor::new(core_count);
+    /// ```
     pub fn default() -> Self {
         let concurrency = std::thread::available_parallelism()
             .map(|n| n.get())

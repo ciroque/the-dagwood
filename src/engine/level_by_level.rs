@@ -100,7 +100,7 @@ impl LevelByLevelExecutor {
         // we need to know, for each processor, which processors it depends on.
         let reverse_deps = graph.build_reverse_dependencies();
         
-        // Initialize in-degree count for all processors using correct dependency format
+        // Initialize in-degree count for all processors using the correct dependency format
         let mut in_degree = HashMap::new();
         for (processor_id, dependencies) in &reverse_deps {
             in_degree.insert(processor_id.clone(), dependencies.len());

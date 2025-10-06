@@ -1,6 +1,135 @@
 use std::collections::HashMap;
 
-/// Newtype wrapper for dependency graph providing type safety
+/// A type-safe wrapper for DAG dependency relationships with graph algorithms.
+///
+/// The `DependencyGraph` represents processor dependencies as a directed acyclic graph (DAG)
+/// where each processor maps to a list of processors that depend on it. This forward adjacency
+/// representation enables efficient topological sorting and dependency analysis for DAG execution.
+///
+/// The internal structure is `HashMap<String, Vec<String>>` where:
+/// - **Key**: Processor ID that produces output
+/// - **Value**: List of processor IDs that consume this processor's output
+///
+/// This forward representation (A → [B, C]) is optimal for:
+/// - **Topological sorting**: Efficiently traverse dependents during Kahn's algorithm
+/// - **Dependency counting**: Count incoming edges for each processor
+/// - **Cycle detection**: DFS-based cycle detection with forward edges
+/// - **Execution planning**: Determine which processors become ready when dependencies complete
+///
+/// # Graph Algorithms
+///
+/// The `DependencyGraph` provides multiple algorithms for different use cases:
+///
+/// ## Topological Sorting
+/// - **`topological_sort()`**: Standard Kahn's algorithm for dependency ordering
+/// - **`topological_sort_dfs()`**: DFS-based sorting that preserves original state
+/// - **`topological_sort_with_counts()`**: Efficient sorting with pre-computed dependency counts
+///
+/// ## Dependency Analysis
+/// - **`build_dependency_counts()`**: Count incoming dependencies for each processor
+/// - **`build_reverse_dependencies()`**: Create reverse mapping (processor → dependencies)
+/// - **`dependency_counts_and_ranks()`**: Efficiently compute both counts and topological ranks
+///
+/// # Examples
+///
+/// ## Creating a simple linear dependency chain
+/// ```
+/// use std::collections::HashMap;
+/// use the_dagwood::config::DependencyGraph;
+/// 
+/// // Create chain: input → transform → output
+/// let mut graph = HashMap::new();
+/// graph.insert("input".to_string(), vec!["transform".to_string()]);
+/// graph.insert("transform".to_string(), vec!["output".to_string()]);
+/// graph.insert("output".to_string(), vec![]);
+/// 
+/// let dependency_graph = DependencyGraph::from(graph);
+/// 
+/// // Get topological order for execution
+/// let execution_order = dependency_graph.topological_sort().unwrap();
+/// assert_eq!(execution_order, vec!["input", "transform", "output"]);
+/// ```
+///
+/// ## Creating a diamond dependency pattern
+/// ```
+/// use std::collections::HashMap;
+/// use the_dagwood::config::DependencyGraph;
+/// 
+/// // Create diamond: source → [left, right] → sink
+/// let mut graph = HashMap::new();
+/// graph.insert("source".to_string(), vec!["left".to_string(), "right".to_string()]);
+/// graph.insert("left".to_string(), vec!["sink".to_string()]);
+/// graph.insert("right".to_string(), vec!["sink".to_string()]);
+/// graph.insert("sink".to_string(), vec![]);
+/// 
+/// let dependency_graph = DependencyGraph::from(graph);
+/// 
+/// // Analyze dependency structure
+/// let dependency_counts = dependency_graph.build_dependency_counts();
+/// assert_eq!(dependency_counts.get("source"), Some(&0)); // No dependencies
+/// assert_eq!(dependency_counts.get("sink"), Some(&2));   // Depends on left + right
+/// ```
+///
+/// ## Building dependency analysis for execution planning
+/// ```
+/// use std::collections::HashMap;
+/// use the_dagwood::config::DependencyGraph;
+/// 
+/// let mut graph = HashMap::new();
+/// graph.insert("data_loader".to_string(), vec!["validator".to_string(), "transformer".to_string()]);
+/// graph.insert("validator".to_string(), vec!["merger".to_string()]);
+/// graph.insert("transformer".to_string(), vec!["merger".to_string()]);
+/// graph.insert("merger".to_string(), vec![]);
+/// 
+/// let dependency_graph = DependencyGraph::from(graph);
+/// 
+/// // Get both dependency counts and topological ranks efficiently
+/// let (counts, ranks) = dependency_graph.dependency_counts_and_ranks().unwrap();
+/// 
+/// // Use for execution planning
+/// assert_eq!(ranks.get("data_loader"), Some(&0)); // Execute first
+/// assert_eq!(ranks.get("merger"), Some(&3));      // Execute last
+/// assert_eq!(counts.get("merger"), Some(&2));     // Wait for 2 dependencies
+/// ```
+///
+/// ## Reverse dependency mapping for input resolution
+/// ```
+/// use std::collections::HashMap;
+/// use the_dagwood::config::DependencyGraph;
+/// 
+/// let mut graph = HashMap::new();
+/// graph.insert("input1".to_string(), vec!["processor".to_string()]);
+/// graph.insert("input2".to_string(), vec!["processor".to_string()]);
+/// graph.insert("processor".to_string(), vec![]);
+/// 
+/// let dependency_graph = DependencyGraph::from(graph);
+/// 
+/// // Find what each processor depends on (for input resolution)
+/// let reverse_deps = dependency_graph.build_reverse_dependencies();
+/// let processor_inputs = reverse_deps.get("processor").unwrap();
+/// 
+/// assert_eq!(processor_inputs.len(), 2);
+/// assert!(processor_inputs.contains(&"input1".to_string()));
+/// assert!(processor_inputs.contains(&"input2".to_string()));
+/// ```
+///
+/// ## Cycle detection for validation
+/// ```
+/// use std::collections::HashMap;
+/// use the_dagwood::config::DependencyGraph;
+/// 
+/// // Create cyclic graph: A → B → C → A
+/// let mut cyclic_graph = HashMap::new();
+/// cyclic_graph.insert("A".to_string(), vec!["B".to_string()]);
+/// cyclic_graph.insert("B".to_string(), vec!["C".to_string()]);
+/// cyclic_graph.insert("C".to_string(), vec!["A".to_string()]);
+/// 
+/// let dependency_graph = DependencyGraph::from(cyclic_graph);
+/// 
+/// // Detect cycles during validation
+/// assert!(dependency_graph.topological_sort().is_none()); // Returns None for cycles
+/// assert!(dependency_graph.topological_sort_dfs().is_none()); // DFS also detects cycles
+/// ```
 #[derive(Debug, Clone)]
 pub struct DependencyGraph(pub HashMap<String, Vec<String>>);
 

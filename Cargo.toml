@@ -9,6 +9,7 @@ build = "build.rs"
 [dependencies]
 # Async ecosystem
 tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
 async-trait = "0.1"
 
 # gRPC + Protobuf

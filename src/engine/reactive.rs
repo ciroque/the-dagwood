@@ -217,7 +217,7 @@ impl ReactiveExecutor {
         );
 
         let processor_input = ProcessorRequest {
-            payload: canonical_payload, // All processors get canonical payload (correct!)
+            payload: canonical_payload, // All processors get canonical payload
             metadata: all_metadata,
         };
 

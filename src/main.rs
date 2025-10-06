@@ -16,6 +16,8 @@ fn default_concurrency() -> usize {
         .unwrap_or(4)
 }
 
+const UNKNOWN_KEY: &str = "unknown";
+
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = env::args().collect();
@@ -156,7 +158,6 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
         }
     }
 
-    const UNKNOWN_KEY: &str = "unknown";
     for (i, processor_id) in ordered_processors.iter().enumerate() {
         if let Some(result) = results.get(processor_id) {
             let output = if let Some(Outcome::NextPayload(payload)) = &result.outcome {

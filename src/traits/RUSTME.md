@@ -147,8 +147,9 @@ async fn execute_with_strategy(
     graph: DependencyGraph,                          // Type alias for dependency graph
     entrypoints: EntryPoints,                        // Type alias for entry points
     input: ProcessorRequest,                         // Owned data
+    pipeline_metadata: PipelineMetadata,             // Metadata accumulator
     failure_strategy: FailureStrategy,               // How to handle failures
-) -> Result<HashMap<String, ProcessorResponse>, ExecutionError>;
+) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError>;
 ```
 
 **Key concepts**:

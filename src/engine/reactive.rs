@@ -83,6 +83,9 @@
 //!     FailureStrategy::FailFast,
 //! ).await?;
 //! 
+//! // Ensure all async operations complete
+//! tokio::task::yield_now().await;
+//! 
 //! // All processors executed reactively
 //! assert_eq!(results.len(), 3);
 //! # Ok(())

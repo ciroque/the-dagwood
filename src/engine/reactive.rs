@@ -64,9 +64,9 @@
 //! 
 //! // Build dependency graph: input -> transform -> output
 //! let mut dependency_graph = HashMap::new();
-//! dependency_graph.insert("input".to_string(), vec!["transform".to_string()]);
-//! dependency_graph.insert("transform".to_string(), vec!["output".to_string()]);
-//! dependency_graph.insert("output".to_string(), vec![]);
+//! dependency_graph.insert("input".to_string(), vec![]); // Entry point - no dependencies
+//! dependency_graph.insert("transform".to_string(), vec!["input".to_string()]); // Depends on input
+//! dependency_graph.insert("output".to_string(), vec!["transform".to_string()]); // Depends on transform
 //! 
 //! let entry_points = vec!["input".to_string()];
 //! let input = ProcessorRequest {
@@ -474,6 +474,14 @@ impl ReactiveExecutor {
                 message: format!("Failed to acquire semaphore permit for processor '{}': {}", processor_id, e),
             })?;
 
+        // Check for cancellation after acquiring semaphore to prevent race condition
+        // where a task acquires semaphore but should have been cancelled
+        if cancellation_token.is_cancelled() {
+            return Err(ExecutionError::InternalError {
+                message: format!("Processor '{}' cancelled after semaphore acquisition", processor_id),
+            });
+        }
+
         // Get processor instance
         let processor = processors.get(&processor_id)
             .ok_or_else(|| ExecutionError::ProcessorNotFound(processor_id.clone()))?;
@@ -658,9 +666,11 @@ impl DagExecutor for ReactiveExecutor {
                 Ok(Err(e)) => {
                     match &e {
                         ExecutionError::ProcessorFailed { .. } => {
-                            // Prioritize actual processor failures over cancellation errors
+                            // Collect all processor failures for comprehensive error reporting
                             if processor_error.is_none() {
-                                processor_error = Some(e);
+                                processor_error = Some(e); // Keep first failure as primary
+                            } else {
+                                other_errors.push(e); // Collect additional failures
                             }
                         }
                         _ => {

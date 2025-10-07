@@ -378,7 +378,7 @@ impl ReactiveExecutor {
         metadata: Option<PipelineMetadata>,
     ) {
         let dependency_response = ProcessorResponse {
-            outcome: Some(Outcome::NextPayload(vec![])), // Payload not used in metadata merging
+            outcome: None, // Payload not used in metadata merging
             metadata,
         };
         node.dependency_results.insert(dependency_id, dependency_response);
@@ -549,13 +549,20 @@ impl ReactiveExecutor {
                         });
                     }
                     FailureStrategy::ContinueOnError | FailureStrategy::BestEffort => {
-                        // Continue processing despite error - store failed result but don't notify dependents
-                        // This prevents cascade failures while still recording the error
+                        // Store failed result but notify dependents with empty metadata
                         let mut results_guard = results_mutex.lock().await;
                         results_guard.insert(processor_id.clone(), processor_response.clone());
                         
-                        // For ContinueOnError and BestEffort, we don't propagate to dependents
-                        // This stops the error from cascading through the DAG
+                        // Notify dependents with None metadata to maintain dependency counting
+                        // This prevents cascade failures while allowing execution to continue
+                        for dependent_id in &node.dependents {
+                            if let Some(sender) = senders.get(dependent_id) {
+                                let _ = sender.send(ProcessorEvent::DependencyCompleted {
+                                    dependency_id: processor_id.clone(),
+                                    metadata: None, // Failed processor contributes no metadata
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -572,7 +579,7 @@ impl ReactiveExecutor {
                         });
                     }
                     FailureStrategy::ContinueOnError | FailureStrategy::BestEffort => {
-                        // Store error result but don't notify dependents
+                        // Store error result but notify dependents with empty metadata
                         let error_response = ProcessorResponse {
                             outcome: Some(Outcome::Error(crate::proto::processor_v1::ErrorDetail {
                                 code: 500,
@@ -582,6 +589,16 @@ impl ReactiveExecutor {
                         };
                         let mut results_guard = results_mutex.lock().await;
                         results_guard.insert(processor_id.clone(), error_response);
+                        
+                        // Notify dependents with None metadata to maintain dependency counting
+                        for dependent_id in &node.dependents {
+                            if let Some(sender) = senders.get(dependent_id) {
+                                let _ = sender.send(ProcessorEvent::DependencyCompleted {
+                                    dependency_id: processor_id.clone(),
+                                    metadata: None, // Failed processor contributes no metadata
+                                });
+                            }
+                        }
                     }
                 }
             }

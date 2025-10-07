@@ -501,23 +501,25 @@ impl ReactiveExecutor {
                 // CRITICAL: Update canonical payload BEFORE notifying dependents to prevent race conditions
                 if processor.declared_intent() == ProcessorIntent::Transform {
                     if let Some(Outcome::NextPayload(new_payload)) = &processor_response.outcome {
-                        let mut canonical_guard = canonical_payload_mutex.lock().await;
-                        *canonical_guard = new_payload.clone();
-                        // Keep the lock until after we notify dependents to ensure atomicity
+                        // Update canonical payload and release lock immediately to reduce contention
+                        {
+                            let mut canonical_guard = canonical_payload_mutex.lock().await;
+                            *canonical_guard = new_payload.clone();
+                        } // canonical_guard dropped here - minimizes lock hold time
                         
-                        // Store successful result
+                        // Store successful result (without holding canonical lock)
                         {
                             let mut results_guard = results_mutex.lock().await;
                             results_guard.insert(processor_id.clone(), processor_response.clone());
                         }
 
-                        // Collect metadata from processor response
+                        // Collect metadata from processor response (without holding canonical lock)
                         {
                             let mut pipeline_meta = pipeline_metadata_mutex.lock().await;
                             pipeline_meta.merge_processor_response(&processor_id, &processor_response);
                         }
 
-                        // Notify all dependents AFTER canonical payload is updated
+                        // Notify all dependents (canonical payload already updated)
                         for dependent_id in &node.dependents {
                             if let Some(sender) = senders.get(dependent_id) {
                                 if let Err(_) = sender.send(ProcessorEvent::DependencyCompleted {
@@ -530,7 +532,6 @@ impl ReactiveExecutor {
                                 }
                             }
                         }
-                        // canonical_guard is dropped here, ensuring atomicity
                     }
                 } else {
                     // Non-Transform processor - no canonical payload update needed

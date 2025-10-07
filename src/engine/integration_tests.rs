@@ -731,7 +731,7 @@ mod tests {
         // Verify the expected transformation: "hello world" -> "HELLO WORLD" -> "DLROW OLLEH"
         let final_result = reactive_result.get("reverse").unwrap();
         if let Some(Outcome::NextPayload(final_payload)) = &final_result.outcome {
-            let final_text = String::from_utf8_lossy(&final_payload);
+            let final_text = String::from_utf8_lossy(final_payload);
             assert_eq!(final_text, "DLROW OLLEH", "Final result should be reversed uppercase text");
         }
         

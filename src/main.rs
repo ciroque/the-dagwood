@@ -177,7 +177,7 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
     for (i, processor_id) in ordered_processors.iter().enumerate() {
         if let Some(result) = results.get(processor_id) {
             let output = if let Some(Outcome::NextPayload(payload)) = &result.outcome {
-                String::from_utf8_lossy(&payload).to_string()
+                String::from_utf8_lossy(payload.as_slice()).to_string()
             } else {
                 "[No output]".to_string()
             };
@@ -206,7 +206,7 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
     if let Some(final_processor) = ordered_processors.last() {
         if let Some(final_result) = results.get(final_processor) {
             if let Some(Outcome::NextPayload(final_payload)) = &final_result.outcome {
-                let final_output = String::from_utf8_lossy(&final_payload);
+                let final_output = String::from_utf8_lossy(final_payload);
                 println!("\n🎯 Final Transformation:");
                 println!("   Input:  \"{}\"", input_text);
                 println!("   Output: \"{}\"", final_output);

@@ -104,8 +104,13 @@ impl ProcessorMap {
                     Arc::new(crate::backends::stub::StubProcessor::new(p.id.clone()))
                 }
                 crate::config::BackendType::Wasm => {
-                    // TODO: load WASM module
-                    Arc::new(crate::backends::stub::StubProcessor::new(p.id.clone()))
+                    match crate::backends::wasm::WasmProcessorFactory::create_processor(p) {
+                        Ok(processor) => processor,
+                        Err(e) => {
+                            eprintln!("Warning: Failed to create WASM processor '{}': {}. Using stub instead.", p.id, e);
+                            Arc::new(crate::backends::stub::StubProcessor::new(p.id.clone()))
+                        }
+                    }
                 }
             };
 

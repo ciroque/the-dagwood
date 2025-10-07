@@ -93,7 +93,7 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
 
     use the_dagwood::proto::processor_v1::{PipelineMetadata, ProcessorMetadata};
     let request_metadata = HashMap::from([{
-        ("request".to_string(), ProcessorMetadata {
+        ("demo-environment".to_string(), ProcessorMetadata {
             metadata: HashMap::from([
                 ("config_file".to_string(), config_file.to_string()),
                 ("hostname".to_string(), std::env::var("HOSTNAME").unwrap_or_else(|_| "unknown".to_string())),

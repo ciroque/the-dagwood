@@ -1,0 +1,25 @@
+strategy: work_queue
+failure_strategy: fail_fast
+executor_options:
+  max_concurrency: 2
+
+processors:
+  - id: input_processor
+    type: local
+    processor: change_text_case_upper
+    options:
+      case_type: upper
+
+  - id: wasm_hello_world
+    type: wasm
+    module: wasm_modules/hello_world.wasm
+    depends_on:
+      - input_processor
+    options:
+      intent: transform
+
+  - id: final_processor
+    type: local
+    processor: reverse_text
+    depends_on:
+      - wasm_hello_world

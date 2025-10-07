@@ -30,6 +30,10 @@ thiserror = "1.0"
 # Base64 encoding for secure metadata keys
 base64 = "0.21"
 
+# WASM runtime for sandboxed execution
+wasmtime = "25.0"
+wasmtime-wasi = "25.0"
+
 # Logging / tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }

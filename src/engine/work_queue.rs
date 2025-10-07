@@ -835,7 +835,9 @@ mod tests {
             });
             
             ProcessorResponse {
-                outcome: Some(Outcome::NextPayload(vec![])), // Analyze processors return empty payload
+                // Analyze processors return empty payload,
+                // though Executors ignore payloads from Analyze Processors anyway
+                outcome: Some(Outcome::NextPayload(vec![])),
                 metadata: Some(pipeline_metadata),
             }
         }

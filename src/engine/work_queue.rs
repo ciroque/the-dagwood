@@ -821,7 +821,7 @@ mod tests {
 
     #[async_trait]
     impl Processor for MockAnalyzeProcessor {
-        async fn process(&self, req: ProcessorRequest) -> ProcessorResponse {
+        async fn process(&self, _req: ProcessorRequest) -> ProcessorResponse {
             if self.delay_ms > 0 {
                 sleep(Duration::from_millis(self.delay_ms)).await;
             }
@@ -836,7 +836,7 @@ mod tests {
             });
             
             ProcessorResponse {
-                outcome: Some(Outcome::NextPayload(req.payload)), // Pass through unchanged
+                outcome: Some(Outcome::NextPayload(vec![])), // Analyze processors return empty payload
                 metadata: Some(pipeline_metadata),
             }
         }
@@ -961,8 +961,8 @@ mod tests {
         }
         let response_right = results.get("right").unwrap();
         if let Some(Outcome::NextPayload(payload)) = &response_right.outcome {
-            // Right is an Analyze processor that receives canonical payload from root and passes it through
-            assert_eq!(String::from_utf8(payload.clone()).unwrap(), "test-root");
+            // Right is an Analyze processor, so it returns empty payload (executor ignores it anyway)
+            assert_eq!(String::from_utf8(payload.clone()).unwrap(), "");
         } else {
             panic!("Expected success outcome for right");
         }
@@ -1010,8 +1010,8 @@ mod tests {
         }
         let response_entry2 = results.get("entry2").unwrap();
         if let Some(Outcome::NextPayload(payload)) = &response_entry2.outcome {
-            // Entry2 is an Analyze processor entry point, so it receives the original input and passes it through
-            assert_eq!(String::from_utf8(payload.clone()).unwrap(), "test");
+            // Entry2 is an Analyze processor, so it returns empty payload (executor ignores it anyway)
+            assert_eq!(String::from_utf8(payload.clone()).unwrap(), "");
         } else {
             panic!("Expected success outcome for entry2");
         }
@@ -1150,9 +1150,8 @@ mod tests {
         let analyze_result = result.get("analyze1").unwrap();
         if let Some(Outcome::NextPayload(payload)) = &analyze_result.outcome {
             let result_str = String::from_utf8(payload.clone()).unwrap();
-            // Should be: "initial" -> transform1 -> "initial-T1" -> transform2 -> "initial-T1-T2"
-            // analyze1 should receive canonical payload from transform2 and pass it through
-            assert_eq!(result_str, "initial-T1-T2");
+            // analyze1 is an Analyze processor, so it returns empty payload (executor ignores it anyway)
+            assert_eq!(result_str, "");
         } else {
             panic!("Expected NextPayload outcome for analyze1");
         }

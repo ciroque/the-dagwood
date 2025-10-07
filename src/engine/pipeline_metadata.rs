@@ -21,7 +21,7 @@ impl PipelineMetadata {
         }
     }
 
-    pub fn merge_processor_response(&mut self, processor_name: &str, response: &ProcessorResponse) {
+    pub fn merge_processor_response(&mut self, _processor_name: &str, response: &ProcessorResponse) {
         if let Some(response_metadata) = &response.metadata {
             // Merge all processor metadata from the response
             for (proc_name, proc_metadata) in &response_metadata.metadata {

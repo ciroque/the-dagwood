@@ -387,7 +387,7 @@ impl DagExecutor for WorkQueueExecutor {
         graph: DependencyGraph,
         entrypoints: EntryPoints,
         input: ProcessorRequest,
-        mut pipeline_metadata: PipelineMetadata,
+        pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
     ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
         // === PHASE 1: VALIDATION AND SETUP ===

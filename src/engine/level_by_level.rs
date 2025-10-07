@@ -337,7 +337,7 @@ impl LevelByLevelExecutor {
     async fn build_processor_input(
         processor_id: &str,
         reverse_deps: &HashMap<String, Vec<String>>,
-        results: &Arc<Mutex<HashMap<String, ProcessorResponse>>>,
+        _results: &Arc<Mutex<HashMap<String, ProcessorResponse>>>,
         canonical_payload: &Arc<Mutex<Vec<u8>>>,
         original_input: &Arc<ProcessorRequest>,
     ) -> Result<ProcessorRequest, ExecutionError> {
@@ -373,7 +373,7 @@ impl DagExecutor for LevelByLevelExecutor {
         graph: DependencyGraph,
         entrypoints: EntryPoints,
         input: ProcessorRequest,
-        mut pipeline_metadata: PipelineMetadata,
+        pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
     ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
         // Compute topological levels

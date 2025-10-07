@@ -589,7 +589,7 @@ impl DagExecutor for ReactiveExecutor {
         graph: DependencyGraph,
         entrypoints: EntryPoints,
         input: ProcessorRequest,
-        mut pipeline_metadata: PipelineMetadata,
+        pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
     ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
         

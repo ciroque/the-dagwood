@@ -257,8 +257,6 @@ struct ProcessorNode {
     dependents: Vec<String>,
     /// Number of dependencies this processor is waiting for
     pending_dependencies: usize,
-    /// Collected dependency results for metadata merging
-    dependency_results: HashMap<String, ProcessorResponse>,
 }
 
 impl ReactiveExecutor {
@@ -364,7 +362,6 @@ impl ReactiveExecutor {
                 receiver,
                 dependents,
                 pending_dependencies,
-                dependency_results: HashMap::new(),
             });
         }
 
@@ -374,14 +371,11 @@ impl ReactiveExecutor {
     /// Handle a dependency completion event
     fn handle_dependency_completed(
         node: &mut ProcessorNode,
-        dependency_id: String,
-        metadata: Option<PipelineMetadata>,
+        _dependency_id: String,
+        _metadata: Option<PipelineMetadata>,
     ) {
-        let dependency_response = ProcessorResponse {
-            outcome: None, // Payload not used in metadata merging
-            metadata,
-        };
-        node.dependency_results.insert(dependency_id, dependency_response);
+        // Simply decrement pending dependencies count
+        // Metadata is collected globally via pipeline_metadata_mutex
         node.pending_dependencies -= 1;
     }
 

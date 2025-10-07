@@ -5,8 +5,7 @@ use tokio::sync::Mutex;
 
 use crate::traits::executor::DagExecutor;
 use crate::traits::processor::ProcessorIntent;
-use crate::engine::metadata::{merge_dependency_metadata_for_execution, BASE_METADATA_KEY};
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
+use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, PipelineMetadata};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::errors::{ExecutionError, FailureStrategy};
 use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
@@ -210,6 +209,7 @@ impl LevelByLevelExecutor {
         processors: &ProcessorMap,
         results: &Arc<Mutex<HashMap<String, ProcessorResponse>>>,
         canonical_payload: &Arc<Mutex<Vec<u8>>>,
+        pipeline_metadata: &Arc<Mutex<PipelineMetadata>>,
         reverse_deps: &HashMap<String, Vec<String>>,
         input: &Arc<ProcessorRequest>,
         failure_strategy: FailureStrategy,
@@ -224,6 +224,7 @@ impl LevelByLevelExecutor {
             let processor_id_clone = processor_id.clone();
             let results_clone = results.clone();
             let canonical_payload_clone = canonical_payload.clone();
+            let pipeline_metadata_clone = pipeline_metadata.clone();
             let reverse_deps_clone = reverse_deps.clone();
             let input_arc = input.clone(); // Arc::clone is cheap - only increments reference count
             let semaphore_clone = semaphore.clone();
@@ -264,7 +265,12 @@ impl LevelByLevelExecutor {
 
                     // Store result
                     let mut results_guard = results_clone.lock().await;
-                    results_guard.insert(processor_id_clone, processor_response);
+                    results_guard.insert(processor_id_clone.clone(), processor_response.clone());
+                    drop(results_guard);
+                    
+                    // Collect metadata from processor response
+                    let mut pipeline_meta = pipeline_metadata_clone.lock().await;
+                    pipeline_meta.merge_processor_response(&processor_id_clone, &processor_response);
                     
                     Ok(())
                 } else {
@@ -331,7 +337,7 @@ impl LevelByLevelExecutor {
     async fn build_processor_input(
         processor_id: &str,
         reverse_deps: &HashMap<String, Vec<String>>,
-        results: &Arc<Mutex<HashMap<String, ProcessorResponse>>>,
+        _results: &Arc<Mutex<HashMap<String, ProcessorResponse>>>,
         canonical_payload: &Arc<Mutex<Vec<u8>>>,
         original_input: &Arc<ProcessorRequest>,
     ) -> Result<ProcessorRequest, ExecutionError> {
@@ -349,34 +355,11 @@ impl LevelByLevelExecutor {
 
             Ok((**original_input).clone())
         } else {
-            // Processor with dependencies - use canonical payload + merged metadata
+            // Processor with dependencies - use canonical payload
             let canonical_payload_guard = canonical_payload.lock().await;
-            let results_guard = results.lock().await;
-
-            // Collect metadata only from actual dependencies, not all completed processors
-            let mut dependency_results = HashMap::new();
-            for dep_id in &dependencies {
-                if let Some(dep_response) = results_guard.get(dep_id) {
-                    dependency_results.insert(dep_id.clone(), dep_response.clone());
-                }
-            }
-
-            // Extract base metadata from original input and merge with dependency metadata
-            let base_metadata = if let Some(input_metadata) = original_input.metadata.get(BASE_METADATA_KEY) {
-                input_metadata.metadata.clone()
-            } else {
-                HashMap::new()
-            };
-
-            // Merge all metadata: base input metadata + all dependency contributions
-            let all_metadata = merge_dependency_metadata_for_execution(
-                base_metadata,
-                &dependency_results
-            );
 
             Ok(ProcessorRequest {
                 payload: canonical_payload_guard.clone(),
-                metadata: all_metadata,
             })
         }
     }
@@ -390,8 +373,9 @@ impl DagExecutor for LevelByLevelExecutor {
         graph: DependencyGraph,
         entrypoints: EntryPoints,
         input: ProcessorRequest,
+        pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
-    ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError> {
+    ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
         // Compute topological levels
         let levels = self.compute_topological_levels(&graph, &entrypoints)?;
 
@@ -401,6 +385,7 @@ impl DagExecutor for LevelByLevelExecutor {
         // Initialize shared state
         let results = Arc::new(Mutex::new(HashMap::new()));
         let canonical_payload = Arc::new(Mutex::new(input.payload.clone()));
+        let pipeline_metadata_mutex = Arc::new(Mutex::new(pipeline_metadata));
         
         // Wrap input in Arc to avoid cloning for each processor
         let input_arc = Arc::new(input);
@@ -412,6 +397,7 @@ impl DagExecutor for LevelByLevelExecutor {
                 &processors,
                 &results,
                 &canonical_payload,
+                &pipeline_metadata_mutex,
                 &reverse_deps,
                 &input_arc,
                 failure_strategy,
@@ -424,7 +410,12 @@ impl DagExecutor for LevelByLevelExecutor {
                 message: "Failed to unwrap results Arc - multiple references still exist".into()
             })?
             .into_inner();
-        Ok(final_results)
+        let final_pipeline_metadata = Arc::try_unwrap(pipeline_metadata_mutex)
+            .map_err(|_| ExecutionError::InternalError {
+                message: "Failed to unwrap pipeline metadata Arc - multiple references still exist".into()
+            })?
+            .into_inner();
+        Ok((final_results, final_pipeline_metadata))
     }
 }
 
@@ -450,7 +441,6 @@ mod tests {
         let entrypoints = EntryPoints(vec!["proc1".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute(processors, graph, entrypoints, input).await;
@@ -481,7 +471,6 @@ mod tests {
         let entrypoints = EntryPoints(vec!["proc1".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute(processors, graph, entrypoints, input).await;
@@ -516,7 +505,6 @@ mod tests {
         let entrypoints = EntryPoints(vec!["A".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute(processors, graph, entrypoints, input).await;
@@ -550,7 +538,6 @@ mod tests {
         let entrypoints = EntryPoints(vec!["entry1".to_string(), "entry2".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute(processors, graph, entrypoints, input).await;

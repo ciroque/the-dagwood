@@ -100,14 +100,14 @@ pub trait Processor: Send + Sync {
 pub enum ProcessorIntent {
     /// Modifies payload, may modify metadata - must run sequentially
     Transform,
-    /// Payload pass-through, may add metadata - can run in parallel
+    /// Returns empty payload, may add metadata - can run in parallel (executor ignores payload)
     Analyze,
 }
 ```
 
 **Key concepts**:
 - `Transform` processors can modify both payload and metadata
-- `Analyze` processors should only add metadata (payload pass-through)
+- `Analyze` processors should return empty payloads and only add metadata (executor ignores their payloads)
 - Enables safe parallel execution of Analyze processors
 - Enforces architectural separation at the type level
 
@@ -147,8 +147,9 @@ async fn execute_with_strategy(
     graph: DependencyGraph,                          // Type alias for dependency graph
     entrypoints: EntryPoints,                        // Type alias for entry points
     input: ProcessorRequest,                         // Owned data
+    pipeline_metadata: PipelineMetadata,             // Metadata accumulator
     failure_strategy: FailureStrategy,               // How to handle failures
-) -> Result<HashMap<String, ProcessorResponse>, ExecutionError>;
+) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError>;
 ```
 
 **Key concepts**:

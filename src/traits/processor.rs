@@ -7,7 +7,7 @@ use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
 pub enum ProcessorIntent {
     /// Modifies payload, may modify metadata - must run sequentially
     Transform,
-    /// Payload pass-through, may add metadata - can run in parallel
+    /// Returns empty payload, may add metadata - can run in parallel (executor ignores payload)
     Analyze,
 }
 
@@ -23,7 +23,7 @@ pub trait Processor: Send + Sync {
     /// Declare the processor's intent (Transform or Analyze)
     /// 
     /// Transform processors can modify payload and metadata.
-    /// Analyze processors should only add metadata (executor enforces payload pass-through).
+    /// Analyze processors should return empty payloads and only add metadata (executor ignores their payloads).
     /// 
     /// Default implementation returns Transform for backward compatibility.
     fn declared_intent(&self) -> ProcessorIntent {

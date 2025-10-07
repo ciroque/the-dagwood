@@ -19,6 +19,7 @@
 //! - **Natural Parallelism**: No artificial batching - processors run as soon as ready
 //! - **Low Latency**: Minimal delay between dependency completion and dependent execution
 //! - **Canonical Payload**: Maintains architectural consistency with Transform/Analyze separation
+//! - **Metadata Collection**: Collects and merges processor metadata consistently with other executors
 //! - **Failure Resilience**: Sophisticated error handling with cancellation support
 //! - **Concurrency Control**: Configurable semaphore-based concurrency limiting
 //!
@@ -28,7 +29,7 @@
 //! 2. **Task Spawning**: Spawn async task for each processor
 //! 3. **Entry Point Triggering**: Send execute events to entry point processors
 //! 4. **Event Propagation**: Processors notify dependents upon completion
-//! 5. **Result Collection**: Gather results from all completed processors
+//! 5. **Result & Metadata Collection**: Gather results and metadata from all completed processors
 //!
 //! # Performance Characteristics
 //!
@@ -48,7 +49,7 @@
 //! use the_dagwood::config::{ProcessorMap, DependencyGraph, EntryPoints};
 //! use the_dagwood::backends::stub::StubProcessor;
 //! use the_dagwood::traits::Processor;
-//! use the_dagwood::proto::processor_v1::ProcessorRequest;
+//! use the_dagwood::proto::processor_v1::{ProcessorRequest, PipelineMetadata};
 //! use the_dagwood::errors::FailureStrategy;
 //! 
 //! # #[tokio::main]
@@ -70,15 +71,15 @@
 //! let entry_points = vec!["input".to_string()];
 //! let input = ProcessorRequest {
 //!     payload: b"reactive execution test".to_vec(),
-//!     metadata: HashMap::new(),
 //! };
 //! 
 //! // Execute with event-driven approach
-//! let results = executor.execute_with_strategy(
+//! let (results, _metadata) = executor.execute_with_strategy(
 //!     ProcessorMap(processor_map),
 //!     DependencyGraph(dependency_graph),
 //!     EntryPoints(entry_points),
 //!     input,
+//!     PipelineMetadata::new(),
 //!     FailureStrategy::FailFast,
 //! ).await?;
 //! 
@@ -97,7 +98,7 @@
 //! use the_dagwood::config::{ProcessorMap, DependencyGraph, EntryPoints};
 //! use the_dagwood::backends::stub::StubProcessor;
 //! use the_dagwood::traits::Processor;
-//! use the_dagwood::proto::processor_v1::ProcessorRequest;
+//! use the_dagwood::proto::processor_v1::{ProcessorRequest, PipelineMetadata};
 //! use the_dagwood::errors::FailureStrategy;
 //! 
 //! # #[tokio::main]
@@ -120,16 +121,16 @@
 //! let entry_points = vec!["source".to_string()];
 //! let input = ProcessorRequest {
 //!     payload: b"diamond pattern".to_vec(),
-//!     metadata: HashMap::new(),
 //! };
 //! 
 //! // Left and right processors execute in parallel after source completes
 //! // Sink executes immediately when both left and right complete
-//! let results = executor.execute_with_strategy(
+//! let (results, _metadata) = executor.execute_with_strategy(
 //!     ProcessorMap(processor_map),
 //!     DependencyGraph(dependency_graph),
 //!     EntryPoints(entry_points),
 //!     input,
+//!     PipelineMetadata::new(),
 //!     FailureStrategy::FailFast,
 //! ).await?;
 //! 
@@ -147,10 +148,9 @@ use tokio_util::sync::CancellationToken;
 use crate::traits::executor::DagExecutor;
 use crate::traits::processor::ProcessorIntent;
 use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
+use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, PipelineMetadata};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::errors::{ExecutionError, FailureStrategy};
-use crate::engine::metadata::{merge_dependency_metadata_for_execution, BASE_METADATA_KEY};
 
 /// Reactive/Event-Driven executor that uses async channels for processor communication.
 ///
@@ -241,11 +241,11 @@ enum ProcessorEvent {
     /// Notification that a dependency has completed
     DependencyCompleted {
         dependency_id: String,
-        metadata: HashMap<String, crate::proto::processor_v1::Metadata>,
+        metadata: Option<PipelineMetadata>,
     },
     /// Initial trigger for entry point processors
     Execute {
-        metadata: HashMap<String, crate::proto::processor_v1::Metadata>,
+        metadata: Option<PipelineMetadata>,
     },
 }
 
@@ -375,7 +375,7 @@ impl ReactiveExecutor {
     fn handle_dependency_completed(
         node: &mut ProcessorNode,
         dependency_id: String,
-        metadata: HashMap<String, crate::proto::processor_v1::Metadata>,
+        metadata: Option<PipelineMetadata>,
     ) {
         let dependency_response = ProcessorResponse {
             outcome: Some(Outcome::NextPayload(vec![])), // Payload not used in metadata merging
@@ -389,14 +389,9 @@ impl ReactiveExecutor {
     fn handle_execute_event(
         node: &mut ProcessorNode,
         processor_id: &str,
-        metadata: HashMap<String, crate::proto::processor_v1::Metadata>,
+        _metadata: Option<PipelineMetadata>,
     ) -> Result<bool, ExecutionError> {
-        // Entry point execution - store as base metadata
-        let base_response = ProcessorResponse {
-            outcome: Some(Outcome::NextPayload(vec![])),
-            metadata,
-        };
-        node.dependency_results.insert(BASE_METADATA_KEY.to_string(), base_response);
+        // Entry point execution - no dependency results needed for entry points
         
         // Validate that entry points have no pending dependencies
         if node.pending_dependencies == 0 {
@@ -462,14 +457,15 @@ impl ReactiveExecutor {
 
     /// Spawn an async task for a processor in the reactive network
     ///
-    /// This reuses the canonical payload architecture and declared_intent() pattern
-    /// from the existing executors to maintain consistency.
+    /// This reuses the canonical payload architecture, declared_intent() pattern,
+    /// and metadata collection from the existing executors to maintain consistency.
     async fn spawn_processor_task(
         processor_id: String,
         node: ProcessorNode,
         processors: Arc<ProcessorMap>,
         canonical_payload_mutex: Arc<Mutex<Vec<u8>>>,
         results_mutex: Arc<Mutex<HashMap<String, ProcessorResponse>>>,
+        pipeline_metadata_mutex: Arc<Mutex<PipelineMetadata>>,
         senders: Arc<HashMap<String, mpsc::UnboundedSender<ProcessorEvent>>>,
         failure_strategy: FailureStrategy,
         semaphore: Arc<tokio::sync::Semaphore>,
@@ -494,23 +490,8 @@ impl ReactiveExecutor {
             guard.clone()
         };
 
-        // Use existing metadata merging utility (same as other executors)
-        // Extract base metadata from original input and merge with dependency metadata
-        let base_metadata = node
-            .dependency_results
-            .get(BASE_METADATA_KEY)
-            .and_then(|input_metadata| input_metadata.metadata.get(BASE_METADATA_KEY))
-            .map(|base_meta| base_meta.metadata.clone())
-            .unwrap_or_default();
-
-        let all_metadata = merge_dependency_metadata_for_execution(
-            base_metadata,
-            &node.dependency_results,
-        );
-
         let processor_input = ProcessorRequest {
             payload: canonical_payload, // All processors get canonical payload
-            metadata: all_metadata,
         };
 
         // Execute processor
@@ -531,6 +512,12 @@ impl ReactiveExecutor {
                 {
                     let mut results_guard = results_mutex.lock().await;
                     results_guard.insert(processor_id.clone(), processor_response.clone());
+                }
+
+                // Collect metadata from processor response
+                {
+                    let mut pipeline_meta = pipeline_metadata_mutex.lock().await;
+                    pipeline_meta.merge_processor_response(&processor_id, &processor_response);
                 }
 
                 // Notify all dependents (event-driven core)
@@ -589,7 +576,7 @@ impl ReactiveExecutor {
                                 code: 500,
                                 message: error_msg,
                             })),
-                            metadata: HashMap::new(),
+                            metadata: None,
                         };
                         let mut results_guard = results_mutex.lock().await;
                         results_guard.insert(processor_id.clone(), error_response);
@@ -610,8 +597,9 @@ impl DagExecutor for ReactiveExecutor {
         graph: DependencyGraph,
         entrypoints: EntryPoints,
         input: ProcessorRequest,
+        pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
-    ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError> {
+    ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
         
         // Validate dependency graph (reuse existing validation)
         let (_dependency_counts, _topological_ranks) = graph.dependency_counts_and_ranks()
@@ -625,6 +613,7 @@ impl DagExecutor for ReactiveExecutor {
         // Initialize canonical payload with input payload
         let canonical_payload_mutex = Arc::new(Mutex::new(input.payload.clone()));
         let results_mutex = Arc::new(Mutex::new(HashMap::new()));
+        let pipeline_metadata_mutex = Arc::new(Mutex::new(pipeline_metadata));
         let senders_arc = Arc::new(senders);
         let processors_arc = Arc::new(processors);
         let semaphore = Arc::new(tokio::sync::Semaphore::new(self.max_concurrency));
@@ -639,6 +628,7 @@ impl DagExecutor for ReactiveExecutor {
                 processors_arc.clone(),
                 canonical_payload_mutex.clone(),
                 results_mutex.clone(),
+                pipeline_metadata_mutex.clone(),
                 senders_arc.clone(),
                 failure_strategy,
                 semaphore.clone(),
@@ -651,7 +641,7 @@ impl DagExecutor for ReactiveExecutor {
         for entrypoint in entrypoints.iter() {
             if let Some(sender) = senders_arc.get(entrypoint) {
                 if let Err(_) = sender.send(ProcessorEvent::Execute {
-                    metadata: input.metadata.clone(),
+                    metadata: None,
                 }) {
                     // Entry point processor channel closed - this indicates a serious issue
                     // since entry points should be ready to receive at startup
@@ -707,7 +697,14 @@ impl DagExecutor for ReactiveExecutor {
             })?
             .into_inner();
 
-        Ok(final_results)
+        // Return collected metadata from processor responses
+        let final_metadata = Arc::try_unwrap(pipeline_metadata_mutex)
+            .map_err(|_| ExecutionError::InternalError {
+                message: "Failed to unwrap pipeline metadata Arc - multiple references still exist".into(),
+            })?
+            .into_inner();
+
+        Ok((final_results, final_metadata))
     }
 }
 
@@ -744,7 +741,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -752,11 +748,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 1);
         assert!(responses.contains_key("test_proc"));
     }
@@ -779,7 +776,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -787,11 +783,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 3);
         assert!(responses.contains_key("proc1"));
         assert!(responses.contains_key("proc2"));
@@ -818,7 +815,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -826,11 +822,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 4);
         assert!(responses.contains_key("entry"));
         assert!(responses.contains_key("left"));
@@ -858,7 +855,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -866,6 +862,7 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
@@ -899,7 +896,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -907,12 +903,13 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::ContinueOnError,
         ).await;
 
         // Should continue execution despite failure
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
 
         // Should have results for entry and independent, plus failed result for failing
         assert_eq!(responses.len(), 3);
@@ -946,7 +943,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -954,12 +950,13 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         // Should succeed for properly configured entry point
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 1);
         assert!(responses.contains_key("entry"));
     }
@@ -980,7 +977,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         // Test FailFast behavior
@@ -989,6 +985,7 @@ mod tests {
             DependencyGraph(dependency_graph.clone()),
             EntryPoints(entry_points.clone()),
             input.clone(),
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
@@ -1007,11 +1004,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::ContinueOnError,
         ).await;
 
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 1);
 
         let no_outcome_response = responses.get("no_outcome").unwrap();
@@ -1040,7 +1038,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test".to_vec(),
-            metadata: HashMap::new(),
         };
 
         // This test verifies that our channel error handling improvements
@@ -1050,13 +1047,14 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         // Should succeed - this tests that our error handling improvements
         // don't break normal execution
         match result {
-            Ok(responses) => {
+            Ok((responses, _metadata)) => {
                 assert_eq!(responses.len(), 1);
                 assert!(responses.contains_key("simple"));
             },
@@ -1080,7 +1078,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test".to_vec(),
-            metadata: HashMap::new(),
         };
 
         // This test verifies that entry point triggering works correctly
@@ -1090,11 +1087,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 1);
         assert!(responses.contains_key("entry"));
     }
@@ -1115,7 +1113,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test".to_vec(),
-            metadata: HashMap::new(),
         };
 
         // This test verifies that processor failures are handled correctly
@@ -1125,6 +1122,7 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
@@ -1158,7 +1156,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test".to_vec(),
-            metadata: HashMap::new(),
         };
 
         // Test that multiple independent processors can execute successfully
@@ -1168,11 +1165,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         match result {
-            Ok(responses) => {
+            Ok((responses, _metadata)) => {
                 assert_eq!(responses.len(), 3);
                 assert!(responses.contains_key("proc1"));
                 assert!(responses.contains_key("proc2"));

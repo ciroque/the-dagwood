@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail};
 use crate::proto::processor_v1::processor_response::Outcome;
@@ -94,7 +93,7 @@ impl Processor for ChangeTextCaseProcessor {
                         code: 400,
                         message: format!("Invalid UTF-8 input: {}", e),
                     })),
-                    metadata: HashMap::new(),
+                    metadata: None,
                 };
             }
         };
@@ -143,14 +142,14 @@ impl Processor for ChangeTextCaseProcessor {
                         code: 400,
                         message: format!("Unsupported custom case type: {}", custom_type),
                     })),
-                    metadata: HashMap::new(),
+                    metadata: None,
                 };
             }
         };
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(result.into_bytes())),
-            metadata: HashMap::new(),
+            metadata: None,
         }
     }
 

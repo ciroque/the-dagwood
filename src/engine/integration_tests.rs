@@ -5,7 +5,7 @@ use crate::backends::local::factory::LocalProcessorFactory;
 use crate::config::{BackendType, ProcessorConfig};
 use crate::engine::{WorkQueueExecutor, LevelByLevelExecutor, ReactiveExecutor};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::proto::processor_v1::ProcessorRequest;
+use crate::proto::processor_v1::{ProcessorRequest, PipelineMetadata};
 use crate::traits::{DagExecutor, Processor};
 use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
 
@@ -283,7 +283,6 @@ mod tests {
         let entrypoints = vec!["upper_case".to_string(), "lower_case".to_string()];
         let input = ProcessorRequest {
             payload: "Hello World".as_bytes().to_vec(),
-            metadata: HashMap::new(),
         };
         
         let results = executor.execute(ProcessorMap::from(processors), DependencyGraph::from(graph), EntryPoints::from(entrypoints), input).await.expect("DAG execution should succeed");
@@ -374,7 +373,6 @@ mod tests {
         // Create input
         let input = ProcessorRequest {
             payload: b"hello world".to_vec(),
-            metadata: HashMap::new(),
         };
         
         // Execute the pipeline
@@ -484,7 +482,6 @@ mod tests {
         // Create input
         let input = ProcessorRequest {
             payload: b"hello world test".to_vec(),
-            metadata: HashMap::new(),
         };
         
         // Execute the pipeline
@@ -585,7 +582,6 @@ mod tests {
         // Create input
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
         
         // Execute the pipeline
@@ -605,7 +601,7 @@ mod tests {
         assert!(merge_result.outcome.is_some());
         
         // Check that merge processor has metadata from both dependencies
-        assert!(!merge_result.metadata.is_empty(), "Merge processor should have metadata from dependencies");
+        assert!(merge_result.metadata.is_some(), "Merge processor should have metadata from dependencies");
     }
 
     /// Test that compares all three executors (WorkQueue, LevelByLevel, Reactive) 
@@ -658,17 +654,17 @@ mod tests {
         // Create input
         let input = ProcessorRequest {
             payload: b"hello world".to_vec(),
-            metadata: HashMap::new(),
         };
         
         // Execute with WorkQueue executor
         let work_queue_executor = WorkQueueExecutor::new(2);
-        let work_queue_result = work_queue_executor
+        let (work_queue_result, _wq_metadata) = work_queue_executor
             .execute_with_strategy(
                 create_processor_map(),
                 graph.clone(),
                 entrypoints.clone(),
                 input.clone(),
+                PipelineMetadata::new(),
                 crate::errors::FailureStrategy::FailFast,
             )
             .await
@@ -676,12 +672,13 @@ mod tests {
         
         // Execute with LevelByLevel executor  
         let level_executor = LevelByLevelExecutor::new(2);
-        let level_result = level_executor
+        let (level_result, _level_metadata) = level_executor
             .execute_with_strategy(
                 create_processor_map(),
                 graph.clone(),
                 entrypoints.clone(),
                 input.clone(),
+                PipelineMetadata::new(),
                 crate::errors::FailureStrategy::FailFast,
             )
             .await
@@ -689,12 +686,13 @@ mod tests {
         
         // Execute with Reactive executor
         let reactive_executor = ReactiveExecutor::new(2);
-        let reactive_result = reactive_executor
+        let (reactive_result, _reactive_metadata) = reactive_executor
             .execute_with_strategy(
                 create_processor_map(),
                 graph.clone(),
                 entrypoints.clone(),
                 input.clone(),
+                PipelineMetadata::new(),
                 crate::errors::FailureStrategy::FailFast,
             )
             .await

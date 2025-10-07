@@ -2,7 +2,6 @@ use std::env;
 use std::time::Instant;
 use std::collections::HashMap;
 use the_dagwood::config::{RuntimeBuilder, DependencyGraph, EntryPoints, load_and_validate_config};
-use the_dagwood::engine::metadata::BASE_METADATA_KEY;
 use the_dagwood::proto::processor_v1::ProcessorRequest;
 use the_dagwood::proto::processor_v1::processor_response::Outcome;
 
@@ -92,9 +91,9 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
     let dependency_graph = DependencyGraph(graph_map);
     let entry_points = EntryPoints(entry_points_vec);
 
-    use the_dagwood::proto::processor_v1::Metadata;
+    use the_dagwood::proto::processor_v1::{PipelineMetadata, ProcessorMetadata};
     let request_metadata = HashMap::from([{
-        (BASE_METADATA_KEY.to_string(), Metadata {
+        ("request".to_string(), ProcessorMetadata {
             metadata: HashMap::from([
                 ("config_file".to_string(), config_file.to_string()),
                 ("hostname".to_string(), std::env::var("HOSTNAME").unwrap_or_else(|_| "unknown".to_string())),
@@ -106,10 +105,12 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
         })
     }]);
 
-    // Prepare input
+    // Prepare input and pipeline metadata
+    let pipeline_metadata = PipelineMetadata {
+        metadata: request_metadata,
+    };
     let input = ProcessorRequest {
         payload: input_text.as_bytes().to_vec(),
-        metadata: request_metadata,
     };
     
     println!("📋 Configuration: {}", config_file);
@@ -121,11 +122,12 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
     
     // Execute the DAG
     let execution_start = Instant::now();
-    let results = executor.execute_with_strategy(
+    let (results, final_pipeline_metadata) = executor.execute_with_strategy(
         processors,
         dependency_graph,
         entry_points,
         input,
+        pipeline_metadata,
         failure_strategy,
     ).await?;
     let execution_time = execution_start.elapsed();
@@ -175,7 +177,7 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
     for (i, processor_id) in ordered_processors.iter().enumerate() {
         if let Some(result) = results.get(processor_id) {
             let output = if let Some(Outcome::NextPayload(payload)) = &result.outcome {
-                String::from_utf8_lossy(payload).to_string()
+                String::from_utf8_lossy(payload.as_slice()).to_string()
             } else {
                 "[No output]".to_string()
             };
@@ -183,16 +185,16 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
             println!("  {}. {} → \"{}\"", i + 1, processor_id, output);
             
             // Show metadata if present
-            if !result.metadata.is_empty() {
-                println!("     📝 Metadata: {} entries", result.metadata.len());
-                for (key, metadata) in result.metadata.iter().take(3) { // Show the first 3 metadata entries
+            if let Some(pipeline_metadata) = &result.metadata {
+                println!("     📝 Metadata: {} entries", pipeline_metadata.metadata.len());
+                for (key, metadata) in pipeline_metadata.metadata.iter().take(3) { // Show the first 3 metadata entries
                     if !metadata.metadata.is_empty() {
                         let sample_key = metadata.metadata.keys().next().map(|k| k.as_str()).unwrap_or(UNKNOWN_KEY);
                         println!("        • {}: {} keys (e.g., {})", key, metadata.metadata.len(), sample_key);
                     }
                 }
-                if result.metadata.len() > 3 {
-                    println!("        • ... and {} more", result.metadata.len() - 3);
+                if pipeline_metadata.metadata.len() > 3 {
+                    println!("        • ... and {} more", pipeline_metadata.metadata.len() - 3);
                 }
             } else {
                 println!("     📝 Metadata: no entries");
@@ -210,10 +212,12 @@ async fn run_single_config(config_file: &str, input_text: &str) -> Result<(), Bo
                 println!("   Output: \"{}\"", final_output);
             }
 
-            if final_result.metadata.is_empty() {
+            // Show accumulated pipeline metadata
+            if final_pipeline_metadata.metadata.is_empty() {
                 println!("   No metadata");
             } else {
-                for (processor_name, metadata) in final_result.metadata.iter() {
+                println!("   Pipeline Metadata:");
+                for (processor_name, metadata) in final_pipeline_metadata.metadata.iter() {
                     println!("   {}:", processor_name);
                     for (key, value) in metadata.metadata.iter() {
                         println!("      • {}: {}", key, value);

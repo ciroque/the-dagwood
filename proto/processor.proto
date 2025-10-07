@@ -3,14 +3,18 @@ syntax = "proto3";
 package processor.v1;
 
 // Metadata from a processor (own or dependency)
-message Metadata {
+message ProcessorMetadata {
   map<string, string> metadata = 1;  // Key-value metadata
+}
+
+message PipelineMetadata {
+  map<string, ProcessorMetadata> metadata = 1;
 }
 
 // Request envelope for processors
 message ProcessorRequest {
   bytes payload = 1;                  // opaque data (engine-defined)
-  map<string, Metadata> metadata = 2; // nested metadata structure (processor_name -> metadata)
+  // metadata field removed - processors don't need previous metadata
 }
 
 // Structured error for uniform handling
@@ -25,7 +29,7 @@ message ProcessorResponse {
     bytes next_payload = 1;           // success result
     ErrorDetail error = 2;            // error result
   }
-  map<string, Metadata> metadata = 3; // nested metadata for chaining and enrichment
+  PipelineMetadata metadata = 3; // processor's own metadata contribution
 }
 
 // Canonical processor service definition

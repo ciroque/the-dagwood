@@ -46,7 +46,7 @@ impl LevelByLevelExecutor {
 // Simple async trait implementation
 #[async_trait]
 impl DagExecutor for LevelByLevelExecutor {
-    async fn execute_with_strategy(&self, ...) -> Result<HashMap<String, ProcessorResponse>, ExecutionError> {
+    async fn execute_with_strategy(&self, ...) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
         // Async execution logic
     }
 }

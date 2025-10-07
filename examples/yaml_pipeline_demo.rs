@@ -69,16 +69,16 @@ async fn run_yaml_pipeline_demo(config_file: String, input_text: String) -> Resu
     // Create the input request
     let input_request = ProcessorRequest {
         payload: input_text.as_bytes().to_vec(),
-        metadata: HashMap::new(),
     };
     
     // Execute the DAG with the configured failure strategy
     println!("Executing DAG with Work Queue executor...");
-    let results = executor.execute_with_strategy(
+    let (results, _metadata) = executor.execute_with_strategy(
         ProcessorMap::from(processors),
         DependencyGraph::from(dependency_graph),
         EntryPoints::from(entrypoints),
         input_request,
+        the_dagwood::proto::processor_v1::PipelineMetadata::new(),
         failure_strategy,
     ).await?;
     
@@ -87,7 +87,7 @@ async fn run_yaml_pipeline_demo(config_file: String, input_text: String) -> Resu
         if let Some(outcome) = &response.outcome {
             match outcome {
                 the_dagwood::proto::processor_v1::processor_response::Outcome::NextPayload(payload) => {
-                    let result_text = String::from_utf8_lossy(payload);
+                    let result_text = String::from_utf8_lossy(&payload);
                     println!("- {}: '{}'", processor_id, result_text);
                 }
                 the_dagwood::proto::processor_v1::processor_response::Outcome::Error(err) => {
@@ -101,12 +101,12 @@ async fn run_yaml_pipeline_demo(config_file: String, input_text: String) -> Resu
     println!("\n=== Pipeline Verification ===");
     if let Some(uppercase_response) = results.get("uppercase") {
         if let Some(the_dagwood::proto::processor_v1::processor_response::Outcome::NextPayload(payload)) = &uppercase_response.outcome {
-            let uppercase_result = String::from_utf8_lossy(payload);
+            let uppercase_result = String::from_utf8_lossy(&payload);
             println!("✓ Uppercase processor: '{}' -> '{}'", input_text, uppercase_result);
             
             if let Some(reverse_response) = results.get("reverse") {
                 if let Some(the_dagwood::proto::processor_v1::processor_response::Outcome::NextPayload(payload)) = &reverse_response.outcome {
-                    let final_result = String::from_utf8_lossy(payload);
+                    let final_result = String::from_utf8_lossy(&payload);
                     println!("✓ Reverse processor: '{}' -> '{}'", uppercase_result, final_result);
                     
                     // Expected result: "hello world" -> "HELLO WORLD" -> "DLROW OLLEH"
@@ -150,7 +150,7 @@ async fn run_yaml_pipeline_demo(config_file: String, input_text: String) -> Resu
         let final_processor_id = final_processors[0];
         if let Some(final_response) = results.get(final_processor_id) {
             if let Some(the_dagwood::proto::processor_v1::processor_response::Outcome::NextPayload(payload)) = &final_response.outcome {
-                let final_result = String::from_utf8_lossy(payload);
+                let final_result = String::from_utf8_lossy(&payload);
                 println!("Final result from '{}': '{}'", final_processor_id, final_result);
             } else {
                 println!("Final processor '{}' did not produce a valid result", final_processor_id);
@@ -161,7 +161,7 @@ async fn run_yaml_pipeline_demo(config_file: String, input_text: String) -> Resu
         for processor_id in &final_processors {
             if let Some(response) = results.get(*processor_id) {
                 if let Some(the_dagwood::proto::processor_v1::processor_response::Outcome::NextPayload(payload)) = &response.outcome {
-                    let result = String::from_utf8_lossy(payload);
+                    let result = String::from_utf8_lossy(&payload);
                     println!("- {}: '{}'", processor_id, result);
                 }
             }

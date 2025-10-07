@@ -48,7 +48,7 @@
 //! use the_dagwood::config::{ProcessorMap, DependencyGraph, EntryPoints};
 //! use the_dagwood::backends::stub::StubProcessor;
 //! use the_dagwood::traits::Processor;
-//! use the_dagwood::proto::processor_v1::ProcessorRequest;
+//! use the_dagwood::proto::processor_v1::{ProcessorRequest, PipelineMetadata};
 //! use the_dagwood::errors::FailureStrategy;
 //! 
 //! # #[tokio::main]
@@ -70,15 +70,15 @@
 //! let entry_points = vec!["input".to_string()];
 //! let input = ProcessorRequest {
 //!     payload: b"reactive execution test".to_vec(),
-//!     metadata: HashMap::new(),
 //! };
 //! 
 //! // Execute with event-driven approach
-//! let results = executor.execute_with_strategy(
+//! let (results, _metadata) = executor.execute_with_strategy(
 //!     ProcessorMap(processor_map),
 //!     DependencyGraph(dependency_graph),
 //!     EntryPoints(entry_points),
 //!     input,
+//!     PipelineMetadata::new(),
 //!     FailureStrategy::FailFast,
 //! ).await?;
 //! 
@@ -97,7 +97,7 @@
 //! use the_dagwood::config::{ProcessorMap, DependencyGraph, EntryPoints};
 //! use the_dagwood::backends::stub::StubProcessor;
 //! use the_dagwood::traits::Processor;
-//! use the_dagwood::proto::processor_v1::ProcessorRequest;
+//! use the_dagwood::proto::processor_v1::{ProcessorRequest, PipelineMetadata};
 //! use the_dagwood::errors::FailureStrategy;
 //! 
 //! # #[tokio::main]
@@ -120,16 +120,16 @@
 //! let entry_points = vec!["source".to_string()];
 //! let input = ProcessorRequest {
 //!     payload: b"diamond pattern".to_vec(),
-//!     metadata: HashMap::new(),
 //! };
 //! 
 //! // Left and right processors execute in parallel after source completes
 //! // Sink executes immediately when both left and right complete
-//! let results = executor.execute_with_strategy(
+//! let (results, _metadata) = executor.execute_with_strategy(
 //!     ProcessorMap(processor_map),
 //!     DependencyGraph(dependency_graph),
 //!     EntryPoints(entry_points),
 //!     input,
+//!     PipelineMetadata::new(),
 //!     FailureStrategy::FailFast,
 //! ).await?;
 //! 
@@ -726,7 +726,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -734,11 +733,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 1);
         assert!(responses.contains_key("test_proc"));
     }
@@ -761,7 +761,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -769,11 +768,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 3);
         assert!(responses.contains_key("proc1"));
         assert!(responses.contains_key("proc2"));
@@ -800,7 +800,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -808,11 +807,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 4);
         assert!(responses.contains_key("entry"));
         assert!(responses.contains_key("left"));
@@ -840,7 +840,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -848,6 +847,7 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
@@ -881,7 +881,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -889,12 +888,13 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::ContinueOnError,
         ).await;
 
         // Should continue execution despite failure
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
 
         // Should have results for entry and independent, plus failed result for failing
         assert_eq!(responses.len(), 3);
@@ -928,7 +928,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute_with_strategy(
@@ -936,12 +935,13 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         // Should succeed for properly configured entry point
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 1);
         assert!(responses.contains_key("entry"));
     }
@@ -962,7 +962,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         // Test FailFast behavior
@@ -971,6 +970,7 @@ mod tests {
             DependencyGraph(dependency_graph.clone()),
             EntryPoints(entry_points.clone()),
             input.clone(),
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
@@ -989,11 +989,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::ContinueOnError,
         ).await;
 
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 1);
 
         let no_outcome_response = responses.get("no_outcome").unwrap();
@@ -1022,7 +1023,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test".to_vec(),
-            metadata: HashMap::new(),
         };
 
         // This test verifies that our channel error handling improvements
@@ -1032,13 +1032,14 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         // Should succeed - this tests that our error handling improvements
         // don't break normal execution
         match result {
-            Ok(responses) => {
+            Ok((responses, _metadata)) => {
                 assert_eq!(responses.len(), 1);
                 assert!(responses.contains_key("simple"));
             },
@@ -1062,7 +1063,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test".to_vec(),
-            metadata: HashMap::new(),
         };
 
         // This test verifies that entry point triggering works correctly
@@ -1072,11 +1072,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         assert!(result.is_ok());
-        let responses = result.unwrap();
+        let (responses, _metadata) = result.unwrap();
         assert_eq!(responses.len(), 1);
         assert!(responses.contains_key("entry"));
     }
@@ -1097,7 +1098,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test".to_vec(),
-            metadata: HashMap::new(),
         };
 
         // This test verifies that processor failures are handled correctly
@@ -1107,6 +1107,7 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
@@ -1140,7 +1141,6 @@ mod tests {
 
         let input = ProcessorRequest {
             payload: b"test".to_vec(),
-            metadata: HashMap::new(),
         };
 
         // Test that multiple independent processors can execute successfully
@@ -1150,11 +1150,12 @@ mod tests {
             DependencyGraph(dependency_graph),
             EntryPoints(entry_points),
             input,
+            PipelineMetadata::new(),
             FailureStrategy::FailFast,
         ).await;
 
         match result {
-            Ok(responses) => {
+            Ok((responses, _metadata)) => {
                 assert_eq!(responses.len(), 3);
                 assert!(responses.contains_key("proc1"));
                 assert!(responses.contains_key("proc2"));

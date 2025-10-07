@@ -441,7 +441,6 @@ mod tests {
         let entrypoints = EntryPoints(vec!["proc1".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute(processors, graph, entrypoints, input).await;
@@ -472,7 +471,6 @@ mod tests {
         let entrypoints = EntryPoints(vec!["proc1".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute(processors, graph, entrypoints, input).await;
@@ -507,7 +505,6 @@ mod tests {
         let entrypoints = EntryPoints(vec!["A".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute(processors, graph, entrypoints, input).await;
@@ -541,7 +538,6 @@ mod tests {
         let entrypoints = EntryPoints(vec!["entry1".to_string(), "entry2".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
-            metadata: HashMap::new(),
         };
 
         let result = executor.execute(processors, graph, entrypoints, input).await;

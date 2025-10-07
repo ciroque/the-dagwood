@@ -116,7 +116,6 @@ mod tests {
 
             let request = ProcessorRequest {
                 payload: input.as_bytes().to_vec(),
-                metadata: HashMap::new(),
             };
 
             let response = processor.process(request).await;
@@ -137,7 +136,6 @@ mod tests {
 
         let request = ProcessorRequest {
             payload: "hello".as_bytes().to_vec(),
-            metadata: HashMap::new(),
         };
 
         let response = processor.process(request).await;
@@ -157,7 +155,6 @@ mod tests {
 
         let request = ProcessorRequest {
             payload: "hello world test".as_bytes().to_vec(),
-            metadata: HashMap::new(),
         };
 
         let response = processor.process(request).await;

@@ -29,7 +29,6 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
     
     let request1 = ProcessorRequest {
         payload: input_text.as_bytes().to_vec(),
-        metadata: HashMap::new(),
     };
     
     let response1 = uppercase_processor.process(request1).await;
@@ -52,7 +51,6 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
     
     let request2 = ProcessorRequest {
         payload: uppercase_result.as_bytes().to_vec(),
-        metadata: HashMap::new(),
     };
     
     let response2 = reverse_processor.process(request2).await;
@@ -78,7 +76,6 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
     
     let token_request = ProcessorRequest {
         payload: input_text.as_bytes().to_vec(),
-        metadata: HashMap::new(),
     };
     
     let token_response = token_counter.process(token_request).await;
@@ -94,7 +91,6 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
     
     let freq_request = ProcessorRequest {
         payload: input_text.as_bytes().to_vec(),
-        metadata: HashMap::new(),
     };
     
     let freq_response = word_freq.process(freq_request).await;
@@ -110,7 +106,6 @@ async fn run_pipeline_demo() -> Result<(), Box<dyn std::error::Error>> {
     
     let bracket_request = ProcessorRequest {
         payload: "test".as_bytes().to_vec(),
-        metadata: HashMap::new(),
     };
     
     let bracket_response = bracket_adder.process(bracket_request).await;

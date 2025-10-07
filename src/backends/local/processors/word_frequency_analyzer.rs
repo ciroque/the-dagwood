@@ -64,7 +64,7 @@ impl Processor for WordFrequencyAnalyzerProcessor {
         });
 
         ProcessorResponse {
-            outcome: Some(Outcome::NextPayload(req.payload)), // Pass through original payload unchanged
+            outcome: Some(Outcome::NextPayload(vec![])), // Analyze processors: return empty payload (executor ignores it)
             metadata: Some(pipeline_metadata),
         }
     }

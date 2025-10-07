@@ -47,7 +47,7 @@ impl Processor for TokenCounterProcessor {
         });
 
         ProcessorResponse {
-            outcome: Some(Outcome::NextPayload(req.payload)), // Analyze processors: pass through payload unchanged
+            outcome: Some(Outcome::NextPayload(vec![])), // Analyze processors: return empty payload (executor ignores it)
             metadata: Some(pipeline_metadata),
         }
     }

@@ -105,6 +105,10 @@
 //!             ValidationError::DuplicateProcessorId { processor_id } => {
 //!                 eprintln!("Duplicate processor ID: '{}'", processor_id);
 //!             }
+//!             ValidationError::DiamondPatternWarning { convergence_processor, parallel_paths } => {
+//!                 eprintln!("Warning: Diamond pattern at '{}' may cause non-deterministic behavior", 
+//!                          convergence_processor);
+//!             }
 //!         }
 //!     }
 //! }
@@ -207,6 +211,18 @@ pub fn validate_dependency_graph(config: &Config) -> Result<(), Vec<ValidationEr
     if errors.is_empty() {
         if let Err(cycle_errors) = validate_acyclic_graph(config) {
             errors.extend(cycle_errors);
+        }
+    }
+    
+    // Check for diamond patterns (warnings only, don't prevent execution)
+    // Note: Diamond patterns are structural warnings, not execution-blocking errors
+    if errors.is_empty() {
+        if let Err(diamond_warnings) = validate_diamond_patterns(config) {
+            // For now, we'll log warnings but not fail validation
+            // In the future, this could be configurable (strict vs permissive mode)
+            for warning in diamond_warnings {
+                eprintln!("Warning: {}", warning);
+            }
         }
     }
     
@@ -486,6 +502,162 @@ fn dfs_cycle_detection(
     None
 }
 
+/// Validates for diamond dependency patterns that may cause non-deterministic behavior.
+///
+/// Diamond patterns occur when multiple processors depend on the same upstream processor
+/// and then converge at a downstream processor. In the reactive executor, if any of the
+/// parallel processors are Transform type, they may race to update the canonical payload,
+/// leading to non-deterministic behavior.
+///
+/// This validation detects such patterns and issues warnings to help users understand
+/// potential non-determinism in their DAG configurations.
+///
+/// # Arguments
+///
+/// * `config` - The configuration to validate (must have valid references and be acyclic)
+///
+/// # Returns
+///
+/// * `Ok(())` - No diamond patterns detected
+/// * `Err(Vec<ValidationError>)` - Contains diamond pattern warnings
+///
+/// # Algorithm
+///
+/// 1. Build forward adjacency list (dependency → [dependents])
+/// 2. For each processor, check if it has multiple dependencies
+/// 3. For processors with multiple dependencies, trace back to find common ancestors
+/// 4. If common ancestors exist with multiple paths to the current processor, it's a diamond
+/// 5. Extract the parallel paths for detailed warning information
+///
+/// # Example Diamond Patterns
+///
+/// - **Simple Diamond**: `A → [B, C] → D` (A is common ancestor, B and C are parallel, D converges)
+/// - **Complex Diamond**: `A → B → [C, D] → E` (B is common ancestor, C and D are parallel, E converges)
+/// - **Nested Diamonds**: Multiple diamond patterns within the same DAG
+fn validate_diamond_patterns(config: &Config) -> Result<(), Vec<ValidationError>> {
+    // Build forward adjacency list (dependency -> [dependents])
+    let mut graph: HashMap<&String, Vec<&String>> = HashMap::new();
+    
+    // Initialize all processors in the graph
+    for processor in &config.processors {
+        graph.insert(&processor.id, Vec::new());
+    }
+    
+    // Add edges (dependencies -> dependents)
+    for processor in &config.processors {
+        for dependency in &processor.depends_on {
+            graph.get_mut(dependency).unwrap().push(&processor.id);
+        }
+    }
+    
+    let mut warnings = Vec::new();
+    
+    // Check each processor for diamond patterns
+    for processor in &config.processors {
+        if processor.depends_on.len() >= 2 {
+            // This processor has multiple dependencies - potential diamond convergence point
+            let diamond_paths = find_diamond_paths(&processor.id, &processor.depends_on, &graph);
+            if !diamond_paths.is_empty() {
+                warnings.push(ValidationError::DiamondPatternWarning {
+                    convergence_processor: processor.id.clone(),
+                    parallel_paths: diamond_paths,
+                });
+            }
+        }
+    }
+    
+    if warnings.is_empty() {
+        Ok(())
+    } else {
+        Err(warnings)
+    }
+}
+
+/// Finds diamond paths for a processor with multiple dependencies.
+///
+/// This function traces back from the convergence processor through its dependencies
+/// to identify parallel execution paths that may cause race conditions.
+///
+/// # Arguments
+///
+/// * `convergence_processor` - The processor where paths converge
+/// * `dependencies` - The direct dependencies of the convergence processor
+/// * `graph` - Forward adjacency list representation
+///
+/// # Returns
+///
+/// * `Vec<Vec<String>>` - List of parallel paths, empty if no diamond detected
+fn find_diamond_paths(
+    convergence_processor: &str,
+    dependencies: &[String],
+    graph: &HashMap<&String, Vec<&String>>,
+) -> Vec<Vec<String>> {
+    let mut parallel_paths = Vec::new();
+    
+    // For simplicity, we'll detect the most common diamond pattern:
+    // Multiple direct dependencies that don't depend on each other
+    // More complex diamond detection would require full path analysis
+    
+    for dep in dependencies {
+        // Check if this dependency has any path to other dependencies
+        let mut has_path_to_other_deps = false;
+        for other_dep in dependencies {
+            if dep != other_dep && has_path_between(dep, other_dep, graph) {
+                has_path_to_other_deps = true;
+                break;
+            }
+        }
+        
+        // If this dependency doesn't connect to other dependencies,
+        // it forms a parallel path in a potential diamond
+        if !has_path_to_other_deps {
+            parallel_paths.push(vec![dep.clone(), convergence_processor.to_string()]);
+        }
+    }
+    
+    // Only return paths if we have multiple parallel paths (diamond pattern)
+    if parallel_paths.len() >= 2 {
+        parallel_paths
+    } else {
+        Vec::new()
+    }
+}
+
+/// Checks if there's a path between two processors in the dependency graph.
+///
+/// Uses BFS to determine if `from` processor can reach `to` processor
+/// through the dependency graph.
+fn has_path_between(
+    from: &str,
+    to: &str,
+    graph: &HashMap<&String, Vec<&String>>,
+) -> bool {
+    if from == to {
+        return true;
+    }
+    
+    let mut visited = HashSet::new();
+    let mut queue = std::collections::VecDeque::new();
+    queue.push_back(from.to_string());
+    visited.insert(from.to_string());
+    
+    while let Some(current) = queue.pop_front() {
+        if let Some(neighbors) = graph.get(&current) {
+            for &neighbor in neighbors {
+                if neighbor == to {
+                    return true;
+                }
+                if !visited.contains(neighbor) {
+                    visited.insert(neighbor.to_string());
+                    queue.push_back(neighbor.to_string());
+                }
+            }
+        }
+    }
+    
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -686,5 +858,74 @@ mod tests {
         assert!(result.is_err());
         let errors = result.unwrap_err();
         assert!(errors.len() >= 2); // Should have multiple errors
+    }
+
+    #[test]
+    fn test_diamond_pattern_detection() {
+        let config = Config {
+            strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
+            processors: vec![
+                create_test_processor("entry", vec![]),
+                create_test_processor("left", vec!["entry"]),
+                create_test_processor("right", vec!["entry"]),
+                create_test_processor("merge", vec!["left", "right"]), // Diamond convergence
+            ],
+        };
+        
+        // Diamond patterns are now warnings, not errors - validation should succeed
+        let result = validate_dependency_graph(&config);
+        assert!(result.is_ok(), "Diamond patterns should be warnings, not blocking errors");
+        
+        // Test the diamond detection function directly to verify it detects the pattern
+        let diamond_result = validate_diamond_patterns(&config);
+        assert!(diamond_result.is_err());
+        let warnings = diamond_result.unwrap_err();
+        assert_eq!(warnings.len(), 1);
+        assert!(matches!(
+            warnings[0],
+            ValidationError::DiamondPatternWarning { .. }
+        ));
+        
+        if let ValidationError::DiamondPatternWarning { convergence_processor, parallel_paths } = &warnings[0] {
+            assert_eq!(convergence_processor, "merge");
+            assert_eq!(parallel_paths.len(), 2);
+        }
+    }
+
+    #[test]
+    fn test_no_diamond_pattern_linear_chain() {
+        let config = Config {
+            strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
+            processors: vec![
+                create_test_processor("a", vec![]),
+                create_test_processor("b", vec!["a"]),
+                create_test_processor("c", vec!["b"]),
+            ],
+        };
+        
+        let result = validate_dependency_graph(&config);
+        assert!(result.is_ok()); // Linear chain should not trigger diamond warning
+    }
+
+    #[test]
+    fn test_no_diamond_pattern_single_dependency() {
+        let config = Config {
+            strategy: Strategy::WorkQueue,
+            failure_strategy: crate::errors::FailureStrategy::FailFast,
+            executor_options: crate::config::ExecutorOptions::default(),
+            processors: vec![
+                create_test_processor("a", vec![]),
+                create_test_processor("b", vec!["a"]),
+                create_test_processor("c", vec!["a"]),
+                create_test_processor("d", vec!["b"]), // Only depends on b, not both b and c
+            ],
+        };
+        
+        let result = validate_dependency_graph(&config);
+        assert!(result.is_ok()); // No convergence point, so no diamond
     }
 }

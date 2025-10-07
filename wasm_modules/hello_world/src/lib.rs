@@ -1,11 +1,11 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
-/// Simple WASM processor that appends "-wasm" to the input string.
+/// C-string compatibility wrapper for the core process function.
 /// 
-/// This demonstrates the basic WASM processor interface for The DAGwood project.
-/// The function receives a pointer to a null-terminated C string and returns
-/// a pointer to a new null-terminated C string with "-wasm" appended.
+/// This function provides a C-style interface by wrapping the core `process_with_length()`
+/// implementation. It handles conversion between null-terminated C strings and the
+/// pointer+length interface used by the core logic.
 /// 
 /// # Safety
 /// 
@@ -23,26 +23,42 @@ pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char {
     // Safety: We assume the input pointer is valid and points to a null-terminated string
     let input_cstr = unsafe { CStr::from_ptr(input_ptr) };
     
-    // Convert to Rust string
-    let input_str = match input_cstr.to_str() {
-        Ok(s) => s,
-        Err(_) => return std::ptr::null_mut(), // Return null on invalid UTF-8
+    // Get the bytes from the C string
+    let input_bytes = input_cstr.to_bytes();
+    
+    // Delegate to the core implementation
+    let result_ptr = process_with_length(input_bytes.as_ptr(), input_bytes.len() as i32);
+    
+    // Check if process_with_length returned null (error case)
+    if result_ptr.is_null() {
+        return std::ptr::null_mut();
+    }
+    
+    // Convert the result back to a C string
+    // Safety: We know result_ptr points to valid UTF-8 data from process_with_length
+    let result_slice = unsafe {
+        // Find the length by looking for the null terminator that process_with_length adds
+        let mut len = 0;
+        while *result_ptr.add(len) != 0 {
+            len += 1;
+        }
+        std::slice::from_raw_parts(result_ptr, len)
     };
     
-    // Append "-wasm" to the input
-    let output = format!("{}-wasm", input_str);
-    
-    // Convert back to C string and return pointer
-    match CString::new(output) {
-        Ok(c_string) => c_string.into_raw(),
-        Err(_) => std::ptr::null_mut(), // Return null on string conversion error
+    // Convert to Rust string and then to CString
+    match std::str::from_utf8(result_slice) {
+        Ok(result_str) => match CString::new(result_str) {
+            Ok(c_string) => c_string.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        },
+        Err(_) => std::ptr::null_mut(),
     }
 }
 
-/// Alternative process function that matches the interface expected by WasmProcessor.
+/// Core process function that implements the main business logic.
 /// 
-/// This version takes a pointer and length for the input string, which is more
-/// compatible with the WASM memory model used in our WasmProcessor implementation.
+/// This is the canonical implementation that takes a pointer and length for the input string.
+/// The `process()` function is a thin wrapper around this for C-string compatibility.
 /// 
 /// # Arguments
 /// 

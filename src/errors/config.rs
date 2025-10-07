@@ -20,6 +20,13 @@ pub enum ValidationError {
         /// The duplicate processor ID
         processor_id: String,
     },
+    /// A diamond dependency pattern was detected that may cause non-deterministic behavior
+    DiamondPatternWarning {
+        /// The convergence point of the diamond pattern
+        convergence_processor: String,
+        /// The processors that form the parallel paths
+        parallel_paths: Vec<Vec<String>>,
+    },
 }
 
 impl fmt::Display for ValidationError {
@@ -40,6 +47,15 @@ impl fmt::Display for ValidationError {
             }
             ValidationError::DuplicateProcessorId { processor_id } => {
                 write!(f, "Duplicate processor ID: '{}'", processor_id)
+            }
+            ValidationError::DiamondPatternWarning { convergence_processor, parallel_paths } => {
+                write!(f, "Diamond dependency pattern detected at '{}': ", convergence_processor)?;
+                for (i, path) in parallel_paths.iter().enumerate() {
+                    if i > 0 { write!(f, " and ")?; }
+                    write!(f, "[{}]", path.join(" -> "))?;
+                }
+                write!(f, " -> {}. ", convergence_processor)?;
+                write!(f, "If any processors in parallel paths are Transform type, this may cause non-deterministic behavior in the reactive executor due to race conditions in canonical payload updates.")
             }
         }
     }

@@ -36,7 +36,7 @@ The following processors will be completed for this phase:
 
 ## Phase 3: Expand Backends
 
-* [ ] Add **WASM adapter** (wasmtime/Extism).
+* [X] Add **WASM adapter** (wasmtime/Extism).
 * [ ] Add **RPC adapter** (gRPC client via tonic).
 * [ ] Add support for loadable shared libraries in the Local backend.
 * [ ] Support configurable payload size limits.

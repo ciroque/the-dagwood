@@ -618,24 +618,23 @@ impl DagExecutor for WorkQueueExecutor {
                             } else {
                                 // === SUCCESS HANDLING ===
                                 // Store the successful result for future processors to use
-                                let response_clone = response.clone();
                                 {
                                     let mut results = results_mutex_clone.lock().await;
-                                    results.insert(processor_id_clone.clone(), response);
+                                    results.insert(processor_id_clone.clone(), response.clone());
                                 }
                                 
                                 // === METADATA COLLECTION ===
                                 // Collect metadata from this processor's response
                                 {
                                     let mut pipeline_meta = pipeline_metadata_clone.lock().await;
-                                    pipeline_meta.merge_processor_response(&processor_id_clone, &response_clone);
+                                    pipeline_meta.merge_processor_response(&processor_id_clone, &response);
                                 }
                                 
                                 // === CANONICAL PAYLOAD UPDATE (CORE ARCHITECTURE) ===
                                 // Update canonical payload if this is a Transform processor with higher topological rank
                                 if let Some(processor) = processors_clone.get(&processor_id_clone) {
                                     if processor.declared_intent() == ProcessorIntent::Transform {
-                                        if let Some(Outcome::NextPayload(new_payload)) = &response_clone.outcome {
+                                        if let Some(Outcome::NextPayload(new_payload)) = &response.outcome {
                                             if let Some(&processor_rank) = topological_ranks_clone.get(&processor_id_clone) {
                                                 let mut highest_rank = highest_transform_rank_mutex_clone.lock().await;
                                                 

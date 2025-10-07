@@ -19,6 +19,7 @@
 //! - **Natural Parallelism**: No artificial batching - processors run as soon as ready
 //! - **Low Latency**: Minimal delay between dependency completion and dependent execution
 //! - **Canonical Payload**: Maintains architectural consistency with Transform/Analyze separation
+//! - **Metadata Collection**: Collects and merges processor metadata consistently with other executors
 //! - **Failure Resilience**: Sophisticated error handling with cancellation support
 //! - **Concurrency Control**: Configurable semaphore-based concurrency limiting
 //!
@@ -28,7 +29,7 @@
 //! 2. **Task Spawning**: Spawn async task for each processor
 //! 3. **Entry Point Triggering**: Send execute events to entry point processors
 //! 4. **Event Propagation**: Processors notify dependents upon completion
-//! 5. **Result Collection**: Gather results from all completed processors
+//! 5. **Result & Metadata Collection**: Gather results and metadata from all completed processors
 //!
 //! # Performance Characteristics
 //!
@@ -456,14 +457,15 @@ impl ReactiveExecutor {
 
     /// Spawn an async task for a processor in the reactive network
     ///
-    /// This reuses the canonical payload architecture and declared_intent() pattern
-    /// from the existing executors to maintain consistency.
+    /// This reuses the canonical payload architecture, declared_intent() pattern,
+    /// and metadata collection from the existing executors to maintain consistency.
     async fn spawn_processor_task(
         processor_id: String,
         node: ProcessorNode,
         processors: Arc<ProcessorMap>,
         canonical_payload_mutex: Arc<Mutex<Vec<u8>>>,
         results_mutex: Arc<Mutex<HashMap<String, ProcessorResponse>>>,
+        pipeline_metadata_mutex: Arc<Mutex<PipelineMetadata>>,
         senders: Arc<HashMap<String, mpsc::UnboundedSender<ProcessorEvent>>>,
         failure_strategy: FailureStrategy,
         semaphore: Arc<tokio::sync::Semaphore>,
@@ -510,6 +512,12 @@ impl ReactiveExecutor {
                 {
                     let mut results_guard = results_mutex.lock().await;
                     results_guard.insert(processor_id.clone(), processor_response.clone());
+                }
+
+                // Collect metadata from processor response
+                {
+                    let mut pipeline_meta = pipeline_metadata_mutex.lock().await;
+                    pipeline_meta.merge_processor_response(&processor_id, &processor_response);
                 }
 
                 // Notify all dependents (event-driven core)
@@ -605,6 +613,7 @@ impl DagExecutor for ReactiveExecutor {
         // Initialize canonical payload with input payload
         let canonical_payload_mutex = Arc::new(Mutex::new(input.payload.clone()));
         let results_mutex = Arc::new(Mutex::new(HashMap::new()));
+        let pipeline_metadata_mutex = Arc::new(Mutex::new(pipeline_metadata));
         let senders_arc = Arc::new(senders);
         let processors_arc = Arc::new(processors);
         let semaphore = Arc::new(tokio::sync::Semaphore::new(self.max_concurrency));
@@ -619,6 +628,7 @@ impl DagExecutor for ReactiveExecutor {
                 processors_arc.clone(),
                 canonical_payload_mutex.clone(),
                 results_mutex.clone(),
+                pipeline_metadata_mutex.clone(),
                 senders_arc.clone(),
                 failure_strategy,
                 semaphore.clone(),
@@ -687,9 +697,14 @@ impl DagExecutor for ReactiveExecutor {
             })?
             .into_inner();
 
-        // TODO: Collect metadata from processor responses
-        // For now, return empty pipeline metadata since reactive executor doesn't collect metadata yet
-        Ok((final_results, pipeline_metadata))
+        // Return collected metadata from processor responses
+        let final_metadata = Arc::try_unwrap(pipeline_metadata_mutex)
+            .map_err(|_| ExecutionError::InternalError {
+                message: "Failed to unwrap pipeline metadata Arc - multiple references still exist".into(),
+            })?
+            .into_inner();
+
+        Ok((final_results, final_metadata))
     }
 }
 

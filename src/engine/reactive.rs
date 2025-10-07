@@ -147,10 +147,9 @@ use tokio_util::sync::CancellationToken;
 use crate::traits::executor::DagExecutor;
 use crate::traits::processor::ProcessorIntent;
 use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
+use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, PipelineMetadata};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::errors::{ExecutionError, FailureStrategy};
-use crate::engine::metadata::{merge_dependency_metadata_for_execution, BASE_METADATA_KEY};
 
 /// Reactive/Event-Driven executor that uses async channels for processor communication.
 ///
@@ -241,11 +240,11 @@ enum ProcessorEvent {
     /// Notification that a dependency has completed
     DependencyCompleted {
         dependency_id: String,
-        metadata: HashMap<String, crate::proto::processor_v1::Metadata>,
+        metadata: Option<PipelineMetadata>,
     },
     /// Initial trigger for entry point processors
     Execute {
-        metadata: HashMap<String, crate::proto::processor_v1::Metadata>,
+        metadata: Option<PipelineMetadata>,
     },
 }
 
@@ -375,7 +374,7 @@ impl ReactiveExecutor {
     fn handle_dependency_completed(
         node: &mut ProcessorNode,
         dependency_id: String,
-        metadata: HashMap<String, crate::proto::processor_v1::Metadata>,
+        metadata: Option<PipelineMetadata>,
     ) {
         let dependency_response = ProcessorResponse {
             outcome: Some(Outcome::NextPayload(vec![])), // Payload not used in metadata merging
@@ -389,14 +388,9 @@ impl ReactiveExecutor {
     fn handle_execute_event(
         node: &mut ProcessorNode,
         processor_id: &str,
-        metadata: HashMap<String, crate::proto::processor_v1::Metadata>,
+        _metadata: Option<PipelineMetadata>,
     ) -> Result<bool, ExecutionError> {
-        // Entry point execution - store as base metadata
-        let base_response = ProcessorResponse {
-            outcome: Some(Outcome::NextPayload(vec![])),
-            metadata,
-        };
-        node.dependency_results.insert(BASE_METADATA_KEY.to_string(), base_response);
+        // Entry point execution - no dependency results needed for entry points
         
         // Validate that entry points have no pending dependencies
         if node.pending_dependencies == 0 {
@@ -494,23 +488,8 @@ impl ReactiveExecutor {
             guard.clone()
         };
 
-        // Use existing metadata merging utility (same as other executors)
-        // Extract base metadata from original input and merge with dependency metadata
-        let base_metadata = node
-            .dependency_results
-            .get(BASE_METADATA_KEY)
-            .and_then(|input_metadata| input_metadata.metadata.get(BASE_METADATA_KEY))
-            .map(|base_meta| base_meta.metadata.clone())
-            .unwrap_or_default();
-
-        let all_metadata = merge_dependency_metadata_for_execution(
-            base_metadata,
-            &node.dependency_results,
-        );
-
         let processor_input = ProcessorRequest {
             payload: canonical_payload, // All processors get canonical payload
-            metadata: all_metadata,
         };
 
         // Execute processor
@@ -589,7 +568,7 @@ impl ReactiveExecutor {
                                 code: 500,
                                 message: error_msg,
                             })),
-                            metadata: HashMap::new(),
+                            metadata: None,
                         };
                         let mut results_guard = results_mutex.lock().await;
                         results_guard.insert(processor_id.clone(), error_response);
@@ -610,8 +589,9 @@ impl DagExecutor for ReactiveExecutor {
         graph: DependencyGraph,
         entrypoints: EntryPoints,
         input: ProcessorRequest,
+        mut pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
-    ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError> {
+    ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
         
         // Validate dependency graph (reuse existing validation)
         let (_dependency_counts, _topological_ranks) = graph.dependency_counts_and_ranks()
@@ -651,7 +631,7 @@ impl DagExecutor for ReactiveExecutor {
         for entrypoint in entrypoints.iter() {
             if let Some(sender) = senders_arc.get(entrypoint) {
                 if let Err(_) = sender.send(ProcessorEvent::Execute {
-                    metadata: input.metadata.clone(),
+                    metadata: None,
                 }) {
                     // Entry point processor channel closed - this indicates a serious issue
                     // since entry points should be ready to receive at startup
@@ -707,7 +687,9 @@ impl DagExecutor for ReactiveExecutor {
             })?
             .into_inner();
 
-        Ok(final_results)
+        // TODO: Collect metadata from processor responses
+        // For now, return empty pipeline metadata since reactive executor doesn't collect metadata yet
+        Ok((final_results, pipeline_metadata))
     }
 }
 

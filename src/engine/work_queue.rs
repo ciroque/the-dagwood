@@ -171,10 +171,9 @@ use tokio::sync::Mutex;
 use crate::traits::executor::DagExecutor;
 use crate::traits::processor::ProcessorIntent;
 use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
+use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, PipelineMetadata};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::errors::{ExecutionError, FailureStrategy};
-use crate::engine::metadata::{merge_dependency_metadata_for_execution, BASE_METADATA_KEY};
 
 use super::priority_work_queue::{PriorityWorkQueue, PrioritizedTask};
 
@@ -388,8 +387,9 @@ impl DagExecutor for WorkQueueExecutor {
         graph: DependencyGraph,
         entrypoints: EntryPoints,
         input: ProcessorRequest,
+        mut pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
-    ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError> {
+    ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
         // === PHASE 1: VALIDATION AND SETUP ===
         
         // Validate all processors referenced in the dependency graph actually exist in the registry
@@ -452,6 +452,9 @@ impl DagExecutor for WorkQueueExecutor {
         
         // Track processors blocked due to failed dependencies
         let blocked_processors = Arc::new(Mutex::new(std::collections::HashSet::<String>::new()));
+        
+        // Pipeline metadata accumulator - shared across all async tasks
+        let pipeline_metadata_mutex = Arc::new(Mutex::new(pipeline_metadata));
         
         // === CANONICAL PAYLOAD ARCHITECTURE ===
         // This is the key innovation that solves race conditions in diamond dependency patterns
@@ -538,6 +541,7 @@ impl DagExecutor for WorkQueueExecutor {
                     let canonical_payload_mutex_clone = canonical_payload_mutex.clone();
                     let highest_transform_rank_mutex_clone = highest_transform_rank_mutex.clone();
                     let topological_ranks_clone = topological_ranks.clone();
+                    let pipeline_metadata_clone = pipeline_metadata_mutex.clone();
                     
                     // Spawn async task to execute the processor concurrently
                     // Each processor runs in its own async task for maximum parallelism
@@ -571,38 +575,14 @@ impl DagExecutor for WorkQueueExecutor {
                                     // This is an entry point processor - use the original input as-is
                                     input_clone
                                 } else {
-                                    // This processor has dependencies - construct input from canonical payload + metadata
+                                    // This processor has dependencies - use canonical payload
                                     
                                     // Get the current canonical payload (latest from any Transform processor)
                                     let canonical_payload_arc = canonical_payload_mutex_clone.lock().await.clone();
                                     let canonical_payload = (*canonical_payload_arc).clone(); // Only clone when creating ProcessorRequest
-                                    let results_guard = results_mutex_clone.lock().await;
-                                    
-                                    // Collect metadata only from actual dependencies, not all completed processors
-                                    // This ensures processors only see metadata from their direct dependencies
-                                    let mut dependency_results = HashMap::new();
-                                    for dep_id in dependencies {
-                                        if let Some(dep_response) = results_guard.get(dep_id) {
-                                            dependency_results.insert(dep_id.clone(), dep_response.clone());
-                                        }
-                                    }
-                                    
-                                    // Extract base metadata from original input and merge with dependency metadata
-                                    let base_metadata = if let Some(input_metadata) = input_clone.metadata.get(BASE_METADATA_KEY) {
-                                        input_metadata.metadata.clone()
-                                    } else {
-                                        HashMap::new()
-                                    };
-                                    
-                                    // Merge all metadata: base input metadata + all dependency contributions
-                                    let all_metadata = merge_dependency_metadata_for_execution(
-                                        base_metadata,
-                                        &dependency_results
-                                    );
                                     
                                     ProcessorRequest {
                                         payload: canonical_payload,
-                                        metadata: all_metadata,
                                     }
                                 }
                             } else {
@@ -642,6 +622,13 @@ impl DagExecutor for WorkQueueExecutor {
                                 {
                                     let mut results = results_mutex_clone.lock().await;
                                     results.insert(processor_id_clone.clone(), response);
+                                }
+                                
+                                // === METADATA COLLECTION ===
+                                // Collect metadata from this processor's response
+                                {
+                                    let mut pipeline_meta = pipeline_metadata_clone.lock().await;
+                                    pipeline_meta.merge_processor_response(&processor_id_clone, &response_clone);
                                 }
                                 
                                 // === CANONICAL PAYLOAD UPDATE (CORE ARCHITECTURE) ===
@@ -765,7 +752,8 @@ impl DagExecutor for WorkQueueExecutor {
         // === PHASE 5: RESULT EXTRACTION ===
         // All processors have completed successfully - extract the final results
         let final_results = results_mutex.lock().await;
-        Ok(final_results.clone())
+        let final_pipeline_metadata = pipeline_metadata_mutex.lock().await;
+        Ok((final_results.clone(), final_pipeline_metadata.clone()))
     }
 }
 
@@ -773,7 +761,7 @@ impl DagExecutor for WorkQueueExecutor {
 mod tests {
     use super::*;
     use crate::traits::processor::Processor;
-    use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, Metadata};
+    use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, PipelineMetadata, ProcessorMetadata};
     use std::time::Duration;
     use tokio::time::sleep;
 
@@ -803,7 +791,7 @@ mod tests {
             let output_text = format!("{}{}", input_text, self.output_suffix);
             ProcessorResponse {
                 outcome: Some(Outcome::NextPayload(output_text.into_bytes())),
-                metadata: HashMap::new(),
+                metadata: None,
             }
         }
 
@@ -839,24 +827,17 @@ mod tests {
             }
             
             // Analyze processors should NOT modify the payload, only add metadata
-            let mut metadata = req.metadata.clone();
+            let mut processor_metadata = HashMap::new();
+            processor_metadata.insert("analysis".to_string(), self.metadata_suffix.clone());
             
-            // Merge with existing "self" metadata instead of overwriting
-            if let Some(existing_self) = metadata.get_mut("self") {
-                // Add our analysis metadata to existing metadata
-                existing_self.metadata.insert("analysis".to_string(), self.metadata_suffix.clone());
-            } else {
-                // No existing "self" metadata, create new
-                let mut own_metadata = std::collections::HashMap::new();
-                own_metadata.insert("analysis".to_string(), self.metadata_suffix.clone());
-                metadata.insert("self".to_string(), Metadata {
-                    metadata: own_metadata,
-                });
-            }
+            let mut pipeline_metadata = PipelineMetadata::new();
+            pipeline_metadata.metadata.insert("self".to_string(), ProcessorMetadata {
+                metadata: processor_metadata,
+            });
             
             ProcessorResponse {
-                outcome: Some(Outcome::NextPayload(Vec::new())), // Pass through unchanged
-                metadata,
+                outcome: Some(Outcome::NextPayload(req.payload)), // Pass through unchanged
+                metadata: Some(pipeline_metadata),
             }
         }
 
@@ -883,7 +864,6 @@ mod tests {
         let entrypoints = vec!["proc1".to_string()];
         let input = ProcessorRequest {
             payload: "test".to_string().into_bytes(),
-            ..Default::default()
         };
         
         let results = executor.execute(ProcessorMap::from(processors), DependencyGraph::from(graph), EntryPoints::from(entrypoints), input).await.expect("DAG execution should succeed");

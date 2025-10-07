@@ -24,7 +24,7 @@ impl Processor for ReverseTextProcessor {
                         code: 400,
                         message: format!("Invalid UTF-8 input: {}", e),
                     })),
-                    metadata: std::collections::HashMap::new(),
+                    metadata: None,
                 };
             }
         };
@@ -33,7 +33,7 @@ impl Processor for ReverseTextProcessor {
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(reversed.into_bytes())),
-            metadata: std::collections::HashMap::new(),
+            metadata: None,
         }
     }
 

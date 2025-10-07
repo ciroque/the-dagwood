@@ -94,7 +94,7 @@ impl Processor for ChangeTextCaseProcessor {
                         code: 400,
                         message: format!("Invalid UTF-8 input: {}", e),
                     })),
-                    metadata: HashMap::new(),
+                    metadata: None,
                 };
             }
         };
@@ -143,14 +143,14 @@ impl Processor for ChangeTextCaseProcessor {
                         code: 400,
                         message: format!("Unsupported custom case type: {}", custom_type),
                     })),
-                    metadata: HashMap::new(),
+                    metadata: None,
                 };
             }
         };
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(result.into_bytes())),
-            metadata: HashMap::new(),
+            metadata: None,
         }
     }
 

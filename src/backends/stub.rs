@@ -22,7 +22,7 @@ impl Processor for StubProcessor {
             outcome: Some(
                 crate::proto::processor_v1::processor_response::Outcome::NextPayload(vec![])
             ),
-            metadata: std::collections::HashMap::new(),
+            metadata: None,
         }
     }
 
@@ -62,7 +62,7 @@ impl Processor for FailingProcessor {
                     }
                 )
             ),
-            metadata: std::collections::HashMap::new(),
+            metadata: None,
         }
     }
 
@@ -95,7 +95,7 @@ impl Processor for NoOutcomeProcessor {
         // Return no outcome (None)
         crate::proto::processor_v1::ProcessorResponse {
             outcome: None,
-            metadata: std::collections::HashMap::new(),
+            metadata: None,
         }
     }
 

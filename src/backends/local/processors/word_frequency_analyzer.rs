@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail, Metadata};
+use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail, PipelineMetadata, ProcessorMetadata};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::traits::{Processor, processor::ProcessorIntent};
 
@@ -25,7 +25,7 @@ impl Processor for WordFrequencyAnalyzerProcessor {
                         code: 400,
                         message: format!("Invalid UTF-8 input: {}", e),
                     })),
-                    metadata: std::collections::HashMap::new(),
+                    metadata: None,
                 };
             }
         };
@@ -57,15 +57,15 @@ impl Processor for WordFrequencyAnalyzerProcessor {
         let total_words: usize = analysis_metadata.len();
         analysis_metadata.insert("total_unique_words".to_string(), total_words.to_string());
         
-        // Create proper protobuf metadata structure
-        let mut metadata = HashMap::new();
-        metadata.insert(self.name().to_string(), Metadata {
+        // Create pipeline metadata with our processor's results
+        let mut pipeline_metadata = PipelineMetadata::new();
+        pipeline_metadata.metadata.insert(self.name().to_string(), ProcessorMetadata {
             metadata: analysis_metadata,
         });
 
         ProcessorResponse {
-            outcome: Some(Outcome::NextPayload(Vec::new())), // Pass through original payload unchanged
-            metadata,
+            outcome: Some(Outcome::NextPayload(req.payload)), // Pass through original payload unchanged
+            metadata: Some(pipeline_metadata),
         }
     }
 

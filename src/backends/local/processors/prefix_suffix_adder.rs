@@ -55,7 +55,7 @@ impl Processor for PrefixSuffixAdderProcessor {
                         code: 400,
                         message: format!("Invalid UTF-8 input: {}", e),
                     })),
-                    metadata: std::collections::HashMap::new(),
+                    metadata: None,
                 };
             }
         };
@@ -74,7 +74,7 @@ impl Processor for PrefixSuffixAdderProcessor {
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(result.into_bytes())),
-            metadata: std::collections::HashMap::new(),
+            metadata: None,
         }
     }
 

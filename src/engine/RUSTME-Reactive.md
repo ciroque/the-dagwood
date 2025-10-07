@@ -248,6 +248,19 @@ if processor.declared_intent() == ProcessorIntent::Transform {
 
 **Why this separation?** It eliminates race conditions in diamond dependency patterns while maintaining clear architectural boundaries between data transformation and analysis.
 
+### **Metadata Collection Architecture**
+The reactive executor collects metadata from processor responses using the same pattern as other executors:
+
+```rust
+// Collect metadata from processor response
+{
+    let mut pipeline_meta = pipeline_metadata_mutex.lock().await;
+    pipeline_meta.merge_processor_response(&processor_id, &processor_response);
+}
+```
+
+**Why consistent metadata collection?** This ensures API consistency across all three executors (WorkQueue, LevelByLevel, Reactive) so that users get the same metadata behavior regardless of execution strategy choice.
+
 ### **Failure Strategy Implementation**
 Different failure strategies are implemented through pattern matching:
 
@@ -276,6 +289,7 @@ The Reactive Executor showcases Rust's advanced async and concurrency features f
 - **Resource Control**: Semaphores and configurable concurrency prevent system overload
 - **Graceful Failure**: Comprehensive error handling with contextual information and failure strategy support
 - **Performance Optimization**: Canonical payload architecture eliminates race conditions while maintaining efficiency
+- **Metadata Collection**: Consistent processor metadata collection and merging across all executor types
 - **Type Safety**: Rust's ownership system prevents data races and ensures memory safety in complex async scenarios
 
 The key innovation is the event-driven state machine approach where each processor reacts to dependency completion events rather than polling, combined with sophisticated cancellation and error propagation mechanisms. This creates a highly responsive and scalable execution model that maintains deterministic behavior while maximizing concurrent throughput.

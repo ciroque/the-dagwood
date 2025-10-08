@@ -110,7 +110,7 @@ Every DAGwood workflow is defined by a YAML configuration:
 
 ```yaml
 # Execution strategy selection
-strategy: work_queue  # Options: work_queue, level, reactive, hybrid
+strategy: work_queue  # Options: work_queue, level, reactive
 
 # Error handling behavior
 failure_strategy: fail_fast  # Options: fail_fast, continue_on_error, best_effort
@@ -181,6 +181,14 @@ strategy: level
 - **Best for**: Regular DAGs, predictable execution
 - **Algorithm**: Topological level computation
 - **Parallelism**: Within levels only - waits for entire level completion
+
+#### Reactive
+```yaml
+strategy: reactive
+```
+- **Best for**: Real-time workflows, I/O-bound processors
+- **Algorithm**: Event-driven execution with immediate response
+- **Parallelism**: Maximum responsiveness - processors react instantly to dependency completion
 
 ## Building Your Own Processors
 

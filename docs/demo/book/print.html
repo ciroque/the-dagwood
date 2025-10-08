@@ -2891,7 +2891,7 @@ Config files: ["my-first-workflow.yaml"]
 <h3 id="configuration-structure"><a class="header" href="#configuration-structure">Configuration Structure</a></h3>
 <p>Every DAGwood workflow is defined by a YAML configuration:</p>
 <pre><code class="language-yaml"># Execution strategy selection
-strategy: work_queue  # Options: work_queue, level, reactive, hybrid
+strategy: work_queue  # Options: work_queue, level, reactive
 
 # Error handling behavior
 failure_strategy: fail_fast  # Options: fail_fast, continue_on_error, best_effort
@@ -2953,6 +2953,14 @@ processors:
 <li><strong>Best for</strong>: Regular DAGs, predictable execution</li>
 <li><strong>Algorithm</strong>: Topological level computation</li>
 <li><strong>Parallelism</strong>: Within levels only - waits for entire level completion</li>
+</ul>
+<h4 id="reactive"><a class="header" href="#reactive">Reactive</a></h4>
+<pre><code class="language-yaml">strategy: reactive
+</code></pre>
+<ul>
+<li><strong>Best for</strong>: Real-time workflows, I/O-bound processors</li>
+<li><strong>Algorithm</strong>: Event-driven execution with immediate response</li>
+<li><strong>Parallelism</strong>: Maximum responsiveness - processors react instantly to dependency completion</li>
 </ul>
 <h2 id="building-your-own-processors"><a class="header" href="#building-your-own-processors">Building Your Own Processors</a></h2>
 <h3 id="local-processor-development"><a class="header" href="#local-processor-development">Local Processor Development</a></h3>

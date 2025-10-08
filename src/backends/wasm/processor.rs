@@ -138,7 +138,11 @@ use std::collections::HashMap;
 use wasmtime::*;
 use crate::backends::wasm::error::{WasmError, WasmResult};
 
-// 10MB maximum input size
+// 10MB maximum input size.
+//
+// This limit is set to prevent excessive memory/resource usage and potential denial-of-service
+// attacks from untrusted input. 10MB is chosen as a balance between supporting large payloads
+// and protecting the host system. Adjust as needed for your deployment requirements.
 const MAX_INPUT_SIZE: usize = 10 * 1024 * 1024;
 
 /// A processor that executes WebAssembly modules for sandboxed computation.
@@ -167,7 +171,20 @@ pub struct WasmProcessor {
     intent: ProcessorIntent,
 }
 
+/// WASM execution fuel limit to prevent infinite loops and resource exhaustion.
+///
+/// The `FUEL_LEVEL` constant is set to `100_000_000` (one hundred million) fuel units.
+/// This provides a reasonable execution budget for most WASM modules while preventing
+/// denial-of-service attacks from malicious or poorly written code.
+///
+/// Fuel consumption varies by operation complexity, but this limit typically allows
+/// for substantial computation while maintaining system stability.
+///
+/// See [Issue 27](https://github.com/ciroque/the-dagwood/issues/27).
 const FUEL_LEVEL: u64 = 100_000_000;
+
+// The maximum allowed WASM module size is 10MB to prevent excessive memory/resource usage and potential denial-of-service attacks.
+// This limit is chosen as a balance between supporting reasonably large modules and maintaining system stability.
 const MAX_WASM_MODULE_SIZE: usize = 10 * 1024 * 1024;
 
 impl WasmProcessor {

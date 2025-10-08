@@ -9,7 +9,7 @@ This directory contains a WebAssembly (WASM) module written in Rust that demonst
 #### **1. External Function Interface (`extern "C"`)**
 ```rust
 #[no_mangle]
-pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char
+pub extern "C" fn process(input_ptr: *const u8, input_len: usize, output_len: *mut usize) -> *mut u8
 ```
 - **`extern "C"`**: Uses C calling convention for compatibility with other languages
 - **`#[no_mangle]`**: Prevents Rust from changing the function name during compilation

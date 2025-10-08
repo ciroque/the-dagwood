@@ -156,7 +156,7 @@ After resolving all issues:
 
 Successfully implemented a clean C-style interface for WASM modules:
 ```rust
-extern "C" fn process(input_ptr: *const c_char) -> *mut c_char;
+extern "C" fn process(input_ptr: *const u8, input_len: usize, output_len: *mut usize) -> *mut u8;
 extern "C" fn allocate(size: usize) -> *mut u8;
 extern "C" fn deallocate(ptr: *mut u8, size: usize);
 ```

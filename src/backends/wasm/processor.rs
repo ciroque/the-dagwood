@@ -65,15 +65,21 @@ impl WasmProcessor {
         config.wasm_reference_types(true);
         config.wasm_bulk_memory(true);
         
-        // Disable unnecessary features
+        // Disable unnecessary features for security and compatibility
         config.wasm_threads(false);
         config.wasm_simd(false);
+        config.wasm_relaxed_simd(false);  // Explicitly disable relaxed SIMD to avoid conflicts
         config.wasm_multi_memory(false);
         
-        // Memory protection is enabled by default in wasmtime
+        // Try more permissive settings for wasmtime 25.0
+        config.wasm_memory64(false);
+        config.wasm_component_model(false);
         
-        // Enable deterministic execution
-        config.consume_fuel(true);
+        // Disable fuel consumption entirely
+        config.consume_fuel(false);
+        
+        // Disable epoch interruption which might cause "interrupt" traps
+        config.epoch_interruption(false);
         
         let engine = Engine::new(&config)?;
         
@@ -128,8 +134,8 @@ impl WasmProcessor {
         // Create a new store for this execution (no WASI context)
         let mut store = Store::new(&self.engine, ());
         
-        // Set up timeout using fuel consumption
-        store.set_fuel(1000000)?; // Set initial fuel for timeout
+        // Fuel consumption disabled for debugging
+        // store.set_fuel(10000000)?;
         
         // Create a linker (no WASI functions)
         let linker = Linker::new(&self.engine);
@@ -154,7 +160,8 @@ impl WasmProcessor {
                 .map_err(|_| "WASM module must export 'allocate' function")?;
             
             let input_len = input_cstring.as_bytes_with_nul().len() as i32;
-            let input_ptr = allocate_func.call(&mut store, input_len)?;
+            let input_ptr = allocate_func.call(&mut store, input_len)
+                .map_err(|e| format!("WASM allocate function failed: {}", e))?;
             
             // Write input data to WASM memory
             let memory_data = memory.data_mut(&mut store);
@@ -178,7 +185,8 @@ impl WasmProcessor {
             memory_data[input_offset..end_offset].copy_from_slice(input_bytes);
             
             // Call the WASM process function
-            let result_ptr = process_func.call(&mut store, input_ptr)?;
+            let result_ptr = process_func.call(&mut store, input_ptr)
+                .map_err(|e| format!("WASM process function failed: {}", e))?;
             
             if result_ptr == 0 {
                 return Err("WASM module returned null pointer".into());

@@ -1,6 +1,11 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::ptr;
+use wee_alloc::WeeAlloc;
+
+// Use wee_alloc as the global allocator (safer for WASM)
+#[global_allocator]
+static ALLOC: WeeAlloc = WeeAlloc::INIT;
 
 /// C-string compatibility wrapper for the core process function.
 /// 
@@ -26,7 +31,7 @@ pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char {
     
     let input_bytes = input_cstr.to_bytes();
     
-    let mut output_len = 0;
+    let mut output_len: usize = 0;
     let result_ptr = process_with_length(
         input_bytes.as_ptr(),
         input_bytes.len(),
@@ -98,25 +103,31 @@ pub extern "C" fn process_with_length(
 /// Memory allocator function for WASM module.
 /// 
 /// This function allows the host to allocate memory in the WASM module's
-/// linear memory space. This is useful for passing data to the module.
+/// linear memory space. Uses wee_alloc for safer WASM allocation.
 #[no_mangle]
 pub extern "C" fn allocate(size: usize) -> *mut u8 {
-    let mut buf = Vec::with_capacity(size);
-    let ptr = buf.as_mut_ptr();
-    std::mem::forget(buf); // Prevent deallocation
+    if size == 0 {
+        return std::ptr::null_mut();
+    }
+    
+    // Use Vec with wee_alloc - should be safe in WASM
+    let mut vec = Vec::with_capacity(size);
+    vec.resize(size, 0);
+    let ptr = vec.as_mut_ptr();
+    std::mem::forget(vec); // Prevent Vec from being dropped
     ptr
 }
 
 /// Memory deallocator function for WASM module.
 /// 
 /// This function allows the host to free memory that was allocated by
-/// the WASM module. This helps prevent memory leaks.
+/// the WASM module. Works with wee_alloc.
 #[no_mangle]
 pub extern "C" fn deallocate(ptr: *mut u8, size: usize) {
-    if !ptr.is_null() {
+    if !ptr.is_null() && size > 0 {
         unsafe {
-            let _ = Vec::from_raw_parts(ptr, 0, size);
-            // Vec will be dropped and memory freed
+            // Reconstruct Vec from raw parts and let it drop
+            let _ = Vec::from_raw_parts(ptr, size, size);
         }
     }
 }
@@ -213,7 +224,7 @@ mod tests {
     #[test]
     fn test_process_with_length_invalid_utf8() {
         let invalid_utf8 = &[0xC3, 0x28]; // Invalid UTF-8 sequence
-        let mut output_len = 0;
+        let mut output_len: usize = 0;
         let output_ptr = process_with_length(
             invalid_utf8.as_ptr(),
             invalid_utf8.len(),

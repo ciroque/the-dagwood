@@ -7,6 +7,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+wee_alloc = "0.4"
 # No external dependencies needed for this simple example
 
 [profile.release]

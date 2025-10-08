@@ -84,7 +84,7 @@
 //! ).await?;
 //! 
 //! // Ensure all async operations complete
-//! tokio::task::yield_now().await;
+//! tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 //! 
 //! // All processors executed reactively
 //! assert_eq!(results.len(), 3);
@@ -136,6 +136,9 @@
 //!     PipelineMetadata::new(),
 //!     FailureStrategy::FailFast,
 //! ).await?;
+//! 
+//! // Ensure all async operations complete
+//! tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 //! 
 //! assert_eq!(results.len(), 4);
 //! # Ok(())

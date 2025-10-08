@@ -171,17 +171,36 @@ impl WasmProcessor {
             
             // Read the result string from memory (null-terminated)
             let memory_data = memory.data(&store);
-            let mut result_len = 0;
+            let result_offset = result_ptr as usize;
             
-            // Find the length of the null-terminated string
-            for i in result_ptr as usize..memory_data.len() {
-                if memory_data[i] == 0 {
+            // Validate result pointer is within bounds
+            if result_offset >= memory_data.len() {
+                return Err("WASM module returned invalid pointer: out of bounds".into());
+            }
+            
+            // Find the length of the null-terminated string with bounds checking
+            let mut result_len = 0;
+            let max_search_len = memory_data.len() - result_offset;
+            
+            for i in 0..max_search_len {
+                if memory_data[result_offset + i] == 0 {
                     break;
                 }
                 result_len += 1;
+                
+                // Prevent excessive memory scanning (safety limit)
+                if result_len > MAX_INPUT_SIZE {
+                    return Err("WASM module returned excessively long string".into());
+                }
             }
             
-            let result_bytes = &memory_data[result_ptr as usize..(result_ptr as usize + result_len)];
+            // Ensure we found a null terminator
+            if result_len == max_search_len {
+                return Err("WASM module returned non-null-terminated string".into());
+            }
+            
+            // Safe slice creation - bounds already validated
+            let result_bytes = &memory_data[result_offset..result_offset + result_len];
             let result = String::from_utf8(result_bytes.to_vec())
                 .map_err(|e| format!("WASM module returned invalid UTF-8: {}", e))?;
             

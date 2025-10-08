@@ -75,14 +75,26 @@ if result_ptr.is_null() {
 
 #### **7. Cross-Language Memory Management**
 ```rust
-// Allocate memory that caller must free
-match CString::new(output) {
-    Ok(c_string) => c_string.into_raw(),  // Transfer ownership
-    Err(_) => std::ptr::null_mut(),
+#[no_mangle]
+pub extern "C" fn allocate(size: usize) -> *mut u8 {
+    let mut buf = Vec::with_capacity(size);
+    let ptr = buf.as_mut_ptr();
+    std::mem::forget(buf); // Prevent deallocation
+    ptr
+}
+
+#[no_mangle]
+pub extern "C" fn deallocate(ptr: *mut u8, size: usize) {
+    if !ptr.is_null() {
+        unsafe {
+            let _ = Vec::from_raw_parts(ptr, 0, size);
+            // Vec will be dropped and memory freed
+        }
+    }
 }
 ```
-- **`into_raw()`**: Transfers ownership to caller, prevents Rust from freeing memory
-- **Caller responsibility**: Host must call appropriate deallocation function
+- **`std::mem::forget()`**: Prevents Rust from freeing memory automatically
+- **Caller responsibility**: Host must call `deallocate()` to free memory
 - **Memory leak prevention**: Careful ownership transfer across language boundaries
 
 #### **8. Adapter Pattern Implementation**
@@ -92,7 +104,8 @@ pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char {
     let input_bytes = input_cstr.to_bytes();
     
     // Delegate to core implementation
-    let result_ptr = process_with_length(input_bytes.as_ptr(), input_bytes.len() as i32);
+    let mut output_len = 0;
+    let result_ptr = process_with_length(input_bytes.as_ptr(), input_bytes.len(), &mut output_len);
     
     // Convert result back to C-string format
     // ... conversion logic
@@ -102,15 +115,19 @@ pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char {
 - **Code reuse**: Single implementation with multiple interfaces
 - **Type conversion**: Bridging between different data representations
 
-#### **9. Static Memory Management**
+#### **9. Manual Memory Management**
 ```rust
-let mut result = Vec::with_capacity(output_bytes.len() + 1);
-result.extend_from_slice(&output_bytes);
-result.push(0); // Null terminator
-result.leak().as_ptr()
+// Allocate memory (including space for null terminator)
+let result = allocate(output_len_val + 1);
+unsafe {
+    // Copy the output bytes
+    std::ptr::copy_nonoverlapping(output_bytes.as_ptr(), result, output_len_val);
+    // Null-terminate
+    *result.add(output_len_val) = 0;
+}
 ```
-- **`Vec::leak()`**: Intentionally leak memory to transfer ownership
-- **Capacity optimization**: Pre-allocate exact size needed
+- **Custom allocator**: Uses module's own `allocate()` function
+- **Manual copying**: Direct memory copy with `copy_nonoverlapping`
 - **Manual null termination**: Add `\0` byte for C compatibility
 
 ## WASM-Specific Concepts
@@ -143,10 +160,11 @@ cargo build --target wasm32-unknown-unknown --release
    - Compatible with traditional C libraries
    - Requires string length calculation
 
-2. **`process_with_length(input_ptr: *const u8, input_len: i32)`**
+2. **`process_with_length(input_ptr: *const u8, input_len: usize, output_len: *mut usize)`**
    - Explicit length parameter
    - More efficient (no strlen needed)
    - Better for binary data
+   - Returns output length via pointer parameter
 
 ### **Why `process()` Delegates to `process_with_length()`?**
 - **Single source of truth**: Business logic only in one place

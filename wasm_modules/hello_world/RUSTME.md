@@ -61,7 +61,20 @@ while *result_ptr.add(len) != 0 {  // Find null terminator
 - **Null termination**: C strings end with `\0` byte
 - **Linear search**: Manual iteration to find string length
 
-#### **6. Error Handling with Null Pointers**
+#### **6. Global Allocator Customization**
+```rust
+use wee_alloc::WeeAlloc;
+
+// Use wee_alloc as the global allocator (safer for WASM)
+#[global_allocator]
+static ALLOC: WeeAlloc = WeeAlloc::INIT;
+```
+- **`#[global_allocator]`**: Rust attribute to override default allocator
+- **`static`**: Global lifetime for allocator instance
+- **WASM-specific**: `wee_alloc` is optimized for WebAssembly environments
+- **Memory efficiency**: Smaller code size than default allocator
+
+#### **7. Error Handling with Null Pointers**
 ```rust
 if result_ptr.is_null() {
     return std::ptr::null_mut();
@@ -73,22 +86,28 @@ if result_ptr.is_null() {
 
 ### Advanced Level
 
-#### **7. Cross-Language Memory Management**
+#### **1. Cross-Language Memory Management**
 ```rust
 #[no_mangle]
 pub extern "C" fn allocate(size: usize) -> *mut u8 {
-    let mut buf = Vec::with_capacity(size);
-    let ptr = buf.as_mut_ptr();
-    std::mem::forget(buf); // Prevent deallocation
+    if size == 0 {
+        return std::ptr::null_mut();
+    }
+    
+    // Use Vec with wee_alloc - should be safe in WASM
+    let mut vec = Vec::with_capacity(size);
+    vec.resize(size, 0);
+    let ptr = vec.as_mut_ptr();
+    std::mem::forget(vec); // Prevent Vec from being dropped
     ptr
 }
 
 #[no_mangle]
 pub extern "C" fn deallocate(ptr: *mut u8, size: usize) {
-    if !ptr.is_null() {
+    if !ptr.is_null() && size > 0 {
         unsafe {
+            // Reconstruct Vec from raw parts and let it drop
             let _ = Vec::from_raw_parts(ptr, size, size);
-            // Vec will be dropped and memory freed
         }
     }
 }
@@ -97,7 +116,7 @@ pub extern "C" fn deallocate(ptr: *mut u8, size: usize) {
 - **Caller responsibility**: Host must call `deallocate()` to free memory
 - **Memory leak prevention**: Careful ownership transfer across language boundaries
 
-#### **8. Adapter Pattern Implementation**
+#### **2. Adapter Pattern Implementation**
 ```rust
 pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char {
     // Convert C-string to bytes
@@ -115,7 +134,7 @@ pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char {
 - **Code reuse**: Single implementation with multiple interfaces
 - **Type conversion**: Bridging between different data representations
 
-#### **9. Manual Memory Management**
+#### **3. Manual Memory Management**
 ```rust
 // Allocate memory (including space for null terminator)
 let result = allocate(output_len_val + 1);
@@ -130,92 +149,4 @@ unsafe {
 - **Manual copying**: Direct memory copy with `copy_nonoverlapping`
 - **Manual null termination**: Add `\0` byte for C compatibility
 
-## WASM-Specific Concepts
-
-### **Linear Memory Model**
-- WASM has a single, contiguous memory space
-- All data access goes through byte offsets (pointers)
-- No garbage collector - manual memory management required
-
-### **Host-Guest Communication**
-- **Host**: The DAGwood WASM processor (Rust/wasmtime)
-- **Guest**: This WASM module (compiled Rust)
-- **Interface**: Function calls with pointer/length parameters
-
-### **Compilation Target**
-```toml
-[lib]
-crate-type = ["cdylib"]  # Create C-compatible dynamic library
-
-# Compile with:
-cargo build --target wasm32-unknown-unknown --release
-```
-
-## Architecture Decisions
-
-### **Why Two Function Interfaces?**
-
-1. **`process(input_ptr: *const c_char)`**
-   - C-style null-terminated strings
-   - Compatible with traditional C libraries
-   - Requires string length calculation
-
-2. **`process_with_length(input_ptr: *const u8, input_len: usize, output_len: *mut usize)`**
-   - Explicit length parameter
-   - More efficient (no strlen needed)
-   - Better for binary data
-   - Returns output length via pointer parameter
-
-### **Why `process()` Delegates to `process_with_length()`?**
-- **Single source of truth**: Business logic only in one place
-- **DRY principle**: Avoid code duplication
-- **Easier maintenance**: Changes only needed in core function
-- **Performance**: Length-based interface is more efficient
-
-## Safety Considerations
-
-### **Assumptions Made**
-1. Input pointers are valid and properly aligned
-2. Input strings are valid UTF-8
-3. Caller will properly free returned memory
-4. WASM linear memory is accessible
-
-### **Error Handling Strategy**
-- Return null pointers on any error
-- Validate UTF-8 encoding before processing
-- Use `match` expressions for safe error propagation
-- Fail fast rather than undefined behavior
-
-## Testing Strategy
-
-### **Unit Testing Challenges**
-- Cannot easily test `extern "C"` functions in Rust tests
-- Pointer-based interfaces require integration testing
-- Memory management testing needs host environment
-
-### **Integration Testing**
-- Test through DAGwood WASM processor
-- Verify memory allocation/deallocation
-- Test error conditions (invalid UTF-8, null pointers)
-
-## Performance Considerations
-
-### **Memory Efficiency**
-- Pre-allocate vectors with known capacity
-- Minimize string conversions
-- Reuse allocations where possible
-
-### **CPU Efficiency**
-- Avoid unnecessary UTF-8 validation
-- Use pointer arithmetic instead of string operations
-- Delegate to most efficient implementation
-
-## Common Pitfalls
-
-1. **Memory Leaks**: Forgetting to free returned pointers
-2. **Use After Free**: Accessing freed WASM memory
-3. **Buffer Overruns**: Not validating pointer bounds
-4. **UTF-8 Violations**: Assuming all byte sequences are valid strings
-5. **Null Pointer Dereference**: Not checking for null before use
-
-This WASM module demonstrates production-ready systems programming in Rust, showcasing how to safely bridge between Rust's memory safety and the raw pointer world of WASM linear memory.
+This WASM module demonstrates advanced Rust language features for systems programming, FFI (Foreign Function Interface), and memory management across language boundaries in WebAssembly environments.

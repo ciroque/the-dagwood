@@ -17,8 +17,8 @@
 //!
 //! WASM modules must export the following C-style functions:
 //! ```c
-//! // Main processing function - takes null-terminated string, returns allocated string
-//! char* process(const char* input_ptr);
+//! // Main processing function - takes data pointer and length, returns allocated data
+//! uint8_t* process(const uint8_t* input_ptr, size_t input_len, size_t* output_len);
 //!
 //! // Memory management functions for host-WASM communication
 //! void* allocate(size_t size);
@@ -58,16 +58,20 @@
 //! ## Memory Management
 //!
 //! ### Host-to-WASM Communication
-//! 1. Host calls WASM `allocate(size)` to get memory pointer
-//! 2. Host writes data to WASM linear memory at allocated offset
-//! 3. Host calls WASM `process(ptr)` with pointer to input data
-//! 4. WASM processes data and returns pointer to result
-//! 5. Host reads result from WASM linear memory
-//! 6. Host calls WASM `deallocate(ptr, size)` to free memory
+//! 1. Host calls WASM `allocate(input_size)` to get input memory pointer
+//! 2. Host writes input data to WASM linear memory at allocated offset
+//! 3. Host calls WASM `allocate(4)` to get output length parameter pointer
+//! 4. Host calls WASM `process(input_ptr, input_len, output_len_ptr)` 
+//! 5. Host reads output length from WASM memory at output_len_ptr
+//! 6. Host reads result data from WASM linear memory using returned pointer and length
+//! 7. Host calls WASM `deallocate(ptr, size)` to free all allocated memory
 //!
 //! ### WASM Module Allocator
 //! Recommended to use `wee_alloc` in WASM modules for optimal memory management:
-//! ```rust
+//! ```rust,ignore
+//! // Note: This doctest is ignored because wee_alloc is not a dependency
+//! // of the main crate - it's only used within WASM modules themselves.
+//! // This example shows WASM module developers the recommended pattern.
 //! use wee_alloc::WeeAlloc;
 //! #[global_allocator]
 //! static ALLOC: WeeAlloc = WeeAlloc::INIT;
@@ -282,89 +286,121 @@ impl WasmProcessor {
             .get_memory(&mut store, "memory")
             .ok_or("WASM module must export 'memory'")?;
         
-        // Try to get the process function - first try the simple C-style interface
-        if let Ok(process_func) = instance.get_typed_func::<i32, i32>(&mut store, "process") {
-            // Use the simple C-style interface that takes a pointer to null-terminated string
-            let input_cstring = std::ffi::CString::new(input)
-                .map_err(|e| format!("Failed to create C string: {}", e))?;
-            
-            // Allocate memory in WASM for the input string
-            let allocate_func = instance
-                .get_typed_func::<i32, i32>(&mut store, "allocate")
-                .map_err(|_| "WASM module must export 'allocate' function")?;
-            
-            let input_len = input_cstring.as_bytes_with_nul().len() as i32;
-            let input_ptr = allocate_func.call(&mut store, input_len)
-                .map_err(|e| format!("WASM allocate function failed: {}", e))?;
-            
-            // Write input data to WASM memory
+        // Use the optimized length-based interface: process(input_ptr, input_len, output_len_ptr)
+        let process_func = instance.get_typed_func::<(i32, i32, i32), i32>(&mut store, "process")
+            .map_err(|_| "WASM module must export 'process(input_ptr: i32, input_len: i32, output_len_ptr: i32) -> i32' function")?;
+        
+        // Get required functions
+        let allocate_func = instance
+            .get_typed_func::<i32, i32>(&mut store, "allocate")
+            .map_err(|_| "WASM module must export 'allocate' function")?;
+        
+        let deallocate_func = instance
+            .get_typed_func::<(i32, i32), ()>(&mut store, "deallocate")
+            .map_err(|_| "WASM module must export 'deallocate' function")?;
+        
+        // Convert input to bytes (no null termination needed!)
+        let input_bytes = input.as_bytes();
+        let input_len = input_bytes.len() as i32;
+        
+        // Allocate memory for input data
+        let input_ptr = allocate_func.call(&mut store, input_len)
+            .map_err(|e| format!("WASM allocate function failed: {}", e))?;
+        
+        if input_ptr == 0 {
+            return Err("WASM module allocate returned null pointer".into());
+        }
+        
+        // Allocate memory for output length parameter
+        let output_len_ptr = allocate_func.call(&mut store, 4) // sizeof(usize) as i32 in WASM
+            .map_err(|e| format!("WASM allocate for output_len failed: {}", e))?;
+        
+        if output_len_ptr == 0 {
+            // Clean up input allocation
+            let _ = deallocate_func.call(&mut store, (input_ptr, input_len));
+            return Err("WASM module allocate for output_len returned null pointer".into());
+        }
+        
+        // Write input data to WASM memory
+        {
             let memory_data = memory.data_mut(&mut store);
-            let input_bytes = input_cstring.as_bytes_with_nul();
             let input_offset = input_ptr as usize;
             
-            // Validate that the allocated memory region is within bounds
-            if input_offset >= memory_data.len() {
-                return Err("WASM module returned invalid allocation pointer: out of bounds".into());
+            // Validate bounds
+            if input_offset >= memory_data.len() || input_offset + input_bytes.len() > memory_data.len() {
+                // Clean up allocations
+                let _ = deallocate_func.call(&mut store, (input_ptr, input_len));
+                let _ = deallocate_func.call(&mut store, (output_len_ptr, 4));
+                return Err("WASM input allocation out of bounds".into());
             }
             
-            // Check for integer overflow and bounds
-            let end_offset = input_offset.checked_add(input_bytes.len())
-                .ok_or("Integer overflow in memory offset calculation")?;
+            // Copy input data (no null termination!)
+            memory_data[input_offset..input_offset + input_bytes.len()].copy_from_slice(input_bytes);
+        }
+        
+        // Call the WASM process function with length-based interface
+        let result_ptr = process_func.call(&mut store, (input_ptr, input_len, output_len_ptr))
+            .map_err(|e| {
+                // Clean up allocations on error
+                let _ = deallocate_func.call(&mut store, (input_ptr, input_len));
+                let _ = deallocate_func.call(&mut store, (output_len_ptr, 4));
+                format!("WASM process function failed: {}", e)
+            })?;
+        
+        // Clean up input allocation (no longer needed)
+        let _ = deallocate_func.call(&mut store, (input_ptr, input_len));
+        
+        if result_ptr == 0 {
+            // Clean up output_len allocation
+            let _ = deallocate_func.call(&mut store, (output_len_ptr, 4));
+            return Err("WASM module returned null pointer".into());
+        }
+        
+        // Read the output length from WASM memory
+        let output_len = {
+            let memory_data = memory.data(&store);
+            let output_len_offset = output_len_ptr as usize;
             
-            if end_offset > memory_data.len() {
-                return Err("WASM module allocated insufficient memory: region extends beyond memory bounds".into());
+            if output_len_offset + 4 > memory_data.len() {
+                let _ = deallocate_func.call(&mut store, (output_len_ptr, 4));
+                return Err("WASM output_len pointer out of bounds".into());
             }
             
-            // Safe to copy - bounds have been validated
-            memory_data[input_offset..end_offset].copy_from_slice(input_bytes);
-            
-            // Call the WASM process function
-            let result_ptr = process_func.call(&mut store, input_ptr)
-                .map_err(|e| format!("WASM process function failed: {}", e))?;
-            
-            if result_ptr == 0 {
-                return Err("WASM module returned null pointer".into());
-            }
-            
-            // Read the result string from memory (null-terminated)
+            // Read 4 bytes as little-endian u32 (WASM is little-endian)
+            let len_bytes = &memory_data[output_len_offset..output_len_offset + 4];
+            u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize
+        };
+        
+        // Clean up output_len allocation
+        let _ = deallocate_func.call(&mut store, (output_len_ptr, 4));
+        
+        // Validate output length
+        if output_len > MAX_INPUT_SIZE {
+            let _ = deallocate_func.call(&mut store, (result_ptr, output_len as i32));
+            return Err("WASM module returned excessively long output".into());
+        }
+        
+        // Read the result data from WASM memory (no null termination!)
+        let result = {
             let memory_data = memory.data(&store);
             let result_offset = result_ptr as usize;
             
-            // Validate result pointer is within bounds
-            if result_offset >= memory_data.len() {
-                return Err("WASM module returned invalid pointer: out of bounds".into());
+            // Validate bounds
+            if result_offset >= memory_data.len() || result_offset + output_len > memory_data.len() {
+                let _ = deallocate_func.call(&mut store, (result_ptr, output_len as i32));
+                return Err("WASM result pointer out of bounds".into());
             }
             
-            // Find the length of the null-terminated string with bounds checking
-            let mut result_len = 0;
-            let max_search_len = memory_data.len() - result_offset;
-            
-            for i in 0..max_search_len {
-                if memory_data[result_offset + i] == 0 {
-                    break;
-                }
-                result_len += 1;
-                
-                // Prevent excessive memory scanning (safety limit)
-                if result_len > MAX_INPUT_SIZE {
-                    return Err("WASM module returned excessively long string".into());
-                }
-            }
-            
-            // Ensure we found a null terminator
-            if result_len == max_search_len {
-                return Err("WASM module returned non-null-terminated string".into());
-            }
-            
-            // Safe slice creation - bounds already validated
-            let result_bytes = &memory_data[result_offset..result_offset + result_len];
-            let result = String::from_utf8(result_bytes.to_vec())
-                .map_err(|e| format!("WASM module returned invalid UTF-8: {}", e))?;
-            
-            Ok(result)
-        } else {
-            Err("WASM module does not export required 'process' function".into())
-        }
+            // Copy result data (exact length, no null termination!)
+            let result_bytes = &memory_data[result_offset..result_offset + output_len];
+            String::from_utf8(result_bytes.to_vec())
+                .map_err(|e| format!("WASM module returned invalid UTF-8: {}", e))?
+        };
+        
+        // Clean up result allocation
+        let _ = deallocate_func.call(&mut store, (result_ptr, output_len as i32));
+        
+        Ok(result)
     }
 }
 

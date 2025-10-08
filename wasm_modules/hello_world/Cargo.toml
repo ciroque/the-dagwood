@@ -1,0 +1,17 @@
+[package]
+name = "hello_world_wasm"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wee_alloc = "0.4"
+# No external dependencies needed for this simple example
+
+[profile.release]
+# Optimize for size since WASM modules should be small
+opt-level = "s"
+lto = true
+panic = "abort"

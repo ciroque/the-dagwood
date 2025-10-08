@@ -26,13 +26,22 @@ toml = "0.8"
 
 # Error handling
 thiserror = "1.0"
+anyhow = "1.0"
 
 # Base64 encoding for secure metadata keys
 base64 = "0.21"
 
+# WASM runtime for sandboxed execution
+wasmtime = { version = "25.0", features = ["cranelift", "async"] }
+# wasmtime-wasi is not needed as we're removing WASI dependencies
+
 # Logging / tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+
+[dev-dependencies]
+tempfile = "3.3"
+wat = "1.0"
 
 [build-dependencies]
 tonic-build = "0.11"

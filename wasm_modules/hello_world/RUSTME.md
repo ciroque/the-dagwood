@@ -87,7 +87,7 @@ pub extern "C" fn allocate(size: usize) -> *mut u8 {
 pub extern "C" fn deallocate(ptr: *mut u8, size: usize) {
     if !ptr.is_null() {
         unsafe {
-            let _ = Vec::from_raw_parts(ptr, 0, size);
+            let _ = Vec::from_raw_parts(ptr, size, size);
             // Vec will be dropped and memory freed
         }
     }

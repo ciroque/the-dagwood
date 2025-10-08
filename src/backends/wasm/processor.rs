@@ -186,9 +186,6 @@ impl WasmProcessor {
         // Memory limits (64MB max)
         config.static_memory_maximum_size(64 * 1024 * 1024);
         
-        // Enable epoch-based interruption for timeouts
-        config.epoch_interruption(true);
-        
         // Enable reference types and bulk memory
         config.wasm_reference_types(true);
         config.wasm_bulk_memory(true);

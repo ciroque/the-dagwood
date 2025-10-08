@@ -1,17 +1,24 @@
 # Hello World: Single Processor
 
-Welcome to the first demonstration! This example shows the simplest possible DAG execution with a single processor and no dependencies.
+## What You'll See
 
-## What You'll Learn
+This demonstration shows the simplest possible DAG execution: a single processor with no dependencies. You'll see how DAGwood handles the most basic workflow scenario and learn fundamental Rust concepts used throughout the system.
 
-- **Basic Rust ownership patterns** in processor execution
-- **Simple async/await usage** with tokio runtime
-- **ProcessorRequest and ProcessorResponse** structures from protobuf
-- **Entry point detection** in DAG execution algorithms
+**Key Learning Points:**
+- Basic Rust ownership patterns in processor execution
+- Simple async/await usage with tokio runtime
+- ProcessorRequest and ProcessorResponse structures
+- Entry point detection in DAG execution
 
-## Configuration Overview
+## The Demo
 
-Let's examine the first configuration file:
+### Command Line
+
+```bash
+cargo run --release -- docs/demo/configs/01-hello-world.yaml "hello world"
+```
+
+### Configuration
 
 ```yaml
 # Demo 1: Hello World - Single Processor
@@ -31,116 +38,58 @@ processors:
     options: {}
 ```
 
-### Key Configuration Elements
+**Configuration Elements:**
+- **Strategy**: `work_queue` (dependency counting algorithm)
+- **Failure Strategy**: `fail_fast` (stop on first error)
+- **Concurrency**: Limited to 1 for simplicity
+- **Single Processor**: `hello_processor` with no dependencies
 
-- **`strategy: work_queue`**: Uses the Work Queue executor with dependency counting
-- **`failure_strategy: fail_fast`**: Stops execution immediately on any processor failure
-- **`max_concurrency: 1`**: Limits to single-threaded execution for simplicity
-- **`depends_on: []`**: Empty dependencies make this processor an entry point
+### Expected Output
 
-## Rust Concepts in Action
-
-### 1. Ownership and Borrowing
-
-When the DAG executor processes this configuration, it demonstrates several Rust ownership patterns:
-
-```rust
-// Entry point detection (simplified)
-for processor_config in &config.processors {
-    if processor_config.depends_on.is_empty() {
-        entry_points_vec.push(processor_config.id.clone()); // Clone needed for ownership
-    }
-}
-```
-
-**Why clone?** The `processor_config.id` is borrowed from the config, but `entry_points_vec` needs owned `String` values.
-
-### 2. Async/Await with Tokio
-
-The processor execution uses Rust's async/await pattern:
-
-```rust
-// Simplified processor execution
-let processor_response = processor.process(input).await?;
-```
-
-**Key insight**: The `await` point allows other tasks to run, but since this example has `max_concurrency: 1`, it runs sequentially.
-
-### 3. Result<T, E> Error Handling
-
-Every operation returns a `Result` for graceful error handling:
-
-```rust
-let config = load_and_validate_config(config_file)?; // ? operator propagates errors
-let (results, metadata) = executor.execute_with_strategy(/* ... */).await?;
-```
-
-## Expected Output
-
-When you run this demo, you should see:
+When you run this demo, you'll see:
 
 ```
+🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/01-hello-world.yaml"]
+
 📋 Configuration: docs/demo/configs/01-hello-world.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 1
 🛡️  Failure Strategy: FailFast
 
 📊 Execution Results:
-⏱️  Execution Time: ~1ms
+⏱️  Execution Time: ~2ms
 🔢 Processors Executed: 1
 
 🔄 Processor Chain:
   1. hello_processor → "HELLO WORLD"
-     📝 Metadata: 1 entries
 
 🎯 Final Transformation:
    Input:  "hello world"
    Output: "HELLO WORLD"
 ```
 
-## Architecture Insights
+## What You Just Saw
 
-### Entry Point Detection
+This demo demonstrated:
 
-The DAG executor identifies entry points by finding processors with empty `depends_on` arrays:
+**DAG Execution Basics:**
+- Single processor workflow with no dependencies
+- Entry point detection (processors with empty `depends_on`)
+- Work Queue strategy handling the simplest case
 
-```rust
-// From src/engine/work_queue.rs (simplified)
-let mut entry_points = Vec::new();
-for (processor_id, dependencies) in &dependency_graph.0 {
-    if dependencies.is_empty() {
-        entry_points.push(processor_id.clone());
-    }
-}
-```
+**Rust Fundamentals:**
+- Ownership patterns in data processing
+- Async/await for non-blocking execution
+- Result-based error handling throughout
+- Protobuf integration for structured data
 
-### Processor Factory Pattern
-
-The `change_text_case_upper` implementation is resolved through the factory pattern:
-
-```rust
-// From src/backends/local/factory.rs
-match impl_name {
-    "change_text_case_upper" => Ok(Box::new(ChangeTextCaseProcessor::new(TextCase::Upper))),
-    // ... other processors
-}
-```
-
-This demonstrates Rust's **trait objects** (`Box<dyn Processor>`) for runtime polymorphism.
-
-## Try It Yourself
-
-Run this demo with:
-
-```bash
-cargo run --release -- --demo-mode
-```
-
-Or run just this configuration:
-
-```bash
-cargo run --release -- docs/demo/configs/01-hello-world.yaml "hello world"
-```
+**System Architecture:**
+- Configuration-driven processor selection
+- Factory pattern for processor creation
+- Clean separation between configuration and execution
 
 ## What's Next?
 

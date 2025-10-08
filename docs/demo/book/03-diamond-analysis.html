@@ -182,15 +182,20 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="diamond-analysis-parallel-execution"><a class="header" href="#diamond-analysis-parallel-execution">Diamond Analysis: Parallel Execution</a></h1>
-<p>The third demonstration showcases the classic diamond dependency pattern, where multiple processors run in parallel and their results converge. This is where DAG execution becomes truly powerful!</p>
-<h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You'll Learn</a></h2>
+<h2 id="what-youll-see"><a class="header" href="#what-youll-see">What You'll See</a></h2>
+<p>This demonstration showcases the classic diamond dependency pattern where multiple processors run in parallel and their results converge. You'll see true concurrent execution, metadata merging, and how the canonical payload architecture prevents race conditions.</p>
+<p><strong>Key Learning Points:</strong></p>
 <ul>
-<li><strong>Parallel execution</strong> with tokio async tasks</li>
-<li><strong>Canonical payload architecture</strong> (Transform vs Analyze)</li>
-<li><strong>Metadata collection and merging</strong> strategies</li>
-<li><strong>Race condition prevention</strong> in concurrent execution</li>
+<li>Parallel execution with tokio async tasks</li>
+<li>Canonical payload architecture (Transform vs Analyze)</li>
+<li>Metadata collection and merging strategies</li>
+<li>Race condition prevention in concurrent execution</li>
 </ul>
-<h2 id="configuration-overview"><a class="header" href="#configuration-overview">Configuration Overview</a></h2>
+<h2 id="the-demo"><a class="header" href="#the-demo">The Demo</a></h2>
+<h3 id="command-line"><a class="header" href="#command-line">Command Line</a></h3>
+<pre><code class="language-bash">cargo run --release -- docs/demo/configs/03-diamond-analysis.yaml "hello world"
+</code></pre>
+<h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
 <pre><code class="language-yaml"># Demo 3: Diamond Analysis - Parallel Execution
 # This demonstrates the classic diamond dependency pattern with parallel analysis
 
@@ -231,210 +236,75 @@ processors:
       prefix: "Analysis Complete: "
       suffix: " [END]"
 </code></pre>
-<h3 id="diamond-pattern-analysis"><a class="header" href="#diamond-pattern-analysis">Diamond Pattern Analysis</a></h3>
-<p>This creates the diamond pattern: <code>prepare_text → [count_tokens, analyze_frequency] → final_summary</code></p>
+<p><strong>Configuration Elements:</strong></p>
 <ul>
-<li><strong>Divergence</strong>: <code>prepare_text</code> feeds two parallel processors</li>
-<li><strong>Parallel execution</strong>: <code>count_tokens</code> and <code>analyze_frequency</code> run concurrently</li>
-<li><strong>Convergence</strong>: <code>final_summary</code> waits for both analysis results</li>
+<li><strong>Strategy</strong>: <code>work_queue</code> (dependency counting algorithm)</li>
+<li><strong>Failure Strategy</strong>: <code>fail_fast</code> (stop on first error)</li>
+<li><strong>Concurrency</strong>: Set to 4 (enables true parallel execution)</li>
+<li><strong>Diamond Pattern</strong>: <code>prepare_text → [count_tokens, analyze_frequency] → final_summary</code></li>
 </ul>
-<h2 id="rust-concepts-in-action"><a class="header" href="#rust-concepts-in-action">Rust Concepts in Action</a></h2>
-<h3 id="1-concurrent-task-execution"><a class="header" href="#1-concurrent-task-execution">1. Concurrent Task Execution</a></h3>
-<p>The Work Queue executor spawns multiple async tasks that run in parallel:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Simplified parallel execution
-let semaphore = Arc::new(Semaphore::new(max_concurrency)); // Limit concurrent tasks
+<h3 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h3>
+<p>When you run this demo, you'll see:</p>
+<pre><code>🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/03-diamond-analysis.yaml"]
 
-for ready_processor in ready_processors {
-    let permit = semaphore.clone().acquire_owned().await?;
-    let task_handle = tokio::spawn(async move {
-        let _permit = permit; // Hold permit for duration of task
-        
-        // Execute processor
-        let result = processor.process(input).await?;
-        
-        // Update shared state
-        {
-            let mut results_guard = results.lock().await;
-            results_guard.insert(processor_id, result);
-        }
-        
-        Ok(())
-    });
-    
-    task_handles.push(task_handle);
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Key Rust features</strong>:</p>
-<ul>
-<li><strong><code>Arc&lt;Semaphore&gt;</code></strong>: Shared concurrency control</li>
-<li><strong><code>acquire_owned()</code></strong>: Move permit into async task</li>
-<li><strong><code>tokio::spawn</code></strong>: True parallel execution</li>
-<li><strong>RAII</strong>: Permit automatically released when task completes</li>
-</ul>
-<h3 id="2-canonical-payload-architecture"><a class="header" href="#2-canonical-payload-architecture">2. Canonical Payload Architecture</a></h3>
-<p>The breakthrough insight that eliminates race conditions:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Revolutionary approach: canonical payload tracking
-let canonical_payload_mutex = Arc::new(Mutex::new(original_input.payload.clone()));
-
-// For processors with dependencies
-let input_for_processor = {
-    let canonical_payload = canonical_payload_mutex.lock().await;
-    ProcessorRequest {
-        payload: canonical_payload.clone(), // Same payload for all parallel processors
-        metadata: merged_dependency_metadata, // Different metadata per processor
-    }
-};
-
-// After processor execution
-match processor.declared_intent() {
-    ProcessorIntent::Transform =&gt; {
-        // Only Transform processors update canonical payload
-        let mut canonical_guard = canonical_payload_mutex.lock().await;
-        *canonical_guard = processor_response.payload;
-    },
-    ProcessorIntent::Analyze =&gt; {
-        // Analyze processors only contribute metadata
-        // Payload remains unchanged
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Architectural benefits</strong>:</p>
-<ul>
-<li><strong>Deterministic execution</strong>: No race conditions regardless of completion order</li>
-<li><strong>Clear separation</strong>: Transform vs Analyze processor roles</li>
-<li><strong>Simplified logic</strong>: No complex payload merging strategies needed</li>
-</ul>
-<h3 id="3-metadata-merging-strategy"><a class="header" href="#3-metadata-merging-strategy">3. Metadata Merging Strategy</a></h3>
-<p>Dependency metadata is collected and merged using collision-resistant namespacing:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/utils/metadata.rs
-fn merge_metadata_from_responses(
-    base_metadata: HashMap&lt;String, String&gt;,
-    dependency_responses: &amp;HashMap&lt;String, ProcessorResponse&gt;
-) -&gt; HashMap&lt;String, ProcessorMetadata&gt; {
-    let mut result = HashMap::new();
-    
-    // Add base metadata
-    result.insert("input".to_string(), ProcessorMetadata { 
-        metadata: base_metadata 
-    });
-    
-    // Add dependency metadata with processor-based namespacing
-    for (processor_id, response) in dependency_responses {
-        if let Some(metadata) = &amp;response.metadata {
-            result.insert(processor_id.clone(), metadata.clone());
-        }
-    }
-    
-    result
-}
-<span class="boring">}</span></code></pre></pre>
-<h2 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h2>
-<pre><code>📋 Configuration: docs/demo/configs/03-diamond-analysis.yaml
+📋 Configuration: docs/demo/configs/03-diamond-analysis.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 4
 🛡️  Failure Strategy: FailFast
 
 📊 Execution Results:
-⏱️  Execution Time: ~3ms
+⏱️  Execution Time: ~4ms
 🔢 Processors Executed: 4
 
 🔄 Processor Chain:
   1. prepare_text → "hello world"
-  2. count_tokens → "hello world" (+ metadata: word_count: 2)
-  3. analyze_frequency → "hello world" (+ metadata: frequency_map: {...})
+  2. count_tokens → "2" (parallel)
+  3. analyze_frequency → "{\"hello\": 1, \"world\": 1}" (parallel)
   4. final_summary → "Analysis Complete: hello world [END]"
 
 🎯 Final Transformation:
    Input:  "hello world"
    Output: "Analysis Complete: hello world [END]"
-   
-   Pipeline Metadata:
-   count_tokens:
-      • word_count: 2
-      • character_count: 11
-   analyze_frequency:
-      • most_frequent_word: hello
-      • unique_words: 2
 </code></pre>
-<h2 id="architecture-deep-dive"><a class="header" href="#architecture-deep-dive">Architecture Deep Dive</a></h2>
-<h3 id="race-condition-prevention"><a class="header" href="#race-condition-prevention">Race Condition Prevention</a></h3>
-<p>Before the canonical payload architecture, this pattern had non-deterministic behavior:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// OLD (problematic): First dependency to complete wins
-let input_payload = dependency_results.values().next().unwrap().payload;
-
-// NEW (deterministic): Canonical payload for all
-let input_payload = canonical_payload_mutex.lock().await.clone();
-<span class="boring">}</span></code></pre></pre>
-<h3 id="processor-intent-classification"><a class="header" href="#processor-intent-classification">Processor Intent Classification</a></h3>
-<p>The <code>ProcessorIntent</code> trait enables architectural enforcement:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub trait Processor: Send + Sync {
-    fn declared_intent(&amp;self) -&gt; ProcessorIntent;
-    // ...
-}
-
-pub enum ProcessorIntent {
-    Transform, // Can modify payload
-    Analyze,   // Only contributes metadata
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Real implementations</strong>:</p>
+<h2 id="what-you-just-saw"><a class="header" href="#what-you-just-saw">What You Just Saw</a></h2>
+<p>This demo demonstrated:</p>
+<p><strong>Diamond Pattern Execution:</strong></p>
 <ul>
-<li><code>ChangeTextCaseProcessor</code>: <code>Transform</code> (modifies text)</li>
-<li><code>TokenCounterProcessor</code>: <code>Analyze</code> (counts without modifying)</li>
-<li><code>WordFrequencyAnalyzer</code>: <code>Analyze</code> (analyzes without modifying)</li>
+<li>True parallel execution of <code>count_tokens</code> and <code>analyze_frequency</code></li>
+<li>Convergence at <code>final_summary</code> waiting for both analysis results</li>
+<li>Canonical payload preventing race conditions in parallel execution</li>
 </ul>
-<h3 id="dependency-isolation"><a class="header" href="#dependency-isolation">Dependency Isolation</a></h3>
-<p>Metadata collection ensures processors only receive data from their actual dependencies:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Collect metadata only from actual dependencies
-let mut dependency_results = HashMap::new();
-for dep_id in &amp;processor_dependencies {
-    if let Some(dep_response) = results_guard.get(dep_id) {
-        dependency_results.insert(dep_id.clone(), dep_response.clone());
-    }
-}
-// No contamination from unrelated processors!
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Rust Concurrency Mastery:</strong></p>
+<ul>
+<li>Semaphore-controlled parallel task spawning</li>
+<li>Arc&lt;Mutex<T>&gt; for thread-safe shared state</li>
+<li>RAII permit management for resource cleanup</li>
+<li>Async task coordination with tokio::spawn</li>
+</ul>
+<p><strong>System Architecture:</strong></p>
+<ul>
+<li>Transform vs Analyze processor intent separation</li>
+<li>Metadata merging with collision-resistant namespacing</li>
+<li>Deterministic execution regardless of completion order</li>
+<li>Dependency isolation ensuring clean data flow</li>
+</ul>
 <h2 id="performance-analysis"><a class="header" href="#performance-analysis">Performance Analysis</a></h2>
 <h3 id="parallel-speedup"><a class="header" href="#parallel-speedup">Parallel Speedup</a></h3>
 <p>With <code>max_concurrency: 4</code>, the analysis processors run truly in parallel:</p>
-<pre><code>Timeline:
-0ms: prepare_text starts
-1ms: prepare_text completes
-1ms: count_tokens AND analyze_frequency start (parallel!)
-2ms: Both analysis processors complete
-2ms: final_summary starts
-3ms: final_summary completes
-</code></pre>
-<p>Compare to sequential execution: 1ms + 1ms + 1ms + 1ms = 4ms total
-Parallel execution: 1ms + max(1ms, 1ms) + 1ms = 3ms total</p>
+<ul>
+<li><strong>Sequential</strong>: prepare_text (1ms) + count_tokens (1ms) + analyze_frequency (1ms) + final_summary (1ms) = 4ms</li>
+<li><strong>Parallel</strong>: prepare_text (1ms) + max(count_tokens, analyze_frequency) (1ms) + final_summary (1ms) = 3ms</li>
+<li><strong>25% speedup</strong> from parallel execution</li>
+</ul>
 <h3 id="memory-efficiency"><a class="header" href="#memory-efficiency">Memory Efficiency</a></h3>
-<p>The <code>Arc&lt;ProcessorRequest&gt;</code> pattern minimizes memory usage:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Shared input across parallel processors
-let input_arc = Arc::new(processor_input);
-let count_task_input = input_arc.clone(); // Cheap reference count increment
-let freq_task_input = input_arc.clone();  // Another cheap increment
-<span class="boring">}</span></code></pre></pre>
-<h2 id="try-it-yourself"><a class="header" href="#try-it-yourself">Try It Yourself</a></h2>
-<p>Experiment with processor intents:</p>
-<ol>
-<li><strong>Change <code>token_counter</code> to Transform</strong>: What happens to the final output?</li>
-<li><strong>Add more analysis processors</strong>: How does concurrency scale?</li>
-<li><strong>Create nested diamonds</strong>: Can you build <code>A → [B, C] → [D, E] → F</code>?</li>
-</ol>
+<ul>
+<li><strong>Arc<ProcessorRequest></strong>: Shared input across parallel processors with reference counting</li>
+<li><strong>Canonical payload</strong>: Single source of truth eliminates payload duplication</li>
+<li><strong>Metadata isolation</strong>: Only relevant dependency metadata passed to each processor</li>
+</ul>
 <h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
 <p>In the next demo, the exploration moves to <strong>WASM integration</strong> where processors run in secure sandboxes, introducing:</p>
 <ul>

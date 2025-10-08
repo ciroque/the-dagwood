@@ -1,15 +1,24 @@
 # Text Pipeline: Linear Chain
 
-The second demonstration shows data flowing through a sequence of processors, introducing dependency resolution and the fundamental concepts of DAG execution.
+## What You'll See
 
-## What You'll Learn
+This demonstration shows data flowing through a sequence of processors in a linear chain. You'll see how DAGwood handles dependency resolution, data flow between processors, and sequential execution patterns.
 
-- **Data flow chaining** between processors
-- **Dependency resolution** and topological ordering
-- **Rust Result<T, E>** error handling patterns
-- **Arc and Mutex** for shared state management
+**Key Learning Points:**
+- Data flow chaining between processors
+- Dependency resolution and topological ordering
+- Rust Result<T, E> error handling patterns
+- Arc and Mutex for shared state management
 
-## Configuration Overview
+## The Demo
+
+### Command Line
+
+```bash
+cargo run --release -- docs/demo/configs/02-text-pipeline.yaml "hello world"
+```
+
+### Configuration
 
 ```yaml
 # Demo 2: Text Pipeline - Linear Chain
@@ -43,94 +52,29 @@ processors:
       suffix: " <<<"
 ```
 
-### Dependency Chain Analysis
+**Configuration Elements:**
+- **Strategy**: `work_queue` (dependency counting algorithm)
+- **Failure Strategy**: `fail_fast` (stop on first error)
+- **Concurrency**: Set to 2 (though this chain executes sequentially)
+- **Linear Chain**: `uppercase → reverse → add_prefix`
 
-This creates a linear dependency chain: `uppercase → reverse → add_prefix`
+### Expected Output
 
-- **`uppercase`**: Entry point (no dependencies)
-- **`reverse`**: Depends on `uppercase` output
-- **`add_prefix`**: Depends on `reverse` output
-
-## Rust Concepts in Action
-
-### 1. Dependency Counting Algorithm
-
-The Work Queue executor uses a dependency counting algorithm implemented in Rust:
-
-```rust
-// From src/engine/work_queue.rs (simplified)
-let mut dependency_counts = HashMap::new();
-for (processor_id, dependencies) in &dependency_graph.0 {
-    dependency_counts.insert(processor_id.clone(), dependencies.len());
-}
-
-// Processors with 0 dependencies are ready to execute
-let mut ready_queue = PriorityWorkQueue::new();
-for (processor_id, count) in &dependency_counts {
-    if *count == 0 {
-        ready_queue.push(PrioritizedTask::new(processor_id.clone(), /* ... */));
-    }
-}
-```
-
-**Key Rust features**:
-- **HashMap<String, usize>**: Efficient dependency tracking
-- **Clone semantics**: Necessary for moving data into async tasks
-- **Pattern matching**: `if *count == 0` dereferences the count
-
-### 2. Async Task Coordination
-
-Each processor runs in its own async task, coordinated through shared state:
-
-```rust
-// Simplified task spawning
-let task_handle = tokio::spawn(async move {
-    let processor_response = processor.process(input).await?;
-    
-    // Update shared results
-    {
-        let mut results_guard = results.lock().await;
-        results_guard.insert(processor_id, processor_response);
-    }
-    
-    // Notify dependent processors
-    // ... dependency counting logic
-});
-```
-
-**Rust async patterns**:
-- **`tokio::spawn`**: Creates independent async tasks
-- **`Arc<Mutex<T>>`**: Thread-safe shared state
-- **Move closures**: Transfer ownership into async tasks
-
-### 3. Data Flow Chaining
-
-The critical insight: processors receive outputs from their dependencies, not the original input:
-
-```rust
-// From canonical payload architecture
-let input_for_processor = if dependencies.is_empty() {
-    // Entry point: use original input
-    original_input.clone()
-} else {
-    // Dependent processor: use canonical payload + dependency metadata
-    ProcessorRequest {
-        payload: canonical_payload.lock().await.clone(),
-        metadata: merged_dependency_metadata,
-    }
-};
-```
-
-## Expected Output
+When you run this demo, you'll see:
 
 ```
+🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/02-text-pipeline.yaml"]
+
 📋 Configuration: docs/demo/configs/02-text-pipeline.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 2
 🛡️  Failure Strategy: FailFast
 
 📊 Execution Results:
-⏱️  Execution Time: ~2ms
+⏱️  Execution Time: ~3ms
 🔢 Processors Executed: 3
 
 🔄 Processor Chain:
@@ -143,82 +87,24 @@ let input_for_processor = if dependencies.is_empty() {
    Output: ">>> DLROW OLLEH <<<"
 ```
 
-## Architecture Deep Dive
+## What You Just Saw
 
-### Topological Ordering
+This demo demonstrated:
 
-The Work Queue executor ensures processors execute in dependency order:
+**Linear DAG Execution:**
+- Sequential processor execution despite concurrency=2
+- Data flowing through the chain: input → uppercase → reverse → add_prefix
+- Dependency counting algorithm managing execution order
 
-```rust
-// Kahn's algorithm implementation (simplified)
-while let Some(current_processor) = ready_queue.pop() {
-    // Execute processor
-    execute_processor(current_processor).await?;
-    
-    // Update dependency counts for dependents
-    for dependent_id in dependents_of(&current_processor) {
-        dependency_counts[dependent_id] -= 1;
-        if dependency_counts[dependent_id] == 0 {
-            ready_queue.push(dependent_id);
-        }
-    }
-}
-```
+**Rust Concurrency Patterns:**
+- Async task spawning and coordination
+- Shared state management with Arc<Mutex<T>>
+- Memory-efficient Arc cloning for large payloads
 
-### Canonical Payload Architecture
-
-A revolutionary insight from the development: only Transform processors update the payload, while Analyze processors contribute metadata:
-
-```rust
-// After processor execution
-if processor.declared_intent() == ProcessorIntent::Transform {
-    // Update canonical payload
-    let mut canonical_guard = canonical_payload_mutex.lock().await;
-    *canonical_guard = processor_response.payload;
-}
-// Analyze processors only contribute metadata
-```
-
-**Benefits**:
-- **Eliminates race conditions** in diamond patterns
-- **Enforces architectural separation** between Transform and Analyze
-- **Simplifies dependency resolution** logic
-
-## Performance Characteristics
-
-### Concurrency Analysis
-
-With `max_concurrency: 2`, this linear chain still executes sequentially because each processor depends on the previous one. However, the infrastructure is ready for parallel execution when diamond patterns are introduced.
-
-### Memory Efficiency
-
-The `Arc<ProcessorRequest>` optimization reduces memory usage:
-
-```rust
-// Cheap Arc cloning instead of expensive data cloning
-let input_arc = input.clone(); // Only increments reference count
-let processor_task = tokio::spawn(async move {
-    let owned_input = (*input_arc).clone(); // Clone only when needed
-    processor.process(owned_input).await
-});
-```
-
-## Try It Yourself
-
-Experiment with different processor orders:
-
-```yaml
-# Try reversing the order - what happens?
-processors:
-  - id: add_prefix
-    depends_on: [reverse]  # This will fail validation!
-  - id: reverse
-    depends_on: [uppercase]
-  - id: uppercase
-    depends_on: []
-```
-
-The dependency validation will catch this cycle during config loading!
+**System Architecture:**
+- Canonical payload architecture preventing race conditions
+- Transform processor intent modifying data flow
+- Dependency validation catching configuration errors
 
 ## What's Next?
 

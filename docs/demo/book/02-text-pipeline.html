@@ -182,15 +182,20 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="text-pipeline-linear-chain"><a class="header" href="#text-pipeline-linear-chain">Text Pipeline: Linear Chain</a></h1>
-<p>The second demonstration shows data flowing through a sequence of processors, introducing dependency resolution and the fundamental concepts of DAG execution.</p>
-<h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You'll Learn</a></h2>
+<h2 id="what-youll-see"><a class="header" href="#what-youll-see">What You'll See</a></h2>
+<p>This demonstration shows data flowing through a sequence of processors in a linear chain. You'll see how DAGwood handles dependency resolution, data flow between processors, and sequential execution patterns.</p>
+<p><strong>Key Learning Points:</strong></p>
 <ul>
-<li><strong>Data flow chaining</strong> between processors</li>
-<li><strong>Dependency resolution</strong> and topological ordering</li>
-<li><strong>Rust Result&lt;T, E&gt;</strong> error handling patterns</li>
-<li><strong>Arc and Mutex</strong> for shared state management</li>
+<li>Data flow chaining between processors</li>
+<li>Dependency resolution and topological ordering</li>
+<li>Rust Result&lt;T, E&gt; error handling patterns</li>
+<li>Arc and Mutex for shared state management</li>
 </ul>
-<h2 id="configuration-overview"><a class="header" href="#configuration-overview">Configuration Overview</a></h2>
+<h2 id="the-demo"><a class="header" href="#the-demo">The Demo</a></h2>
+<h3 id="command-line"><a class="header" href="#command-line">Command Line</a></h3>
+<pre><code class="language-bash">cargo run --release -- docs/demo/configs/02-text-pipeline.yaml "hello world"
+</code></pre>
+<h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
 <pre><code class="language-yaml"># Demo 2: Text Pipeline - Linear Chain
 # This demonstrates data flow through a sequence of processors
 
@@ -221,86 +226,27 @@ processors:
       prefix: "&gt;&gt;&gt; "
       suffix: " &lt;&lt;&lt;"
 </code></pre>
-<h3 id="dependency-chain-analysis"><a class="header" href="#dependency-chain-analysis">Dependency Chain Analysis</a></h3>
-<p>This creates a linear dependency chain: <code>uppercase → reverse → add_prefix</code></p>
+<p><strong>Configuration Elements:</strong></p>
 <ul>
-<li><strong><code>uppercase</code></strong>: Entry point (no dependencies)</li>
-<li><strong><code>reverse</code></strong>: Depends on <code>uppercase</code> output</li>
-<li><strong><code>add_prefix</code></strong>: Depends on <code>reverse</code> output</li>
+<li><strong>Strategy</strong>: <code>work_queue</code> (dependency counting algorithm)</li>
+<li><strong>Failure Strategy</strong>: <code>fail_fast</code> (stop on first error)</li>
+<li><strong>Concurrency</strong>: Set to 2 (though this chain executes sequentially)</li>
+<li><strong>Linear Chain</strong>: <code>uppercase → reverse → add_prefix</code></li>
 </ul>
-<h2 id="rust-concepts-in-action"><a class="header" href="#rust-concepts-in-action">Rust Concepts in Action</a></h2>
-<h3 id="1-dependency-counting-algorithm"><a class="header" href="#1-dependency-counting-algorithm">1. Dependency Counting Algorithm</a></h3>
-<p>The Work Queue executor uses a dependency counting algorithm implemented in Rust:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/engine/work_queue.rs (simplified)
-let mut dependency_counts = HashMap::new();
-for (processor_id, dependencies) in &amp;dependency_graph.0 {
-    dependency_counts.insert(processor_id.clone(), dependencies.len());
-}
+<h3 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h3>
+<p>When you run this demo, you'll see:</p>
+<pre><code>🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/02-text-pipeline.yaml"]
 
-// Processors with 0 dependencies are ready to execute
-let mut ready_queue = PriorityWorkQueue::new();
-for (processor_id, count) in &amp;dependency_counts {
-    if *count == 0 {
-        ready_queue.push(PrioritizedTask::new(processor_id.clone(), /* ... */));
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Key Rust features</strong>:</p>
-<ul>
-<li><strong>HashMap&lt;String, usize&gt;</strong>: Efficient dependency tracking</li>
-<li><strong>Clone semantics</strong>: Necessary for moving data into async tasks</li>
-<li><strong>Pattern matching</strong>: <code>if *count == 0</code> dereferences the count</li>
-</ul>
-<h3 id="2-async-task-coordination"><a class="header" href="#2-async-task-coordination">2. Async Task Coordination</a></h3>
-<p>Each processor runs in its own async task, coordinated through shared state:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Simplified task spawning
-let task_handle = tokio::spawn(async move {
-    let processor_response = processor.process(input).await?;
-    
-    // Update shared results
-    {
-        let mut results_guard = results.lock().await;
-        results_guard.insert(processor_id, processor_response);
-    }
-    
-    // Notify dependent processors
-    // ... dependency counting logic
-});
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Rust async patterns</strong>:</p>
-<ul>
-<li><strong><code>tokio::spawn</code></strong>: Creates independent async tasks</li>
-<li><strong><code>Arc&lt;Mutex&lt;T&gt;&gt;</code></strong>: Thread-safe shared state</li>
-<li><strong>Move closures</strong>: Transfer ownership into async tasks</li>
-</ul>
-<h3 id="3-data-flow-chaining"><a class="header" href="#3-data-flow-chaining">3. Data Flow Chaining</a></h3>
-<p>The critical insight: processors receive outputs from their dependencies, not the original input:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From canonical payload architecture
-let input_for_processor = if dependencies.is_empty() {
-    // Entry point: use original input
-    original_input.clone()
-} else {
-    // Dependent processor: use canonical payload + dependency metadata
-    ProcessorRequest {
-        payload: canonical_payload.lock().await.clone(),
-        metadata: merged_dependency_metadata,
-    }
-};
-<span class="boring">}</span></code></pre></pre>
-<h2 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h2>
-<pre><code>📋 Configuration: docs/demo/configs/02-text-pipeline.yaml
+📋 Configuration: docs/demo/configs/02-text-pipeline.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 2
 🛡️  Failure Strategy: FailFast
 
 📊 Execution Results:
-⏱️  Execution Time: ~2ms
+⏱️  Execution Time: ~3ms
 🔢 Processors Executed: 3
 
 🔄 Processor Chain:
@@ -312,69 +258,26 @@ let input_for_processor = if dependencies.is_empty() {
    Input:  "hello world"
    Output: "&gt;&gt;&gt; DLROW OLLEH &lt;&lt;&lt;"
 </code></pre>
-<h2 id="architecture-deep-dive"><a class="header" href="#architecture-deep-dive">Architecture Deep Dive</a></h2>
-<h3 id="topological-ordering"><a class="header" href="#topological-ordering">Topological Ordering</a></h3>
-<p>The Work Queue executor ensures processors execute in dependency order:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Kahn's algorithm implementation (simplified)
-while let Some(current_processor) = ready_queue.pop() {
-    // Execute processor
-    execute_processor(current_processor).await?;
-    
-    // Update dependency counts for dependents
-    for dependent_id in dependents_of(&amp;current_processor) {
-        dependency_counts[dependent_id] -= 1;
-        if dependency_counts[dependent_id] == 0 {
-            ready_queue.push(dependent_id);
-        }
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="canonical-payload-architecture"><a class="header" href="#canonical-payload-architecture">Canonical Payload Architecture</a></h3>
-<p>A revolutionary insight from the development: only Transform processors update the payload, while Analyze processors contribute metadata:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// After processor execution
-if processor.declared_intent() == ProcessorIntent::Transform {
-    // Update canonical payload
-    let mut canonical_guard = canonical_payload_mutex.lock().await;
-    *canonical_guard = processor_response.payload;
-}
-// Analyze processors only contribute metadata
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Benefits</strong>:</p>
+<h2 id="what-you-just-saw"><a class="header" href="#what-you-just-saw">What You Just Saw</a></h2>
+<p>This demo demonstrated:</p>
+<p><strong>Linear DAG Execution:</strong></p>
 <ul>
-<li><strong>Eliminates race conditions</strong> in diamond patterns</li>
-<li><strong>Enforces architectural separation</strong> between Transform and Analyze</li>
-<li><strong>Simplifies dependency resolution</strong> logic</li>
+<li>Sequential processor execution despite concurrency=2</li>
+<li>Data flowing through the chain: input → uppercase → reverse → add_prefix</li>
+<li>Dependency counting algorithm managing execution order</li>
 </ul>
-<h2 id="performance-characteristics"><a class="header" href="#performance-characteristics">Performance Characteristics</a></h2>
-<h3 id="concurrency-analysis"><a class="header" href="#concurrency-analysis">Concurrency Analysis</a></h3>
-<p>With <code>max_concurrency: 2</code>, this linear chain still executes sequentially because each processor depends on the previous one. However, the infrastructure is ready for parallel execution when diamond patterns are introduced.</p>
-<h3 id="memory-efficiency"><a class="header" href="#memory-efficiency">Memory Efficiency</a></h3>
-<p>The <code>Arc&lt;ProcessorRequest&gt;</code> optimization reduces memory usage:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Cheap Arc cloning instead of expensive data cloning
-let input_arc = input.clone(); // Only increments reference count
-let processor_task = tokio::spawn(async move {
-    let owned_input = (*input_arc).clone(); // Clone only when needed
-    processor.process(owned_input).await
-});
-<span class="boring">}</span></code></pre></pre>
-<h2 id="try-it-yourself"><a class="header" href="#try-it-yourself">Try It Yourself</a></h2>
-<p>Experiment with different processor orders:</p>
-<pre><code class="language-yaml"># Try reversing the order - what happens?
-processors:
-  - id: add_prefix
-    depends_on: [reverse]  # This will fail validation!
-  - id: reverse
-    depends_on: [uppercase]
-  - id: uppercase
-    depends_on: []
-</code></pre>
-<p>The dependency validation will catch this cycle during config loading!</p>
+<p><strong>Rust Concurrency Patterns:</strong></p>
+<ul>
+<li>Async task spawning and coordination</li>
+<li>Shared state management with Arc&lt;Mutex<T>&gt;</li>
+<li>Memory-efficient Arc cloning for large payloads</li>
+</ul>
+<p><strong>System Architecture:</strong></p>
+<ul>
+<li>Canonical payload architecture preventing race conditions</li>
+<li>Transform processor intent modifying data flow</li>
+<li>Dependency validation catching configuration errors</li>
+</ul>
 <h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
 <p>In the next demo, the exploration moves to the <strong>diamond dependency pattern</strong> where multiple processors can run in parallel, introducing:</p>
 <ul>

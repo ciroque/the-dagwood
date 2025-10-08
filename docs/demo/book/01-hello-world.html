@@ -182,16 +182,20 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="hello-world-single-processor"><a class="header" href="#hello-world-single-processor">Hello World: Single Processor</a></h1>
-<p>Welcome to the first demonstration! This example shows the simplest possible DAG execution with a single processor and no dependencies.</p>
-<h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You'll Learn</a></h2>
+<h2 id="what-youll-see"><a class="header" href="#what-youll-see">What You'll See</a></h2>
+<p>This demonstration shows the simplest possible DAG execution: a single processor with no dependencies. You'll see how DAGwood handles the most basic workflow scenario and learn fundamental Rust concepts used throughout the system.</p>
+<p><strong>Key Learning Points:</strong></p>
 <ul>
-<li><strong>Basic Rust ownership patterns</strong> in processor execution</li>
-<li><strong>Simple async/await usage</strong> with tokio runtime</li>
-<li><strong>ProcessorRequest and ProcessorResponse</strong> structures from protobuf</li>
-<li><strong>Entry point detection</strong> in DAG execution algorithms</li>
+<li>Basic Rust ownership patterns in processor execution</li>
+<li>Simple async/await usage with tokio runtime</li>
+<li>ProcessorRequest and ProcessorResponse structures</li>
+<li>Entry point detection in DAG execution</li>
 </ul>
-<h2 id="configuration-overview"><a class="header" href="#configuration-overview">Configuration Overview</a></h2>
-<p>Let's examine the first configuration file:</p>
+<h2 id="the-demo"><a class="header" href="#the-demo">The Demo</a></h2>
+<h3 id="command-line"><a class="header" href="#command-line">Command Line</a></h3>
+<pre><code class="language-bash">cargo run --release -- docs/demo/configs/01-hello-world.yaml "hello world"
+</code></pre>
+<h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
 <pre><code class="language-yaml"># Demo 1: Hello World - Single Processor
 # This demonstrates the simplest possible DAG: one processor with no dependencies
 
@@ -208,91 +212,57 @@ processors:
     depends_on: []
     options: {}
 </code></pre>
-<h3 id="key-configuration-elements"><a class="header" href="#key-configuration-elements">Key Configuration Elements</a></h3>
+<p><strong>Configuration Elements:</strong></p>
 <ul>
-<li><strong><code>strategy: work_queue</code></strong>: Uses the Work Queue executor with dependency counting</li>
-<li><strong><code>failure_strategy: fail_fast</code></strong>: Stops execution immediately on any processor failure</li>
-<li><strong><code>max_concurrency: 1</code></strong>: Limits to single-threaded execution for simplicity</li>
-<li><strong><code>depends_on: []</code></strong>: Empty dependencies make this processor an entry point</li>
+<li><strong>Strategy</strong>: <code>work_queue</code> (dependency counting algorithm)</li>
+<li><strong>Failure Strategy</strong>: <code>fail_fast</code> (stop on first error)</li>
+<li><strong>Concurrency</strong>: Limited to 1 for simplicity</li>
+<li><strong>Single Processor</strong>: <code>hello_processor</code> with no dependencies</li>
 </ul>
-<h2 id="rust-concepts-in-action"><a class="header" href="#rust-concepts-in-action">Rust Concepts in Action</a></h2>
-<h3 id="1-ownership-and-borrowing"><a class="header" href="#1-ownership-and-borrowing">1. Ownership and Borrowing</a></h3>
-<p>When the DAG executor processes this configuration, it demonstrates several Rust ownership patterns:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Entry point detection (simplified)
-for processor_config in &amp;config.processors {
-    if processor_config.depends_on.is_empty() {
-        entry_points_vec.push(processor_config.id.clone()); // Clone needed for ownership
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Why clone?</strong> The <code>processor_config.id</code> is borrowed from the config, but <code>entry_points_vec</code> needs owned <code>String</code> values.</p>
-<h3 id="2-asyncawait-with-tokio"><a class="header" href="#2-asyncawait-with-tokio">2. Async/Await with Tokio</a></h3>
-<p>The processor execution uses Rust's async/await pattern:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Simplified processor execution
-let processor_response = processor.process(input).await?;
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Key insight</strong>: The <code>await</code> point allows other tasks to run, but since this example has <code>max_concurrency: 1</code>, it runs sequentially.</p>
-<h3 id="3-resultt-e-error-handling"><a class="header" href="#3-resultt-e-error-handling">3. Result&lt;T, E&gt; Error Handling</a></h3>
-<p>Every operation returns a <code>Result</code> for graceful error handling:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>let config = load_and_validate_config(config_file)?; // ? operator propagates errors
-let (results, metadata) = executor.execute_with_strategy(/* ... */).await?;
-<span class="boring">}</span></code></pre></pre>
-<h2 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h2>
-<p>When you run this demo, you should see:</p>
-<pre><code>📋 Configuration: docs/demo/configs/01-hello-world.yaml
+<h3 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h3>
+<p>When you run this demo, you'll see:</p>
+<pre><code>🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/01-hello-world.yaml"]
+
+📋 Configuration: docs/demo/configs/01-hello-world.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 1
 🛡️  Failure Strategy: FailFast
 
 📊 Execution Results:
-⏱️  Execution Time: ~1ms
+⏱️  Execution Time: ~2ms
 🔢 Processors Executed: 1
 
 🔄 Processor Chain:
   1. hello_processor → "HELLO WORLD"
-     📝 Metadata: 1 entries
 
 🎯 Final Transformation:
    Input:  "hello world"
    Output: "HELLO WORLD"
 </code></pre>
-<h2 id="architecture-insights"><a class="header" href="#architecture-insights">Architecture Insights</a></h2>
-<h3 id="entry-point-detection"><a class="header" href="#entry-point-detection">Entry Point Detection</a></h3>
-<p>The DAG executor identifies entry points by finding processors with empty <code>depends_on</code> arrays:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/engine/work_queue.rs (simplified)
-let mut entry_points = Vec::new();
-for (processor_id, dependencies) in &amp;dependency_graph.0 {
-    if dependencies.is_empty() {
-        entry_points.push(processor_id.clone());
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="processor-factory-pattern"><a class="header" href="#processor-factory-pattern">Processor Factory Pattern</a></h3>
-<p>The <code>change_text_case_upper</code> implementation is resolved through the factory pattern:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/backends/local/factory.rs
-match impl_name {
-    "change_text_case_upper" =&gt; Ok(Box::new(ChangeTextCaseProcessor::new(TextCase::Upper))),
-    // ... other processors
-}
-<span class="boring">}</span></code></pre></pre>
-<p>This demonstrates Rust's <strong>trait objects</strong> (<code>Box&lt;dyn Processor&gt;</code>) for runtime polymorphism.</p>
-<h2 id="try-it-yourself"><a class="header" href="#try-it-yourself">Try It Yourself</a></h2>
-<p>Run this demo with:</p>
-<pre><code class="language-bash">cargo run --release -- --demo-mode
-</code></pre>
-<p>Or run just this configuration:</p>
-<pre><code class="language-bash">cargo run --release -- docs/demo/configs/01-hello-world.yaml "hello world"
-</code></pre>
+<h2 id="what-you-just-saw"><a class="header" href="#what-you-just-saw">What You Just Saw</a></h2>
+<p>This demo demonstrated:</p>
+<p><strong>DAG Execution Basics:</strong></p>
+<ul>
+<li>Single processor workflow with no dependencies</li>
+<li>Entry point detection (processors with empty <code>depends_on</code>)</li>
+<li>Work Queue strategy handling the simplest case</li>
+</ul>
+<p><strong>Rust Fundamentals:</strong></p>
+<ul>
+<li>Ownership patterns in data processing</li>
+<li>Async/await for non-blocking execution</li>
+<li>Result-based error handling throughout</li>
+<li>Protobuf integration for structured data</li>
+</ul>
+<p><strong>System Architecture:</strong></p>
+<ul>
+<li>Configuration-driven processor selection</li>
+<li>Factory pattern for processor creation</li>
+<li>Clean separation between configuration and execution</li>
+</ul>
 <h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
 <p>In the next demo, the exploration moves to <strong>linear chains</strong> where processors depend on each other, introducing:</p>
 <ul>

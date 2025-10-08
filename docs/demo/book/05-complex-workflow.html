@@ -182,15 +182,20 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="complex-workflow-multi-backend-pipeline"><a class="header" href="#complex-workflow-multi-backend-pipeline">Complex Workflow: Multi-Backend Pipeline</a></h1>
-<p>The final demonstration showcases a sophisticated workflow that combines everything learned: multiple execution strategies, mixed backends, advanced error handling, and production-ready patterns.</p>
-<h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You'll Learn</a></h2>
+<h2 id="what-youll-see"><a class="header" href="#what-youll-see">What You'll See</a></h2>
+<p>This final demonstration showcases a sophisticated workflow that combines everything learned. You'll see multiple execution strategies, mixed backends, advanced error handling, and production-ready patterns working together in a complex DAG.</p>
+<p><strong>Key Learning Points:</strong></p>
 <ul>
-<li><strong>Level-by-Level vs Work Queue</strong> execution strategies</li>
-<li><strong>Mixed local and WASM</strong> processor coordination</li>
-<li><strong>Advanced error handling</strong> with failure strategies</li>
-<li><strong>Production-ready workflow</strong> orchestration patterns</li>
+<li>Level-by-Level vs Work Queue execution strategies</li>
+<li>Mixed local and WASM processor coordination</li>
+<li>Advanced error handling with failure strategies</li>
+<li>Production-ready workflow orchestration patterns</li>
 </ul>
-<h2 id="configuration-overview"><a class="header" href="#configuration-overview">Configuration Overview</a></h2>
+<h2 id="the-demo"><a class="header" href="#the-demo">The Demo</a></h2>
+<h3 id="command-line"><a class="header" href="#command-line">Command Line</a></h3>
+<pre><code class="language-bash">cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "hello world"
+</code></pre>
+<h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
 <pre><code class="language-yaml"># Demo 5: Complex Workflow - Multi-Backend Pipeline
 # This demonstrates advanced DAG with multiple backends and execution strategies
 
@@ -308,141 +313,55 @@ fn compute_topological_levels(graph: &amp;DependencyGraph) -&gt; Result&lt;Vec&l
     Ok(levels)
 }
 <span class="boring">}</span></code></pre></pre>
-<p><strong>Algorithm characteristics</strong>:</p>
-<ul>
-<li><strong>Batch processing</strong>: Execute entire levels at once</li>
-<li><strong>Clear boundaries</strong>: Explicit level separation</li>
-<li><strong>Predictable ordering</strong>: Deterministic level assignment</li>
-<li><strong>Memory efficiency</strong>: O(V + E) space complexity</li>
-</ul>
-<h3 id="2-best-effort-failure-strategy"><a class="header" href="#2-best-effort-failure-strategy">2. Best Effort Failure Strategy</a></h3>
-<p>The <code>best_effort</code> failure strategy demonstrates resilient execution:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Simplified error handling in level execution
-match processor.process(input).await {
-    Ok(response) =&gt; {
-        // Success: store result and continue
-        results_guard.insert(processor_id.clone(), response);
-    },
-    Err(e) =&gt; match failure_strategy {
-        FailureStrategy::FailFast =&gt; {
-            return Err(e); // Stop immediately
-        },
-        FailureStrategy::BestEffort =&gt; {
-            // Continue with other processors
-            // Failed processor won't contribute to dependents
-            eprintln!("Processor {} failed but continuing: {}", processor_id, e);
-        },
-        FailureStrategy::ContinueOnError =&gt; {
-            // Similar to BestEffort but with different semantics
-        }
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Resilience patterns</strong>:</p>
-<ul>
-<li><strong>Graceful degradation</strong>: System continues despite failures</li>
-<li><strong>Partial results</strong>: Successful processors still contribute</li>
-<li><strong>Error isolation</strong>: Failures don't cascade unnecessarily</li>
-</ul>
-<h3 id="3-multi-backend-coordination"><a class="header" href="#3-multi-backend-coordination">3. Multi-Backend Coordination</a></h3>
-<p>The processor factory seamlessly handles different backends:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/config/processor_map.rs
-pub fn resolve_processor(config: &amp;ProcessorConfig) -&gt; Result&lt;Box&lt;dyn Processor&gt;, ProcessorError&gt; {
-    match config.backend {
-        BackendType::Local =&gt; {
-            LocalProcessorFactory::create_processor(config)
-        },
-        BackendType::Wasm =&gt; {
-            WasmProcessorFactory::create_processor(config)
-        },
-        // Future backends: RPC, SharedLibrary, etc.
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Architectural benefits</strong>:</p>
-<ul>
-<li><strong>Backend abstraction</strong>: Uniform processor interface</li>
-<li><strong>Easy extension</strong>: New backends integrate seamlessly</li>
-<li><strong>Type safety</strong>: Rust's type system prevents backend confusion</li>
-</ul>
-<h3 id="4-advanced-concurrency-patterns"><a class="header" href="#4-advanced-concurrency-patterns">4. Advanced Concurrency Patterns</a></h3>
-<p>With <code>max_concurrency: 6</code>, this workflow demonstrates sophisticated parallelism:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Level-by-level parallel execution within levels
-async fn execute_level(
-    level_processors: &amp;[String],
-    // ... other parameters
-) -&gt; Result&lt;(), ExecutionError&gt; {
-    let semaphore = Arc::new(Semaphore::new(max_concurrency));
-    let mut task_handles = Vec::new();
-    
-    // Spawn tasks for all processors in this level
-    for processor_id in level_processors {
-        let permit = semaphore.clone().acquire_owned().await?;
-        let task_handle = tokio::spawn(async move {
-            let _permit = permit; // RAII: auto-release on completion
-            
-            // Execute processor (may be local or WASM)
-            execute_single_processor(processor_id, input).await
-        });
-        
-        task_handles.push(task_handle);
-    }
-    
-    // Wait for all processors in this level to complete
-    for handle in task_handles {
-        handle.await??; // Double ? for JoinError and ExecutionError
-    }
-    
-    Ok(())
-}
-<span class="boring">}</span></code></pre></pre>
-<h2 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h2>
-<pre><code>📋 Configuration: docs/demo/configs/05-complex-workflow.yaml
-🔧 Strategy: Level
+<h3 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h3>
+<p>When you run this demo, you'll see:</p>
+<pre><code>🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/05-complex-workflow.yaml"]
+
+📋 Configuration: docs/demo/configs/05-complex-workflow.yaml
+🔧 Strategy: LevelByLevel
 ⚙️  Max Concurrency: 6
 🛡️  Failure Strategy: BestEffort
 
 📊 Execution Results:
 ⏱️  Execution Time: ~8ms
-🔢 Processors Executed: 7
+🔢 Processors Executed: 6
 
 🔄 Processor Chain:
-Level 0 (Entry Points):
-  1. input_a → "HELLO WORLD"
-  2. input_b → "hello world"
-
-Level 1 (Processing):
-  3. process_a → "DLROW OLLEH"
-  4. process_b_wasm → "hello world-wasm"
-
-Level 2 (Analysis):
-  5. analyze_a → "DLROW OLLEH" (+ metadata: char_count: 11)
-  6. analyze_b → "hello world-wasm" (+ metadata: word_analysis: {...})
-
-Level 3 (Convergence):
-  7. final_merge → "🔄 Multi-Backend Result: DLROW OLLEH [COMPLETE]"
+  Level 0: input_a, input_b (parallel)
+  Level 1: process_a, process_b_wasm (parallel)
+  Level 2: analyze_a, analyze_b (parallel)
+  Level 3: final_merge
 
 🎯 Final Transformation:
    Input:  "hello world"
-   Output: "🔄 Multi-Backend Result: DLROW OLLEH [COMPLETE]"
-   
-   Pipeline Metadata:
-   analyze_a:
-      • character_count: 11
-      • processing_time_ms: 0.1
-   analyze_b:
-      • unique_words: 2
-      • most_frequent: hello
-   process_b_wasm:
-      • module_path: wasm_modules/hello_world.wasm
-      • execution_time_ms: 2.3
+   Output: "🔄 Multi-Backend Result: hello world [COMPLETE]"
 </code></pre>
+<h2 id="what-you-just-saw"><a class="header" href="#what-you-just-saw">What You Just Saw</a></h2>
+<p>This demo demonstrated:</p>
+<p><strong>Complex DAG Orchestration:</strong></p>
+<ul>
+<li>Multiple entry points executing in parallel</li>
+<li>Mixed Local and WASM backends in a single workflow</li>
+<li>Level-by-Level execution strategy with clear synchronization points</li>
+<li>BestEffort failure strategy allowing graceful degradation</li>
+</ul>
+<p><strong>Advanced Rust Patterns:</strong></p>
+<ul>
+<li>Topological level computation with HashSet and Vec operations</li>
+<li>Semaphore-based concurrency control across execution levels</li>
+<li>Factory pattern enabling seamless backend switching</li>
+<li>RAII-based resource management with automatic cleanup</li>
+</ul>
+<p><strong>Production-Ready Features:</strong></p>
+<ul>
+<li>Resilient error handling that continues despite individual failures</li>
+<li>Rich metadata collection across multiple processor types</li>
+<li>Configurable concurrency limits for resource management</li>
+<li>Clean separation between execution strategy and processor implementation</li>
+</ul>
 <h2 id="architecture-comparison"><a class="header" href="#architecture-comparison">Architecture Comparison</a></h2>
 <h3 id="level-by-level-vs-work-queue"><a class="header" href="#level-by-level-vs-work-queue">Level-by-Level vs Work Queue</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>Aspect</th><th>Level-by-Level</th><th>Work Queue</th></tr></thead><tbody>
@@ -454,111 +373,7 @@ Level 3 (Convergence):
 <tr><td><strong>Efficiency</strong></td><td>Good for regular DAGs</td><td>Better for irregular DAGs</td></tr>
 </tbody></table>
 </div>
-<h3 id="performance-characteristics"><a class="header" href="#performance-characteristics">Performance Characteristics</a></h3>
-<pre><code>Level-by-Level Timeline:
-0ms: Level 0 starts (input_a, input_b) - parallel
-1ms: Level 0 completes
-1ms: Level 1 starts (process_a, process_b_wasm) - parallel
-3ms: Level 1 completes (WASM takes longer)
-3ms: Level 2 starts (analyze_a, analyze_b) - parallel
-4ms: Level 2 completes
-4ms: Level 3 starts (final_merge)
-5ms: Level 3 completes
-
-Work Queue Timeline (hypothetical):
-0ms: input_a, input_b start - parallel
-1ms: input_a completes, process_a starts
-1ms: input_b completes, process_b_wasm starts
-2ms: process_a completes, analyze_a starts
-3ms: process_b_wasm completes, analyze_b starts
-3ms: analyze_a completes
-4ms: analyze_b completes, final_merge starts
-5ms: final_merge completes
-</code></pre>
-<p><strong>Key insight</strong>: Level-by-Level can be more efficient for regular DAGs due to better batching, while Work Queue excels with irregular dependency patterns.</p>
-<h2 id="production-patterns"><a class="header" href="#production-patterns">Production Patterns</a></h2>
-<h3 id="1-error-recovery-strategies"><a class="header" href="#1-error-recovery-strategies">1. Error Recovery Strategies</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Production-ready error handling
-match execute_workflow(config).await {
-    Ok(results) =&gt; {
-        log::info!("Workflow completed successfully: {} processors", results.len());
-        Ok(results)
-    },
-    Err(ExecutionError::ProcessorError { processor_id, source }) =&gt; {
-        log::error!("Processor {} failed: {}", processor_id, source);
-        // Could implement retry logic here
-        Err(e)
-    },
-    Err(ExecutionError::ValidationError { message }) =&gt; {
-        log::error!("Configuration invalid: {}", message);
-        // Could implement config auto-correction
-        Err(e)
-    },
-    Err(e) =&gt; {
-        log::error!("Unexpected error: {}", e);
-        Err(e)
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="2-observability-integration"><a class="header" href="#2-observability-integration">2. Observability Integration</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Future observability patterns
-struct WorkflowMetrics {
-    total_execution_time: Duration,
-    processor_execution_times: HashMap&lt;String, Duration&gt;,
-    memory_usage_peak: usize,
-    concurrency_utilization: f64,
-}
-
-// Tracing integration
-#[tracing::instrument(skip(processors, executor))]
-async fn execute_workflow(
-    processors: ProcessorRegistry,
-    executor: Box&lt;dyn DagExecutor&gt;,
-    // ...
-) -&gt; Result&lt;WorkflowResults, ExecutionError&gt; {
-    let span = tracing::info_span!("workflow_execution");
-    // ... execution with detailed tracing
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="3-resource-management"><a class="header" href="#3-resource-management">3. Resource Management</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Production resource limits
-struct ExecutorConfig {
-    max_concurrency: usize,
-    max_memory_mb: usize,
-    execution_timeout: Duration,
-    processor_timeout: Duration,
-}
-
-// Graceful shutdown
-impl DagExecutor {
-    async fn shutdown_gracefully(&amp;self, timeout: Duration) -&gt; Result&lt;(), ShutdownError&gt; {
-        // Cancel running tasks
-        // Wait for cleanup
-        // Release resources
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<h2 id="try-it-yourself"><a class="header" href="#try-it-yourself">Try It Yourself</a></h2>
-<h3 id="experiment-with-strategies"><a class="header" href="#experiment-with-strategies">Experiment with Strategies</a></h3>
-<ol>
-<li><strong>Change to Work Queue</strong>: Modify <code>strategy: work_queue</code> and compare execution</li>
-<li><strong>Add failure scenarios</strong>: Create a processor that always fails</li>
-<li><strong>Scale up</strong>: Add more processors and observe concurrency patterns</li>
-<li><strong>Mix more backends</strong>: When RPC backend is available, create 3-way mixing</li>
-</ol>
-<h3 id="performance-testing"><a class="header" href="#performance-testing">Performance Testing</a></h3>
-<pre><code class="language-bash"># Benchmark different strategies
-time cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "test input"
-
-# Profile memory usage
-valgrind --tool=massif cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "test"
-</code></pre>
+<p><strong>Key insight</strong>: Level-by-Level provides predictable execution phases with clear synchronization points, while Work Queue offers maximum parallelism with dynamic scheduling.</p>
 <h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
 <p>This completes the progressive demo journey! The demonstrations have shown:</p>
 <p>✅ <strong>Single processor basics</strong> (Hello World)<br />
@@ -566,14 +381,18 @@ valgrind --tool=massif cargo run --release -- docs/demo/configs/05-complex-workf
 ✅ <strong>Parallel diamond patterns</strong> (Diamond Analysis)<br />
 ✅ <strong>WASM integration</strong> (Sandboxed Processing)<br />
 ✅ <strong>Complex multi-backend workflows</strong> (This demo)</p>
-<h3 id="future-exploration"><a class="header" href="#future-exploration">Future Exploration</a></h3>
+<h3 id="exploration-opportunities"><a class="header" href="#exploration-opportunities">Exploration Opportunities</a></h3>
 <ul>
-<li><strong>Reactive Executor</strong>: Event-driven execution for real-time workflows</li>
-<li><strong>Hybrid Strategies</strong>: Combining multiple execution approaches</li>
-<li><strong>Advanced WASM</strong>: WASI integration and component model</li>
-<li><strong>Distributed Execution</strong>: Multi-node DAG orchestration</li>
-<li><strong>Machine Learning Integration</strong>: AI-powered workflow optimization</li>
+<li><strong>Try different strategies</strong>: Compare <code>work_queue</code> vs <code>level</code> execution</li>
+<li><strong>Experiment with failure modes</strong>: Test <code>fail_fast</code> vs <code>best_effort</code> strategies</li>
+<li><strong>Add custom processors</strong>: Extend the Local backend with new implementations</li>
+<li><strong>Build complex DAGs</strong>: Create workflows with multiple diamond patterns</li>
+<li><strong>Performance analysis</strong>: Measure execution times with different concurrency settings</li>
 </ul>
+<hr />
+<blockquote>
+<p>🏆 <strong>Congratulations!</strong> You've completed the full DAGwood demo journey, from simple single processors to complex multi-backend workflows. You've seen Rust's power in building safe, concurrent, and extensible workflow orchestration systems.</p>
+</blockquote>
 <hr />
 <blockquote>
 <p>🚀 <strong>Production Insight</strong>: This complex workflow demonstrates that The DAGwood Project is ready for real-world usage. The combination of Rust's safety, multiple execution strategies, WASM sandboxing, and robust error handling provides a solid foundation for production workflow orchestration systems!</p>

@@ -577,16 +577,20 @@
 <p>🏗️ <strong>Architecture Philosophy</strong>: The DAGwood architecture prioritizes safety, performance, and extensibility. Every component is designed to be both powerful and secure, with clear separation of concerns and well-defined interfaces. This foundation enables complex workflow orchestration while maintaining system reliability and developer productivity.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="hello-world-single-processor"><a class="header" href="#hello-world-single-processor">Hello World: Single Processor</a></h1>
-<p>Welcome to the first demonstration! This example shows the simplest possible DAG execution with a single processor and no dependencies.</p>
-<h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You'll Learn</a></h2>
+<h2 id="what-youll-see-1"><a class="header" href="#what-youll-see-1">What You'll See</a></h2>
+<p>This demonstration shows the simplest possible DAG execution: a single processor with no dependencies. You'll see how DAGwood handles the most basic workflow scenario and learn fundamental Rust concepts used throughout the system.</p>
+<p><strong>Key Learning Points:</strong></p>
 <ul>
-<li><strong>Basic Rust ownership patterns</strong> in processor execution</li>
-<li><strong>Simple async/await usage</strong> with tokio runtime</li>
-<li><strong>ProcessorRequest and ProcessorResponse</strong> structures from protobuf</li>
-<li><strong>Entry point detection</strong> in DAG execution algorithms</li>
+<li>Basic Rust ownership patterns in processor execution</li>
+<li>Simple async/await usage with tokio runtime</li>
+<li>ProcessorRequest and ProcessorResponse structures</li>
+<li>Entry point detection in DAG execution</li>
 </ul>
-<h2 id="configuration-overview"><a class="header" href="#configuration-overview">Configuration Overview</a></h2>
-<p>Let's examine the first configuration file:</p>
+<h2 id="the-demo"><a class="header" href="#the-demo">The Demo</a></h2>
+<h3 id="command-line"><a class="header" href="#command-line">Command Line</a></h3>
+<pre><code class="language-bash">cargo run --release -- docs/demo/configs/01-hello-world.yaml "hello world"
+</code></pre>
+<h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
 <pre><code class="language-yaml"># Demo 1: Hello World - Single Processor
 # This demonstrates the simplest possible DAG: one processor with no dependencies
 
@@ -603,91 +607,57 @@ processors:
     depends_on: []
     options: {}
 </code></pre>
-<h3 id="key-configuration-elements"><a class="header" href="#key-configuration-elements">Key Configuration Elements</a></h3>
+<p><strong>Configuration Elements:</strong></p>
 <ul>
-<li><strong><code>strategy: work_queue</code></strong>: Uses the Work Queue executor with dependency counting</li>
-<li><strong><code>failure_strategy: fail_fast</code></strong>: Stops execution immediately on any processor failure</li>
-<li><strong><code>max_concurrency: 1</code></strong>: Limits to single-threaded execution for simplicity</li>
-<li><strong><code>depends_on: []</code></strong>: Empty dependencies make this processor an entry point</li>
+<li><strong>Strategy</strong>: <code>work_queue</code> (dependency counting algorithm)</li>
+<li><strong>Failure Strategy</strong>: <code>fail_fast</code> (stop on first error)</li>
+<li><strong>Concurrency</strong>: Limited to 1 for simplicity</li>
+<li><strong>Single Processor</strong>: <code>hello_processor</code> with no dependencies</li>
 </ul>
-<h2 id="rust-concepts-in-action"><a class="header" href="#rust-concepts-in-action">Rust Concepts in Action</a></h2>
-<h3 id="1-ownership-and-borrowing"><a class="header" href="#1-ownership-and-borrowing">1. Ownership and Borrowing</a></h3>
-<p>When the DAG executor processes this configuration, it demonstrates several Rust ownership patterns:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Entry point detection (simplified)
-for processor_config in &amp;config.processors {
-    if processor_config.depends_on.is_empty() {
-        entry_points_vec.push(processor_config.id.clone()); // Clone needed for ownership
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Why clone?</strong> The <code>processor_config.id</code> is borrowed from the config, but <code>entry_points_vec</code> needs owned <code>String</code> values.</p>
-<h3 id="2-asyncawait-with-tokio"><a class="header" href="#2-asyncawait-with-tokio">2. Async/Await with Tokio</a></h3>
-<p>The processor execution uses Rust's async/await pattern:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Simplified processor execution
-let processor_response = processor.process(input).await?;
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Key insight</strong>: The <code>await</code> point allows other tasks to run, but since this example has <code>max_concurrency: 1</code>, it runs sequentially.</p>
-<h3 id="3-resultt-e-error-handling"><a class="header" href="#3-resultt-e-error-handling">3. Result&lt;T, E&gt; Error Handling</a></h3>
-<p>Every operation returns a <code>Result</code> for graceful error handling:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>let config = load_and_validate_config(config_file)?; // ? operator propagates errors
-let (results, metadata) = executor.execute_with_strategy(/* ... */).await?;
-<span class="boring">}</span></code></pre></pre>
-<h2 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h2>
-<p>When you run this demo, you should see:</p>
-<pre><code>📋 Configuration: docs/demo/configs/01-hello-world.yaml
+<h3 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h3>
+<p>When you run this demo, you'll see:</p>
+<pre><code>🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/01-hello-world.yaml"]
+
+📋 Configuration: docs/demo/configs/01-hello-world.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 1
 🛡️  Failure Strategy: FailFast
 
 📊 Execution Results:
-⏱️  Execution Time: ~1ms
+⏱️  Execution Time: ~2ms
 🔢 Processors Executed: 1
 
 🔄 Processor Chain:
   1. hello_processor → "HELLO WORLD"
-     📝 Metadata: 1 entries
 
 🎯 Final Transformation:
    Input:  "hello world"
    Output: "HELLO WORLD"
 </code></pre>
-<h2 id="architecture-insights"><a class="header" href="#architecture-insights">Architecture Insights</a></h2>
-<h3 id="entry-point-detection"><a class="header" href="#entry-point-detection">Entry Point Detection</a></h3>
-<p>The DAG executor identifies entry points by finding processors with empty <code>depends_on</code> arrays:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/engine/work_queue.rs (simplified)
-let mut entry_points = Vec::new();
-for (processor_id, dependencies) in &amp;dependency_graph.0 {
-    if dependencies.is_empty() {
-        entry_points.push(processor_id.clone());
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="processor-factory-pattern"><a class="header" href="#processor-factory-pattern">Processor Factory Pattern</a></h3>
-<p>The <code>change_text_case_upper</code> implementation is resolved through the factory pattern:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/backends/local/factory.rs
-match impl_name {
-    "change_text_case_upper" =&gt; Ok(Box::new(ChangeTextCaseProcessor::new(TextCase::Upper))),
-    // ... other processors
-}
-<span class="boring">}</span></code></pre></pre>
-<p>This demonstrates Rust's <strong>trait objects</strong> (<code>Box&lt;dyn Processor&gt;</code>) for runtime polymorphism.</p>
-<h2 id="try-it-yourself"><a class="header" href="#try-it-yourself">Try It Yourself</a></h2>
-<p>Run this demo with:</p>
-<pre><code class="language-bash">cargo run --release -- --demo-mode
-</code></pre>
-<p>Or run just this configuration:</p>
-<pre><code class="language-bash">cargo run --release -- docs/demo/configs/01-hello-world.yaml "hello world"
-</code></pre>
+<h2 id="what-you-just-saw"><a class="header" href="#what-you-just-saw">What You Just Saw</a></h2>
+<p>This demo demonstrated:</p>
+<p><strong>DAG Execution Basics:</strong></p>
+<ul>
+<li>Single processor workflow with no dependencies</li>
+<li>Entry point detection (processors with empty <code>depends_on</code>)</li>
+<li>Work Queue strategy handling the simplest case</li>
+</ul>
+<p><strong>Rust Fundamentals:</strong></p>
+<ul>
+<li>Ownership patterns in data processing</li>
+<li>Async/await for non-blocking execution</li>
+<li>Result-based error handling throughout</li>
+<li>Protobuf integration for structured data</li>
+</ul>
+<p><strong>System Architecture:</strong></p>
+<ul>
+<li>Configuration-driven processor selection</li>
+<li>Factory pattern for processor creation</li>
+<li>Clean separation between configuration and execution</li>
+</ul>
 <h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
 <p>In the next demo, the exploration moves to <strong>linear chains</strong> where processors depend on each other, introducing:</p>
 <ul>
@@ -700,15 +670,20 @@ match impl_name {
 <p>💡 <strong>Rust Learning Tip</strong>: Notice how Rust's ownership system prevents data races and memory issues that are common in other languages. The compiler ensures that DAG execution is memory-safe without runtime overhead!</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="text-pipeline-linear-chain"><a class="header" href="#text-pipeline-linear-chain">Text Pipeline: Linear Chain</a></h1>
-<p>The second demonstration shows data flowing through a sequence of processors, introducing dependency resolution and the fundamental concepts of DAG execution.</p>
-<h2 id="what-youll-learn-1"><a class="header" href="#what-youll-learn-1">What You'll Learn</a></h2>
+<h2 id="what-youll-see-2"><a class="header" href="#what-youll-see-2">What You'll See</a></h2>
+<p>This demonstration shows data flowing through a sequence of processors in a linear chain. You'll see how DAGwood handles dependency resolution, data flow between processors, and sequential execution patterns.</p>
+<p><strong>Key Learning Points:</strong></p>
 <ul>
-<li><strong>Data flow chaining</strong> between processors</li>
-<li><strong>Dependency resolution</strong> and topological ordering</li>
-<li><strong>Rust Result&lt;T, E&gt;</strong> error handling patterns</li>
-<li><strong>Arc and Mutex</strong> for shared state management</li>
+<li>Data flow chaining between processors</li>
+<li>Dependency resolution and topological ordering</li>
+<li>Rust Result&lt;T, E&gt; error handling patterns</li>
+<li>Arc and Mutex for shared state management</li>
 </ul>
-<h2 id="configuration-overview-1"><a class="header" href="#configuration-overview-1">Configuration Overview</a></h2>
+<h2 id="the-demo-1"><a class="header" href="#the-demo-1">The Demo</a></h2>
+<h3 id="command-line-1"><a class="header" href="#command-line-1">Command Line</a></h3>
+<pre><code class="language-bash">cargo run --release -- docs/demo/configs/02-text-pipeline.yaml "hello world"
+</code></pre>
+<h3 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h3>
 <pre><code class="language-yaml"># Demo 2: Text Pipeline - Linear Chain
 # This demonstrates data flow through a sequence of processors
 
@@ -739,86 +714,27 @@ processors:
       prefix: "&gt;&gt;&gt; "
       suffix: " &lt;&lt;&lt;"
 </code></pre>
-<h3 id="dependency-chain-analysis"><a class="header" href="#dependency-chain-analysis">Dependency Chain Analysis</a></h3>
-<p>This creates a linear dependency chain: <code>uppercase → reverse → add_prefix</code></p>
+<p><strong>Configuration Elements:</strong></p>
 <ul>
-<li><strong><code>uppercase</code></strong>: Entry point (no dependencies)</li>
-<li><strong><code>reverse</code></strong>: Depends on <code>uppercase</code> output</li>
-<li><strong><code>add_prefix</code></strong>: Depends on <code>reverse</code> output</li>
+<li><strong>Strategy</strong>: <code>work_queue</code> (dependency counting algorithm)</li>
+<li><strong>Failure Strategy</strong>: <code>fail_fast</code> (stop on first error)</li>
+<li><strong>Concurrency</strong>: Set to 2 (though this chain executes sequentially)</li>
+<li><strong>Linear Chain</strong>: <code>uppercase → reverse → add_prefix</code></li>
 </ul>
-<h2 id="rust-concepts-in-action-1"><a class="header" href="#rust-concepts-in-action-1">Rust Concepts in Action</a></h2>
-<h3 id="1-dependency-counting-algorithm"><a class="header" href="#1-dependency-counting-algorithm">1. Dependency Counting Algorithm</a></h3>
-<p>The Work Queue executor uses a dependency counting algorithm implemented in Rust:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/engine/work_queue.rs (simplified)
-let mut dependency_counts = HashMap::new();
-for (processor_id, dependencies) in &amp;dependency_graph.0 {
-    dependency_counts.insert(processor_id.clone(), dependencies.len());
-}
+<h3 id="expected-output-1"><a class="header" href="#expected-output-1">Expected Output</a></h3>
+<p>When you run this demo, you'll see:</p>
+<pre><code>🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/02-text-pipeline.yaml"]
 
-// Processors with 0 dependencies are ready to execute
-let mut ready_queue = PriorityWorkQueue::new();
-for (processor_id, count) in &amp;dependency_counts {
-    if *count == 0 {
-        ready_queue.push(PrioritizedTask::new(processor_id.clone(), /* ... */));
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Key Rust features</strong>:</p>
-<ul>
-<li><strong>HashMap&lt;String, usize&gt;</strong>: Efficient dependency tracking</li>
-<li><strong>Clone semantics</strong>: Necessary for moving data into async tasks</li>
-<li><strong>Pattern matching</strong>: <code>if *count == 0</code> dereferences the count</li>
-</ul>
-<h3 id="2-async-task-coordination"><a class="header" href="#2-async-task-coordination">2. Async Task Coordination</a></h3>
-<p>Each processor runs in its own async task, coordinated through shared state:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Simplified task spawning
-let task_handle = tokio::spawn(async move {
-    let processor_response = processor.process(input).await?;
-    
-    // Update shared results
-    {
-        let mut results_guard = results.lock().await;
-        results_guard.insert(processor_id, processor_response);
-    }
-    
-    // Notify dependent processors
-    // ... dependency counting logic
-});
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Rust async patterns</strong>:</p>
-<ul>
-<li><strong><code>tokio::spawn</code></strong>: Creates independent async tasks</li>
-<li><strong><code>Arc&lt;Mutex&lt;T&gt;&gt;</code></strong>: Thread-safe shared state</li>
-<li><strong>Move closures</strong>: Transfer ownership into async tasks</li>
-</ul>
-<h3 id="3-data-flow-chaining"><a class="header" href="#3-data-flow-chaining">3. Data Flow Chaining</a></h3>
-<p>The critical insight: processors receive outputs from their dependencies, not the original input:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From canonical payload architecture
-let input_for_processor = if dependencies.is_empty() {
-    // Entry point: use original input
-    original_input.clone()
-} else {
-    // Dependent processor: use canonical payload + dependency metadata
-    ProcessorRequest {
-        payload: canonical_payload.lock().await.clone(),
-        metadata: merged_dependency_metadata,
-    }
-};
-<span class="boring">}</span></code></pre></pre>
-<h2 id="expected-output-1"><a class="header" href="#expected-output-1">Expected Output</a></h2>
-<pre><code>📋 Configuration: docs/demo/configs/02-text-pipeline.yaml
+📋 Configuration: docs/demo/configs/02-text-pipeline.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 2
 🛡️  Failure Strategy: FailFast
 
 📊 Execution Results:
-⏱️  Execution Time: ~2ms
+⏱️  Execution Time: ~3ms
 🔢 Processors Executed: 3
 
 🔄 Processor Chain:
@@ -830,69 +746,26 @@ let input_for_processor = if dependencies.is_empty() {
    Input:  "hello world"
    Output: "&gt;&gt;&gt; DLROW OLLEH &lt;&lt;&lt;"
 </code></pre>
-<h2 id="architecture-deep-dive"><a class="header" href="#architecture-deep-dive">Architecture Deep Dive</a></h2>
-<h3 id="topological-ordering"><a class="header" href="#topological-ordering">Topological Ordering</a></h3>
-<p>The Work Queue executor ensures processors execute in dependency order:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Kahn's algorithm implementation (simplified)
-while let Some(current_processor) = ready_queue.pop() {
-    // Execute processor
-    execute_processor(current_processor).await?;
-    
-    // Update dependency counts for dependents
-    for dependent_id in dependents_of(&amp;current_processor) {
-        dependency_counts[dependent_id] -= 1;
-        if dependency_counts[dependent_id] == 0 {
-            ready_queue.push(dependent_id);
-        }
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="canonical-payload-architecture-2"><a class="header" href="#canonical-payload-architecture-2">Canonical Payload Architecture</a></h3>
-<p>A revolutionary insight from the development: only Transform processors update the payload, while Analyze processors contribute metadata:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// After processor execution
-if processor.declared_intent() == ProcessorIntent::Transform {
-    // Update canonical payload
-    let mut canonical_guard = canonical_payload_mutex.lock().await;
-    *canonical_guard = processor_response.payload;
-}
-// Analyze processors only contribute metadata
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Benefits</strong>:</p>
+<h2 id="what-you-just-saw-1"><a class="header" href="#what-you-just-saw-1">What You Just Saw</a></h2>
+<p>This demo demonstrated:</p>
+<p><strong>Linear DAG Execution:</strong></p>
 <ul>
-<li><strong>Eliminates race conditions</strong> in diamond patterns</li>
-<li><strong>Enforces architectural separation</strong> between Transform and Analyze</li>
-<li><strong>Simplifies dependency resolution</strong> logic</li>
+<li>Sequential processor execution despite concurrency=2</li>
+<li>Data flowing through the chain: input → uppercase → reverse → add_prefix</li>
+<li>Dependency counting algorithm managing execution order</li>
 </ul>
-<h2 id="performance-characteristics"><a class="header" href="#performance-characteristics">Performance Characteristics</a></h2>
-<h3 id="concurrency-analysis"><a class="header" href="#concurrency-analysis">Concurrency Analysis</a></h3>
-<p>With <code>max_concurrency: 2</code>, this linear chain still executes sequentially because each processor depends on the previous one. However, the infrastructure is ready for parallel execution when diamond patterns are introduced.</p>
-<h3 id="memory-efficiency"><a class="header" href="#memory-efficiency">Memory Efficiency</a></h3>
-<p>The <code>Arc&lt;ProcessorRequest&gt;</code> optimization reduces memory usage:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Cheap Arc cloning instead of expensive data cloning
-let input_arc = input.clone(); // Only increments reference count
-let processor_task = tokio::spawn(async move {
-    let owned_input = (*input_arc).clone(); // Clone only when needed
-    processor.process(owned_input).await
-});
-<span class="boring">}</span></code></pre></pre>
-<h2 id="try-it-yourself-1"><a class="header" href="#try-it-yourself-1">Try It Yourself</a></h2>
-<p>Experiment with different processor orders:</p>
-<pre><code class="language-yaml"># Try reversing the order - what happens?
-processors:
-  - id: add_prefix
-    depends_on: [reverse]  # This will fail validation!
-  - id: reverse
-    depends_on: [uppercase]
-  - id: uppercase
-    depends_on: []
-</code></pre>
-<p>The dependency validation will catch this cycle during config loading!</p>
+<p><strong>Rust Concurrency Patterns:</strong></p>
+<ul>
+<li>Async task spawning and coordination</li>
+<li>Shared state management with Arc&lt;Mutex<T>&gt;</li>
+<li>Memory-efficient Arc cloning for large payloads</li>
+</ul>
+<p><strong>System Architecture:</strong></p>
+<ul>
+<li>Canonical payload architecture preventing race conditions</li>
+<li>Transform processor intent modifying data flow</li>
+<li>Dependency validation catching configuration errors</li>
+</ul>
 <h2 id="whats-next-1"><a class="header" href="#whats-next-1">What's Next?</a></h2>
 <p>In the next demo, the exploration moves to the <strong>diamond dependency pattern</strong> where multiple processors can run in parallel, introducing:</p>
 <ul>
@@ -906,15 +779,20 @@ processors:
 <p>🔍 <strong>Architecture Insight</strong>: The linear chain might seem simple, but it demonstrates the foundation for complex DAG execution. Every workflow orchestration system must solve dependency resolution - Rust's ownership system makes this both memory-safe and performant!</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="diamond-analysis-parallel-execution"><a class="header" href="#diamond-analysis-parallel-execution">Diamond Analysis: Parallel Execution</a></h1>
-<p>The third demonstration showcases the classic diamond dependency pattern, where multiple processors run in parallel and their results converge. This is where DAG execution becomes truly powerful!</p>
-<h2 id="what-youll-learn-2"><a class="header" href="#what-youll-learn-2">What You'll Learn</a></h2>
+<h2 id="what-youll-see-3"><a class="header" href="#what-youll-see-3">What You'll See</a></h2>
+<p>This demonstration showcases the classic diamond dependency pattern where multiple processors run in parallel and their results converge. You'll see true concurrent execution, metadata merging, and how the canonical payload architecture prevents race conditions.</p>
+<p><strong>Key Learning Points:</strong></p>
 <ul>
-<li><strong>Parallel execution</strong> with tokio async tasks</li>
-<li><strong>Canonical payload architecture</strong> (Transform vs Analyze)</li>
-<li><strong>Metadata collection and merging</strong> strategies</li>
-<li><strong>Race condition prevention</strong> in concurrent execution</li>
+<li>Parallel execution with tokio async tasks</li>
+<li>Canonical payload architecture (Transform vs Analyze)</li>
+<li>Metadata collection and merging strategies</li>
+<li>Race condition prevention in concurrent execution</li>
 </ul>
-<h2 id="configuration-overview-2"><a class="header" href="#configuration-overview-2">Configuration Overview</a></h2>
+<h2 id="the-demo-2"><a class="header" href="#the-demo-2">The Demo</a></h2>
+<h3 id="command-line-2"><a class="header" href="#command-line-2">Command Line</a></h3>
+<pre><code class="language-bash">cargo run --release -- docs/demo/configs/03-diamond-analysis.yaml "hello world"
+</code></pre>
+<h3 id="configuration-2"><a class="header" href="#configuration-2">Configuration</a></h3>
 <pre><code class="language-yaml"># Demo 3: Diamond Analysis - Parallel Execution
 # This demonstrates the classic diamond dependency pattern with parallel analysis
 
@@ -955,210 +833,75 @@ processors:
       prefix: "Analysis Complete: "
       suffix: " [END]"
 </code></pre>
-<h3 id="diamond-pattern-analysis"><a class="header" href="#diamond-pattern-analysis">Diamond Pattern Analysis</a></h3>
-<p>This creates the diamond pattern: <code>prepare_text → [count_tokens, analyze_frequency] → final_summary</code></p>
+<p><strong>Configuration Elements:</strong></p>
 <ul>
-<li><strong>Divergence</strong>: <code>prepare_text</code> feeds two parallel processors</li>
-<li><strong>Parallel execution</strong>: <code>count_tokens</code> and <code>analyze_frequency</code> run concurrently</li>
-<li><strong>Convergence</strong>: <code>final_summary</code> waits for both analysis results</li>
+<li><strong>Strategy</strong>: <code>work_queue</code> (dependency counting algorithm)</li>
+<li><strong>Failure Strategy</strong>: <code>fail_fast</code> (stop on first error)</li>
+<li><strong>Concurrency</strong>: Set to 4 (enables true parallel execution)</li>
+<li><strong>Diamond Pattern</strong>: <code>prepare_text → [count_tokens, analyze_frequency] → final_summary</code></li>
 </ul>
-<h2 id="rust-concepts-in-action-2"><a class="header" href="#rust-concepts-in-action-2">Rust Concepts in Action</a></h2>
-<h3 id="1-concurrent-task-execution"><a class="header" href="#1-concurrent-task-execution">1. Concurrent Task Execution</a></h3>
-<p>The Work Queue executor spawns multiple async tasks that run in parallel:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Simplified parallel execution
-let semaphore = Arc::new(Semaphore::new(max_concurrency)); // Limit concurrent tasks
+<h3 id="expected-output-2"><a class="header" href="#expected-output-2">Expected Output</a></h3>
+<p>When you run this demo, you'll see:</p>
+<pre><code>🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/03-diamond-analysis.yaml"]
 
-for ready_processor in ready_processors {
-    let permit = semaphore.clone().acquire_owned().await?;
-    let task_handle = tokio::spawn(async move {
-        let _permit = permit; // Hold permit for duration of task
-        
-        // Execute processor
-        let result = processor.process(input).await?;
-        
-        // Update shared state
-        {
-            let mut results_guard = results.lock().await;
-            results_guard.insert(processor_id, result);
-        }
-        
-        Ok(())
-    });
-    
-    task_handles.push(task_handle);
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Key Rust features</strong>:</p>
-<ul>
-<li><strong><code>Arc&lt;Semaphore&gt;</code></strong>: Shared concurrency control</li>
-<li><strong><code>acquire_owned()</code></strong>: Move permit into async task</li>
-<li><strong><code>tokio::spawn</code></strong>: True parallel execution</li>
-<li><strong>RAII</strong>: Permit automatically released when task completes</li>
-</ul>
-<h3 id="2-canonical-payload-architecture"><a class="header" href="#2-canonical-payload-architecture">2. Canonical Payload Architecture</a></h3>
-<p>The breakthrough insight that eliminates race conditions:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Revolutionary approach: canonical payload tracking
-let canonical_payload_mutex = Arc::new(Mutex::new(original_input.payload.clone()));
-
-// For processors with dependencies
-let input_for_processor = {
-    let canonical_payload = canonical_payload_mutex.lock().await;
-    ProcessorRequest {
-        payload: canonical_payload.clone(), // Same payload for all parallel processors
-        metadata: merged_dependency_metadata, // Different metadata per processor
-    }
-};
-
-// After processor execution
-match processor.declared_intent() {
-    ProcessorIntent::Transform =&gt; {
-        // Only Transform processors update canonical payload
-        let mut canonical_guard = canonical_payload_mutex.lock().await;
-        *canonical_guard = processor_response.payload;
-    },
-    ProcessorIntent::Analyze =&gt; {
-        // Analyze processors only contribute metadata
-        // Payload remains unchanged
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Architectural benefits</strong>:</p>
-<ul>
-<li><strong>Deterministic execution</strong>: No race conditions regardless of completion order</li>
-<li><strong>Clear separation</strong>: Transform vs Analyze processor roles</li>
-<li><strong>Simplified logic</strong>: No complex payload merging strategies needed</li>
-</ul>
-<h3 id="3-metadata-merging-strategy"><a class="header" href="#3-metadata-merging-strategy">3. Metadata Merging Strategy</a></h3>
-<p>Dependency metadata is collected and merged using collision-resistant namespacing:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/utils/metadata.rs
-fn merge_metadata_from_responses(
-    base_metadata: HashMap&lt;String, String&gt;,
-    dependency_responses: &amp;HashMap&lt;String, ProcessorResponse&gt;
-) -&gt; HashMap&lt;String, ProcessorMetadata&gt; {
-    let mut result = HashMap::new();
-    
-    // Add base metadata
-    result.insert("input".to_string(), ProcessorMetadata { 
-        metadata: base_metadata 
-    });
-    
-    // Add dependency metadata with processor-based namespacing
-    for (processor_id, response) in dependency_responses {
-        if let Some(metadata) = &amp;response.metadata {
-            result.insert(processor_id.clone(), metadata.clone());
-        }
-    }
-    
-    result
-}
-<span class="boring">}</span></code></pre></pre>
-<h2 id="expected-output-2"><a class="header" href="#expected-output-2">Expected Output</a></h2>
-<pre><code>📋 Configuration: docs/demo/configs/03-diamond-analysis.yaml
+📋 Configuration: docs/demo/configs/03-diamond-analysis.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 4
 🛡️  Failure Strategy: FailFast
 
 📊 Execution Results:
-⏱️  Execution Time: ~3ms
+⏱️  Execution Time: ~4ms
 🔢 Processors Executed: 4
 
 🔄 Processor Chain:
   1. prepare_text → "hello world"
-  2. count_tokens → "hello world" (+ metadata: word_count: 2)
-  3. analyze_frequency → "hello world" (+ metadata: frequency_map: {...})
+  2. count_tokens → "2" (parallel)
+  3. analyze_frequency → "{\"hello\": 1, \"world\": 1}" (parallel)
   4. final_summary → "Analysis Complete: hello world [END]"
 
 🎯 Final Transformation:
    Input:  "hello world"
    Output: "Analysis Complete: hello world [END]"
-   
-   Pipeline Metadata:
-   count_tokens:
-      • word_count: 2
-      • character_count: 11
-   analyze_frequency:
-      • most_frequent_word: hello
-      • unique_words: 2
 </code></pre>
-<h2 id="architecture-deep-dive-1"><a class="header" href="#architecture-deep-dive-1">Architecture Deep Dive</a></h2>
-<h3 id="race-condition-prevention"><a class="header" href="#race-condition-prevention">Race Condition Prevention</a></h3>
-<p>Before the canonical payload architecture, this pattern had non-deterministic behavior:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// OLD (problematic): First dependency to complete wins
-let input_payload = dependency_results.values().next().unwrap().payload;
-
-// NEW (deterministic): Canonical payload for all
-let input_payload = canonical_payload_mutex.lock().await.clone();
-<span class="boring">}</span></code></pre></pre>
-<h3 id="processor-intent-classification"><a class="header" href="#processor-intent-classification">Processor Intent Classification</a></h3>
-<p>The <code>ProcessorIntent</code> trait enables architectural enforcement:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub trait Processor: Send + Sync {
-    fn declared_intent(&amp;self) -&gt; ProcessorIntent;
-    // ...
-}
-
-pub enum ProcessorIntent {
-    Transform, // Can modify payload
-    Analyze,   // Only contributes metadata
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Real implementations</strong>:</p>
+<h2 id="what-you-just-saw-2"><a class="header" href="#what-you-just-saw-2">What You Just Saw</a></h2>
+<p>This demo demonstrated:</p>
+<p><strong>Diamond Pattern Execution:</strong></p>
 <ul>
-<li><code>ChangeTextCaseProcessor</code>: <code>Transform</code> (modifies text)</li>
-<li><code>TokenCounterProcessor</code>: <code>Analyze</code> (counts without modifying)</li>
-<li><code>WordFrequencyAnalyzer</code>: <code>Analyze</code> (analyzes without modifying)</li>
+<li>True parallel execution of <code>count_tokens</code> and <code>analyze_frequency</code></li>
+<li>Convergence at <code>final_summary</code> waiting for both analysis results</li>
+<li>Canonical payload preventing race conditions in parallel execution</li>
 </ul>
-<h3 id="dependency-isolation"><a class="header" href="#dependency-isolation">Dependency Isolation</a></h3>
-<p>Metadata collection ensures processors only receive data from their actual dependencies:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Collect metadata only from actual dependencies
-let mut dependency_results = HashMap::new();
-for dep_id in &amp;processor_dependencies {
-    if let Some(dep_response) = results_guard.get(dep_id) {
-        dependency_results.insert(dep_id.clone(), dep_response.clone());
-    }
-}
-// No contamination from unrelated processors!
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Rust Concurrency Mastery:</strong></p>
+<ul>
+<li>Semaphore-controlled parallel task spawning</li>
+<li>Arc&lt;Mutex<T>&gt; for thread-safe shared state</li>
+<li>RAII permit management for resource cleanup</li>
+<li>Async task coordination with tokio::spawn</li>
+</ul>
+<p><strong>System Architecture:</strong></p>
+<ul>
+<li>Transform vs Analyze processor intent separation</li>
+<li>Metadata merging with collision-resistant namespacing</li>
+<li>Deterministic execution regardless of completion order</li>
+<li>Dependency isolation ensuring clean data flow</li>
+</ul>
 <h2 id="performance-analysis"><a class="header" href="#performance-analysis">Performance Analysis</a></h2>
 <h3 id="parallel-speedup"><a class="header" href="#parallel-speedup">Parallel Speedup</a></h3>
 <p>With <code>max_concurrency: 4</code>, the analysis processors run truly in parallel:</p>
-<pre><code>Timeline:
-0ms: prepare_text starts
-1ms: prepare_text completes
-1ms: count_tokens AND analyze_frequency start (parallel!)
-2ms: Both analysis processors complete
-2ms: final_summary starts
-3ms: final_summary completes
-</code></pre>
-<p>Compare to sequential execution: 1ms + 1ms + 1ms + 1ms = 4ms total
-Parallel execution: 1ms + max(1ms, 1ms) + 1ms = 3ms total</p>
-<h3 id="memory-efficiency-1"><a class="header" href="#memory-efficiency-1">Memory Efficiency</a></h3>
-<p>The <code>Arc&lt;ProcessorRequest&gt;</code> pattern minimizes memory usage:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Shared input across parallel processors
-let input_arc = Arc::new(processor_input);
-let count_task_input = input_arc.clone(); // Cheap reference count increment
-let freq_task_input = input_arc.clone();  // Another cheap increment
-<span class="boring">}</span></code></pre></pre>
-<h2 id="try-it-yourself-2"><a class="header" href="#try-it-yourself-2">Try It Yourself</a></h2>
-<p>Experiment with processor intents:</p>
-<ol>
-<li><strong>Change <code>token_counter</code> to Transform</strong>: What happens to the final output?</li>
-<li><strong>Add more analysis processors</strong>: How does concurrency scale?</li>
-<li><strong>Create nested diamonds</strong>: Can you build <code>A → [B, C] → [D, E] → F</code>?</li>
-</ol>
+<ul>
+<li><strong>Sequential</strong>: prepare_text (1ms) + count_tokens (1ms) + analyze_frequency (1ms) + final_summary (1ms) = 4ms</li>
+<li><strong>Parallel</strong>: prepare_text (1ms) + max(count_tokens, analyze_frequency) (1ms) + final_summary (1ms) = 3ms</li>
+<li><strong>25% speedup</strong> from parallel execution</li>
+</ul>
+<h3 id="memory-efficiency"><a class="header" href="#memory-efficiency">Memory Efficiency</a></h3>
+<ul>
+<li><strong>Arc<ProcessorRequest></strong>: Shared input across parallel processors with reference counting</li>
+<li><strong>Canonical payload</strong>: Single source of truth eliminates payload duplication</li>
+<li><strong>Metadata isolation</strong>: Only relevant dependency metadata passed to each processor</li>
+</ul>
 <h2 id="whats-next-2"><a class="header" href="#whats-next-2">What's Next?</a></h2>
 <p>In the next demo, the exploration moves to <strong>WASM integration</strong> where processors run in secure sandboxes, introducing:</p>
 <ul>
@@ -1172,15 +915,20 @@ let freq_task_input = input_arc.clone();  // Another cheap increment
 <p>⚡ <strong>Performance Insight</strong>: The diamond pattern is where DAG execution shines! By running analysis processors in parallel while maintaining deterministic results, both performance and correctness are achieved - a classic challenge in distributed systems that Rust's ownership model helps solve elegantly.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="wasm-integration-sandboxed-processing"><a class="header" href="#wasm-integration-sandboxed-processing">WASM Integration: Sandboxed Processing</a></h1>
-<p>The fourth demonstration introduces WebAssembly (WASM) processors, showcasing cutting-edge sandboxing technology and multi-language support within the Rust-based DAG execution system.</p>
-<h2 id="what-youll-learn-3"><a class="header" href="#what-youll-learn-3">What You'll Learn</a></h2>
+<h2 id="what-youll-see-4"><a class="header" href="#what-youll-see-4">What You'll See</a></h2>
+<p>This demonstration introduces WebAssembly (WASM) processors, showcasing cutting-edge sandboxing technology and multi-language support. You'll see how DAGwood integrates WASM modules for secure, isolated execution alongside native Rust processors.</p>
+<p><strong>Key Learning Points:</strong></p>
 <ul>
-<li><strong>WASM module loading and execution</strong> with wasmtime</li>
-<li><strong>Memory management</strong> across WASM boundaries</li>
-<li><strong>Security sandboxing</strong> and isolation patterns</li>
-<li><strong>Multi-backend processor</strong> architecture</li>
+<li>WASM module loading and execution with wasmtime</li>
+<li>Memory management across WASM boundaries</li>
+<li>Security sandboxing and isolation patterns</li>
+<li>Multi-backend processor architecture</li>
 </ul>
-<h2 id="configuration-overview-3"><a class="header" href="#configuration-overview-3">Configuration Overview</a></h2>
+<h2 id="the-demo-3"><a class="header" href="#the-demo-3">The Demo</a></h2>
+<h3 id="command-line-3"><a class="header" href="#command-line-3">Command Line</a></h3>
+<pre><code class="language-bash">cargo run --release -- docs/demo/configs/04-wasm-integration.yaml "hello world"
+</code></pre>
+<h3 id="configuration-3"><a class="header" href="#configuration-3">Configuration</a></h3>
 <pre><code class="language-yaml"># Demo 4: WASM Integration - Sandboxed Processing
 # This demonstrates WASM processor integration with security sandboxing
 
@@ -1215,137 +963,21 @@ processors:
       prefix: "🦀 Rust + WASM: "
       suffix: " ✨"
 </code></pre>
-<h3 id="multi-backend-architecture"><a class="header" href="#multi-backend-architecture">Multi-Backend Architecture</a></h3>
-<p>This configuration demonstrates seamless integration between:</p>
+<p><strong>Configuration Elements:</strong></p>
 <ul>
-<li><strong>Local backend</strong>: Native Rust processors</li>
-<li><strong>WASM backend</strong>: Sandboxed WASM modules</li>
-<li><strong>Mixed execution</strong>: Local → WASM → Local pipeline</li>
+<li><strong>Strategy</strong>: <code>work_queue</code> (dependency counting algorithm)</li>
+<li><strong>Failure Strategy</strong>: <code>fail_fast</code> (stop on first error)</li>
+<li><strong>Concurrency</strong>: Set to 2 (mixed backend execution)</li>
+<li><strong>Multi-Backend Pipeline</strong>: Local → WASM → Local</li>
 </ul>
-<h2 id="rust-concepts-in-action-3"><a class="header" href="#rust-concepts-in-action-3">Rust Concepts in Action</a></h2>
-<h3 id="1-wasm-runtime-integration"><a class="header" href="#1-wasm-runtime-integration">1. WASM Runtime Integration</a></h3>
-<p>The WASM processor uses wasmtime for secure execution:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/backends/wasm/processor.rs
-use wasmtime::{Engine, Module, Store, Instance, Caller, Linker};
+<h3 id="expected-output-3"><a class="header" href="#expected-output-3">Expected Output</a></h3>
+<p>When you run this demo, you'll see:</p>
+<pre><code>🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/04-wasm-integration.yaml"]
 
-pub struct WasmProcessor {
-    engine: Engine,
-    module: Module,
-    module_path: String,
-}
-
-impl WasmProcessor {
-    pub fn new(module_path: &amp;str) -&gt; Result&lt;Self, WasmError&gt; {
-        let engine = Engine::default();
-        let module_bytes = std::fs::read(module_path)?;
-        let module = Module::new(&amp;engine, &amp;module_bytes)?;
-        
-        Ok(WasmProcessor {
-            engine,
-            module,
-            module_path: module_path.to_string(),
-        })
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Key Rust features</strong>:</p>
-<ul>
-<li><strong>Error propagation</strong>: <code>?</code> operator for clean error handling</li>
-<li><strong>Ownership</strong>: Module bytes are owned by the processor</li>
-<li><strong>Resource management</strong>: Engine and Module are automatically cleaned up</li>
-</ul>
-<h3 id="2-memory-management-across-boundaries"><a class="header" href="#2-memory-management-across-boundaries">2. Memory Management Across Boundaries</a></h3>
-<p>WASM modules must manage their own memory, with careful coordination:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// WASM module interface (C-style for WASM compatibility)
-#[no_mangle]
-pub extern "C" fn process(input_ptr: *const c_char) -&gt; *mut c_char {
-    // Convert C string to Rust String
-    let input = unsafe {
-        CStr::from_ptr(input_ptr).to_string_lossy().into_owned()
-    };
-    
-    // Process the input
-    let output = format!("{}-wasm", input);
-    
-    // Convert back to C string (caller must free!)
-    let c_string = CString::new(output).unwrap();
-    c_string.into_raw()
-}
-
-#[no_mangle]
-pub extern "C" fn allocate(size: usize) -&gt; *mut u8 {
-    let mut buf = Vec::with_capacity(size);
-    let ptr = buf.as_mut_ptr();
-    std::mem::forget(buf); // Prevent Rust from deallocating
-    ptr
-}
-
-#[no_mangle]
-pub extern "C" fn deallocate(ptr: *mut u8, size: usize) {
-    unsafe {
-        Vec::from_raw_parts(ptr, 0, size); // Reconstruct Vec to deallocate
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Memory safety patterns</strong>:</p>
-<ul>
-<li><strong>Explicit allocation</strong>: WASM module controls its memory</li>
-<li><strong>Careful ownership transfer</strong>: <code>into_raw()</code> and <code>from_raw_parts()</code></li>
-<li><strong>Resource cleanup</strong>: Proper deallocation prevents leaks</li>
-</ul>
-<h3 id="3-secure-sandboxing"><a class="header" href="#3-secure-sandboxing">3. Secure Sandboxing</a></h3>
-<p>The wasmtime runtime provides complete isolation:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Host function linking (controlled capabilities)
-let mut linker = Linker::new(&amp;engine);
-
-// Only expose specific host functions
-linker.func_wrap("env", "host_log", |caller: Caller&lt;'_, ()&gt;, ptr: i32, len: i32| {
-    // Controlled logging capability
-    // WASM module cannot access arbitrary host functions
-})?;
-
-// Create isolated store for this execution
-let mut store = Store::new(&amp;engine, ());
-let instance = linker.instantiate(&amp;mut store, &amp;module)?;
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Security benefits</strong>:</p>
-<ul>
-<li><strong>No file system access</strong>: WASM cannot read/write files</li>
-<li><strong>No network access</strong>: Complete network isolation</li>
-<li><strong>Controlled host interaction</strong>: Only explicitly linked functions available</li>
-<li><strong>Memory isolation</strong>: WASM linear memory is separate from host</li>
-</ul>
-<h3 id="4-cross-language-execution"><a class="header" href="#4-cross-language-execution">4. Cross-Language Execution</a></h3>
-<p>The same WASM interface could be implemented in multiple languages:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Rust implementation (current example)
-#[no_mangle]
-pub extern "C" fn process(input_ptr: *const c_char) -&gt; *mut c_char {
-    // Rust processing logic
-}
-<span class="boring">}</span></code></pre></pre>
-<pre><code class="language-c">// Hypothetical C implementation
-char* process(const char* input) {
-    // C processing logic
-    char* output = malloc(strlen(input) + 6);
-    sprintf(output, "%s-wasm", input);
-    return output;
-}
-</code></pre>
-<pre><code class="language-typescript">// Hypothetical AssemblyScript implementation
-export function process(input: string): string {
-    return input + "-wasm";
-}
-</code></pre>
-<h2 id="expected-output-3"><a class="header" href="#expected-output-3">Expected Output</a></h2>
-<pre><code>📋 Configuration: docs/demo/configs/04-wasm-integration.yaml
+📋 Configuration: docs/demo/configs/04-wasm-integration.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 2
 🛡️  Failure Strategy: FailFast
@@ -1356,57 +988,41 @@ export function process(input: string): string {
 
 🔄 Processor Chain:
   1. prepare_input → "hello world"
-  2. wasm_hello_world → "hello world-wasm"
-     📝 Metadata: 3 entries (e.g., module_path)
+  2. wasm_hello_world → "hello world-wasm" (WASM)
   3. final_format → "🦀 Rust + WASM: hello world-wasm ✨"
 
 🎯 Final Transformation:
    Input:  "hello world"
    Output: "🦀 Rust + WASM: hello world-wasm ✨"
-   
-   Pipeline Metadata:
-   wasm_hello_world:
-      • module_path: wasm_modules/hello_world.wasm
-      • input_length: 11
-      • output_length: 16
 </code></pre>
-<h2 id="architecture-deep-dive-2"><a class="header" href="#architecture-deep-dive-2">Architecture Deep Dive</a></h2>
-<h3 id="wasm-module-compilation"><a class="header" href="#wasm-module-compilation">WASM Module Compilation</a></h3>
-<p>The hello_world WASM module is compiled from Rust:</p>
-<pre><code class="language-toml"># wasm_modules/hello_world/Cargo.toml
-[package]
-name = "hello_world"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-crate-type = ["cdylib"]
-
-[dependencies]
-</code></pre>
-<pre><code class="language-bash"># Compilation process
-cd wasm_modules/hello_world
-cargo build --target wasm32-unknown-unknown --release
-cp target/wasm32-unknown-unknown/release/hello_world.wasm ../hello_world.wasm
-</code></pre>
-<h3 id="factory-pattern-integration"><a class="header" href="#factory-pattern-integration">Factory Pattern Integration</a></h3>
-<p>The WASM backend integrates seamlessly with the processor factory:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/backends/wasm/factory.rs
-impl ProcessorFactory for WasmProcessorFactory {
-    fn create_processor(&amp;self, config: &amp;ProcessorConfig) -&gt; Result&lt;Box&lt;dyn Processor&gt;, ProcessorError&gt; {
-        let module_path = config.module.as_ref()
-            .ok_or_else(|| ProcessorError::ConfigurationError {
-                message: "WASM processor requires 'module' field".to_string()
-            })?;
-            
-        let processor = WasmProcessor::new(module_path)?;
-        Ok(Box::new(processor))
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="performance-characteristics-1"><a class="header" href="#performance-characteristics-1">Performance Characteristics</a></h3>
+<h2 id="what-you-just-saw-3"><a class="header" href="#what-you-just-saw-3">What You Just Saw</a></h2>
+<p>This demo demonstrated:</p>
+<p><strong>Multi-Backend Integration:</strong></p>
+<ul>
+<li>Seamless integration between Local and WASM backends</li>
+<li>Mixed execution pipeline: Local → WASM → Local</li>
+<li>Consistent processor interface across different backends</li>
+</ul>
+<p><strong>WASM Security and Isolation:</strong></p>
+<ul>
+<li>Complete sandboxing with wasmtime runtime</li>
+<li>Memory isolation between host and WASM module</li>
+<li>Controlled capabilities with no host system access</li>
+</ul>
+<p><strong>Rust System Programming:</strong></p>
+<ul>
+<li>C-style FFI for WASM compatibility</li>
+<li>Manual memory management across boundaries</li>
+<li>Resource cleanup and ownership transfer patterns</li>
+<li>Error propagation with <code>?</code> operator</li>
+</ul>
+<p><strong>Cross-Language Potential:</strong></p>
+<ul>
+<li>WASM modules can be written in multiple languages</li>
+<li>Consistent interface regardless of implementation language</li>
+<li>Future-proof architecture for polyglot processing</li>
+</ul>
+<h3 id="performance-characteristics"><a class="header" href="#performance-characteristics">Performance Characteristics</a></h3>
 <p>WASM execution has different performance characteristics:</p>
 <ul>
 <li><strong>Startup cost</strong>: Module loading and instantiation (~1-2ms)</li>
@@ -1433,7 +1049,7 @@ impl ProcessorFactory for WasmProcessorFactory {
         ▼                        ▼                        ▼
    Host Memory              WASM Memory               Host Memory
 </code></pre>
-<h2 id="try-it-yourself-3"><a class="header" href="#try-it-yourself-3">Try It Yourself</a></h2>
+<h2 id="try-it-yourself"><a class="header" href="#try-it-yourself">Try It Yourself</a></h2>
 <h3 id="building-the-wasm-module"><a class="header" href="#building-the-wasm-module">Building the WASM Module</a></h3>
 <pre><code class="language-bash"># Install WASM target
 rustup target add wasm32-unknown-unknown
@@ -1461,15 +1077,20 @@ cargo build --target wasm32-unknown-unknown --release
 <p>🔒 <strong>Security Insight</strong>: WASM represents the future of secure code execution. By combining Rust's memory safety with WASM's sandboxing, both performance and security are achieved - essential for processing untrusted code in production environments!</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="complex-workflow-multi-backend-pipeline"><a class="header" href="#complex-workflow-multi-backend-pipeline">Complex Workflow: Multi-Backend Pipeline</a></h1>
-<p>The final demonstration showcases a sophisticated workflow that combines everything learned: multiple execution strategies, mixed backends, advanced error handling, and production-ready patterns.</p>
-<h2 id="what-youll-learn-4"><a class="header" href="#what-youll-learn-4">What You'll Learn</a></h2>
+<h2 id="what-youll-see-5"><a class="header" href="#what-youll-see-5">What You'll See</a></h2>
+<p>This final demonstration showcases a sophisticated workflow that combines everything learned. You'll see multiple execution strategies, mixed backends, advanced error handling, and production-ready patterns working together in a complex DAG.</p>
+<p><strong>Key Learning Points:</strong></p>
 <ul>
-<li><strong>Level-by-Level vs Work Queue</strong> execution strategies</li>
-<li><strong>Mixed local and WASM</strong> processor coordination</li>
-<li><strong>Advanced error handling</strong> with failure strategies</li>
-<li><strong>Production-ready workflow</strong> orchestration patterns</li>
+<li>Level-by-Level vs Work Queue execution strategies</li>
+<li>Mixed local and WASM processor coordination</li>
+<li>Advanced error handling with failure strategies</li>
+<li>Production-ready workflow orchestration patterns</li>
 </ul>
-<h2 id="configuration-overview-4"><a class="header" href="#configuration-overview-4">Configuration Overview</a></h2>
+<h2 id="the-demo-4"><a class="header" href="#the-demo-4">The Demo</a></h2>
+<h3 id="command-line-4"><a class="header" href="#command-line-4">Command Line</a></h3>
+<pre><code class="language-bash">cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "hello world"
+</code></pre>
+<h3 id="configuration-4"><a class="header" href="#configuration-4">Configuration</a></h3>
 <pre><code class="language-yaml"># Demo 5: Complex Workflow - Multi-Backend Pipeline
 # This demonstrates advanced DAG with multiple backends and execution strategies
 
@@ -1542,7 +1163,7 @@ processors:
 <li><strong>Parallel analysis</strong>: Two analysis paths that converge</li>
 <li><strong>Level-by-Level execution</strong>: Different strategy for comparison</li>
 </ul>
-<h2 id="rust-concepts-in-action-4"><a class="header" href="#rust-concepts-in-action-4">Rust Concepts in Action</a></h2>
+<h2 id="rust-concepts-in-action"><a class="header" href="#rust-concepts-in-action">Rust Concepts in Action</a></h2>
 <h3 id="1-level-by-level-execution-strategy"><a class="header" href="#1-level-by-level-execution-strategy">1. Level-by-Level Execution Strategy</a></h3>
 <p>Unlike Work Queue's dependency counting, Level-by-Level uses topological levels:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -1587,141 +1208,55 @@ fn compute_topological_levels(graph: &amp;DependencyGraph) -&gt; Result&lt;Vec&l
     Ok(levels)
 }
 <span class="boring">}</span></code></pre></pre>
-<p><strong>Algorithm characteristics</strong>:</p>
-<ul>
-<li><strong>Batch processing</strong>: Execute entire levels at once</li>
-<li><strong>Clear boundaries</strong>: Explicit level separation</li>
-<li><strong>Predictable ordering</strong>: Deterministic level assignment</li>
-<li><strong>Memory efficiency</strong>: O(V + E) space complexity</li>
-</ul>
-<h3 id="2-best-effort-failure-strategy"><a class="header" href="#2-best-effort-failure-strategy">2. Best Effort Failure Strategy</a></h3>
-<p>The <code>best_effort</code> failure strategy demonstrates resilient execution:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Simplified error handling in level execution
-match processor.process(input).await {
-    Ok(response) =&gt; {
-        // Success: store result and continue
-        results_guard.insert(processor_id.clone(), response);
-    },
-    Err(e) =&gt; match failure_strategy {
-        FailureStrategy::FailFast =&gt; {
-            return Err(e); // Stop immediately
-        },
-        FailureStrategy::BestEffort =&gt; {
-            // Continue with other processors
-            // Failed processor won't contribute to dependents
-            eprintln!("Processor {} failed but continuing: {}", processor_id, e);
-        },
-        FailureStrategy::ContinueOnError =&gt; {
-            // Similar to BestEffort but with different semantics
-        }
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Resilience patterns</strong>:</p>
-<ul>
-<li><strong>Graceful degradation</strong>: System continues despite failures</li>
-<li><strong>Partial results</strong>: Successful processors still contribute</li>
-<li><strong>Error isolation</strong>: Failures don't cascade unnecessarily</li>
-</ul>
-<h3 id="3-multi-backend-coordination"><a class="header" href="#3-multi-backend-coordination">3. Multi-Backend Coordination</a></h3>
-<p>The processor factory seamlessly handles different backends:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From src/config/processor_map.rs
-pub fn resolve_processor(config: &amp;ProcessorConfig) -&gt; Result&lt;Box&lt;dyn Processor&gt;, ProcessorError&gt; {
-    match config.backend {
-        BackendType::Local =&gt; {
-            LocalProcessorFactory::create_processor(config)
-        },
-        BackendType::Wasm =&gt; {
-            WasmProcessorFactory::create_processor(config)
-        },
-        // Future backends: RPC, SharedLibrary, etc.
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Architectural benefits</strong>:</p>
-<ul>
-<li><strong>Backend abstraction</strong>: Uniform processor interface</li>
-<li><strong>Easy extension</strong>: New backends integrate seamlessly</li>
-<li><strong>Type safety</strong>: Rust's type system prevents backend confusion</li>
-</ul>
-<h3 id="4-advanced-concurrency-patterns"><a class="header" href="#4-advanced-concurrency-patterns">4. Advanced Concurrency Patterns</a></h3>
-<p>With <code>max_concurrency: 6</code>, this workflow demonstrates sophisticated parallelism:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Level-by-level parallel execution within levels
-async fn execute_level(
-    level_processors: &amp;[String],
-    // ... other parameters
-) -&gt; Result&lt;(), ExecutionError&gt; {
-    let semaphore = Arc::new(Semaphore::new(max_concurrency));
-    let mut task_handles = Vec::new();
-    
-    // Spawn tasks for all processors in this level
-    for processor_id in level_processors {
-        let permit = semaphore.clone().acquire_owned().await?;
-        let task_handle = tokio::spawn(async move {
-            let _permit = permit; // RAII: auto-release on completion
-            
-            // Execute processor (may be local or WASM)
-            execute_single_processor(processor_id, input).await
-        });
-        
-        task_handles.push(task_handle);
-    }
-    
-    // Wait for all processors in this level to complete
-    for handle in task_handles {
-        handle.await??; // Double ? for JoinError and ExecutionError
-    }
-    
-    Ok(())
-}
-<span class="boring">}</span></code></pre></pre>
-<h2 id="expected-output-4"><a class="header" href="#expected-output-4">Expected Output</a></h2>
-<pre><code>📋 Configuration: docs/demo/configs/05-complex-workflow.yaml
-🔧 Strategy: Level
+<h3 id="expected-output-4"><a class="header" href="#expected-output-4">Expected Output</a></h3>
+<p>When you run this demo, you'll see:</p>
+<pre><code>🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/05-complex-workflow.yaml"]
+
+📋 Configuration: docs/demo/configs/05-complex-workflow.yaml
+🔧 Strategy: LevelByLevel
 ⚙️  Max Concurrency: 6
 🛡️  Failure Strategy: BestEffort
 
 📊 Execution Results:
 ⏱️  Execution Time: ~8ms
-🔢 Processors Executed: 7
+🔢 Processors Executed: 6
 
 🔄 Processor Chain:
-Level 0 (Entry Points):
-  1. input_a → "HELLO WORLD"
-  2. input_b → "hello world"
-
-Level 1 (Processing):
-  3. process_a → "DLROW OLLEH"
-  4. process_b_wasm → "hello world-wasm"
-
-Level 2 (Analysis):
-  5. analyze_a → "DLROW OLLEH" (+ metadata: char_count: 11)
-  6. analyze_b → "hello world-wasm" (+ metadata: word_analysis: {...})
-
-Level 3 (Convergence):
-  7. final_merge → "🔄 Multi-Backend Result: DLROW OLLEH [COMPLETE]"
+  Level 0: input_a, input_b (parallel)
+  Level 1: process_a, process_b_wasm (parallel)
+  Level 2: analyze_a, analyze_b (parallel)
+  Level 3: final_merge
 
 🎯 Final Transformation:
    Input:  "hello world"
-   Output: "🔄 Multi-Backend Result: DLROW OLLEH [COMPLETE]"
-   
-   Pipeline Metadata:
-   analyze_a:
-      • character_count: 11
-      • processing_time_ms: 0.1
-   analyze_b:
-      • unique_words: 2
-      • most_frequent: hello
-   process_b_wasm:
-      • module_path: wasm_modules/hello_world.wasm
-      • execution_time_ms: 2.3
+   Output: "🔄 Multi-Backend Result: hello world [COMPLETE]"
 </code></pre>
+<h2 id="what-you-just-saw-4"><a class="header" href="#what-you-just-saw-4">What You Just Saw</a></h2>
+<p>This demo demonstrated:</p>
+<p><strong>Complex DAG Orchestration:</strong></p>
+<ul>
+<li>Multiple entry points executing in parallel</li>
+<li>Mixed Local and WASM backends in a single workflow</li>
+<li>Level-by-Level execution strategy with clear synchronization points</li>
+<li>BestEffort failure strategy allowing graceful degradation</li>
+</ul>
+<p><strong>Advanced Rust Patterns:</strong></p>
+<ul>
+<li>Topological level computation with HashSet and Vec operations</li>
+<li>Semaphore-based concurrency control across execution levels</li>
+<li>Factory pattern enabling seamless backend switching</li>
+<li>RAII-based resource management with automatic cleanup</li>
+</ul>
+<p><strong>Production-Ready Features:</strong></p>
+<ul>
+<li>Resilient error handling that continues despite individual failures</li>
+<li>Rich metadata collection across multiple processor types</li>
+<li>Configurable concurrency limits for resource management</li>
+<li>Clean separation between execution strategy and processor implementation</li>
+</ul>
 <h2 id="architecture-comparison"><a class="header" href="#architecture-comparison">Architecture Comparison</a></h2>
 <h3 id="level-by-level-vs-work-queue"><a class="header" href="#level-by-level-vs-work-queue">Level-by-Level vs Work Queue</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>Aspect</th><th>Level-by-Level</th><th>Work Queue</th></tr></thead><tbody>
@@ -1733,111 +1268,7 @@ Level 3 (Convergence):
 <tr><td><strong>Efficiency</strong></td><td>Good for regular DAGs</td><td>Better for irregular DAGs</td></tr>
 </tbody></table>
 </div>
-<h3 id="performance-characteristics-2"><a class="header" href="#performance-characteristics-2">Performance Characteristics</a></h3>
-<pre><code>Level-by-Level Timeline:
-0ms: Level 0 starts (input_a, input_b) - parallel
-1ms: Level 0 completes
-1ms: Level 1 starts (process_a, process_b_wasm) - parallel
-3ms: Level 1 completes (WASM takes longer)
-3ms: Level 2 starts (analyze_a, analyze_b) - parallel
-4ms: Level 2 completes
-4ms: Level 3 starts (final_merge)
-5ms: Level 3 completes
-
-Work Queue Timeline (hypothetical):
-0ms: input_a, input_b start - parallel
-1ms: input_a completes, process_a starts
-1ms: input_b completes, process_b_wasm starts
-2ms: process_a completes, analyze_a starts
-3ms: process_b_wasm completes, analyze_b starts
-3ms: analyze_a completes
-4ms: analyze_b completes, final_merge starts
-5ms: final_merge completes
-</code></pre>
-<p><strong>Key insight</strong>: Level-by-Level can be more efficient for regular DAGs due to better batching, while Work Queue excels with irregular dependency patterns.</p>
-<h2 id="production-patterns"><a class="header" href="#production-patterns">Production Patterns</a></h2>
-<h3 id="1-error-recovery-strategies"><a class="header" href="#1-error-recovery-strategies">1. Error Recovery Strategies</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Production-ready error handling
-match execute_workflow(config).await {
-    Ok(results) =&gt; {
-        log::info!("Workflow completed successfully: {} processors", results.len());
-        Ok(results)
-    },
-    Err(ExecutionError::ProcessorError { processor_id, source }) =&gt; {
-        log::error!("Processor {} failed: {}", processor_id, source);
-        // Could implement retry logic here
-        Err(e)
-    },
-    Err(ExecutionError::ValidationError { message }) =&gt; {
-        log::error!("Configuration invalid: {}", message);
-        // Could implement config auto-correction
-        Err(e)
-    },
-    Err(e) =&gt; {
-        log::error!("Unexpected error: {}", e);
-        Err(e)
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="2-observability-integration"><a class="header" href="#2-observability-integration">2. Observability Integration</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Future observability patterns
-struct WorkflowMetrics {
-    total_execution_time: Duration,
-    processor_execution_times: HashMap&lt;String, Duration&gt;,
-    memory_usage_peak: usize,
-    concurrency_utilization: f64,
-}
-
-// Tracing integration
-#[tracing::instrument(skip(processors, executor))]
-async fn execute_workflow(
-    processors: ProcessorRegistry,
-    executor: Box&lt;dyn DagExecutor&gt;,
-    // ...
-) -&gt; Result&lt;WorkflowResults, ExecutionError&gt; {
-    let span = tracing::info_span!("workflow_execution");
-    // ... execution with detailed tracing
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="3-resource-management"><a class="header" href="#3-resource-management">3. Resource Management</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Production resource limits
-struct ExecutorConfig {
-    max_concurrency: usize,
-    max_memory_mb: usize,
-    execution_timeout: Duration,
-    processor_timeout: Duration,
-}
-
-// Graceful shutdown
-impl DagExecutor {
-    async fn shutdown_gracefully(&amp;self, timeout: Duration) -&gt; Result&lt;(), ShutdownError&gt; {
-        // Cancel running tasks
-        // Wait for cleanup
-        // Release resources
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<h2 id="try-it-yourself-4"><a class="header" href="#try-it-yourself-4">Try It Yourself</a></h2>
-<h3 id="experiment-with-strategies"><a class="header" href="#experiment-with-strategies">Experiment with Strategies</a></h3>
-<ol>
-<li><strong>Change to Work Queue</strong>: Modify <code>strategy: work_queue</code> and compare execution</li>
-<li><strong>Add failure scenarios</strong>: Create a processor that always fails</li>
-<li><strong>Scale up</strong>: Add more processors and observe concurrency patterns</li>
-<li><strong>Mix more backends</strong>: When RPC backend is available, create 3-way mixing</li>
-</ol>
-<h3 id="performance-testing"><a class="header" href="#performance-testing">Performance Testing</a></h3>
-<pre><code class="language-bash"># Benchmark different strategies
-time cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "test input"
-
-# Profile memory usage
-valgrind --tool=massif cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "test"
-</code></pre>
+<p><strong>Key insight</strong>: Level-by-Level provides predictable execution phases with clear synchronization points, while Work Queue offers maximum parallelism with dynamic scheduling.</p>
 <h2 id="whats-next-4"><a class="header" href="#whats-next-4">What's Next?</a></h2>
 <p>This completes the progressive demo journey! The demonstrations have shown:</p>
 <p>✅ <strong>Single processor basics</strong> (Hello World)<br />
@@ -1845,14 +1276,18 @@ valgrind --tool=massif cargo run --release -- docs/demo/configs/05-complex-workf
 ✅ <strong>Parallel diamond patterns</strong> (Diamond Analysis)<br />
 ✅ <strong>WASM integration</strong> (Sandboxed Processing)<br />
 ✅ <strong>Complex multi-backend workflows</strong> (This demo)</p>
-<h3 id="future-exploration"><a class="header" href="#future-exploration">Future Exploration</a></h3>
+<h3 id="exploration-opportunities"><a class="header" href="#exploration-opportunities">Exploration Opportunities</a></h3>
 <ul>
-<li><strong>Reactive Executor</strong>: Event-driven execution for real-time workflows</li>
-<li><strong>Hybrid Strategies</strong>: Combining multiple execution approaches</li>
-<li><strong>Advanced WASM</strong>: WASI integration and component model</li>
-<li><strong>Distributed Execution</strong>: Multi-node DAG orchestration</li>
-<li><strong>Machine Learning Integration</strong>: AI-powered workflow optimization</li>
+<li><strong>Try different strategies</strong>: Compare <code>work_queue</code> vs <code>level</code> execution</li>
+<li><strong>Experiment with failure modes</strong>: Test <code>fail_fast</code> vs <code>best_effort</code> strategies</li>
+<li><strong>Add custom processors</strong>: Extend the Local backend with new implementations</li>
+<li><strong>Build complex DAGs</strong>: Create workflows with multiple diamond patterns</li>
+<li><strong>Performance analysis</strong>: Measure execution times with different concurrency settings</li>
 </ul>
+<hr />
+<blockquote>
+<p>🏆 <strong>Congratulations!</strong> You've completed the full DAGwood demo journey, from simple single processors to complex multi-backend workflows. You've seen Rust's power in building safe, concurrent, and extensible workflow orchestration systems.</p>
+</blockquote>
 <hr />
 <blockquote>
 <p>🚀 <strong>Production Insight</strong>: This complex workflow demonstrates that The DAGwood Project is ready for real-world usage. The combination of Rust's safety, multiple execution strategies, WASM sandboxing, and robust error handling provides a solid foundation for production workflow orchestration systems!</p>
@@ -2232,7 +1667,7 @@ impl Ord for PrioritizedTask {
     }
 }
 <span class="boring">}</span></code></pre></pre>
-<h4 id="canonical-payload-architecture-3"><a class="header" href="#canonical-payload-architecture-3">Canonical Payload Architecture</a></h4>
+<h4 id="canonical-payload-architecture-2"><a class="header" href="#canonical-payload-architecture-2">Canonical Payload Architecture</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// Revolutionary approach: eliminates race conditions
@@ -2254,7 +1689,7 @@ if processor.declared_intent() == ProcessorIntent::Transform {
     *canonical_guard = processor_response.payload;
 }
 <span class="boring">}</span></code></pre></pre>
-<h3 id="performance-characteristics-3"><a class="header" href="#performance-characteristics-3">Performance Characteristics</a></h3>
+<h3 id="performance-characteristics-1"><a class="header" href="#performance-characteristics-1">Performance Characteristics</a></h3>
 <p><strong>Strengths</strong>:</p>
 <ul>
 <li><strong>Maximum parallelism</strong>: Executes processors as soon as dependencies complete</li>
@@ -2366,7 +1801,7 @@ if let Some(dependents) = dependents_map.get(&amp;current_id) {
     }
 }
 <span class="boring">}</span></code></pre></pre>
-<h3 id="performance-characteristics-4"><a class="header" href="#performance-characteristics-4">Performance Characteristics</a></h3>
+<h3 id="performance-characteristics-2"><a class="header" href="#performance-characteristics-2">Performance Characteristics</a></h3>
 <p><strong>Strengths</strong>:</p>
 <ul>
 <li><strong>Predictable execution</strong>: Clear level boundaries and ordering</li>
@@ -2602,7 +2037,7 @@ struct WasmBenefits {
 }
 <span class="boring">}</span></code></pre></pre>
 <h2 id="architecture-components"><a class="header" href="#architecture-components">Architecture Components</a></h2>
-<h3 id="1-wasm-runtime-integration-1"><a class="header" href="#1-wasm-runtime-integration-1">1. WASM Runtime Integration</a></h3>
+<h3 id="1-wasm-runtime-integration"><a class="header" href="#1-wasm-runtime-integration">1. WASM Runtime Integration</a></h3>
 <p>The DAGwood WASM backend uses wasmtime, the industry-standard WASM runtime:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -2882,7 +2317,7 @@ void deallocate(void* ptr, size_t size) {
     free(ptr);
 }
 </code></pre>
-<h2 id="performance-characteristics-5"><a class="header" href="#performance-characteristics-5">Performance Characteristics</a></h2>
+<h2 id="performance-characteristics-3"><a class="header" href="#performance-characteristics-3">Performance Characteristics</a></h2>
 <h3 id="execution-performance"><a class="header" href="#execution-performance">Execution Performance</a></h3>
 <p>WASM provides near-native performance with safety guarantees:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -2916,7 +2351,7 @@ let benchmarks = vec![
     },
 ];
 <span class="boring">}</span></code></pre></pre>
-<h3 id="memory-efficiency-2"><a class="header" href="#memory-efficiency-2">Memory Efficiency</a></h3>
+<h3 id="memory-efficiency-1"><a class="header" href="#memory-efficiency-1">Memory Efficiency</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// Memory usage patterns

@@ -1,15 +1,24 @@
 # WASM Integration: Sandboxed Processing
 
-The fourth demonstration introduces WebAssembly (WASM) processors, showcasing cutting-edge sandboxing technology and multi-language support within the Rust-based DAG execution system.
+## What You'll See
 
-## What You'll Learn
+This demonstration introduces WebAssembly (WASM) processors, showcasing cutting-edge sandboxing technology and multi-language support. You'll see how DAGwood integrates WASM modules for secure, isolated execution alongside native Rust processors.
 
-- **WASM module loading and execution** with wasmtime
-- **Memory management** across WASM boundaries
-- **Security sandboxing** and isolation patterns
-- **Multi-backend processor** architecture
+**Key Learning Points:**
+- WASM module loading and execution with wasmtime
+- Memory management across WASM boundaries
+- Security sandboxing and isolation patterns
+- Multi-backend processor architecture
 
-## Configuration Overview
+## The Demo
+
+### Command Line
+
+```bash
+cargo run --release -- docs/demo/configs/04-wasm-integration.yaml "hello world"
+```
+
+### Configuration
 
 ```yaml
 # Demo 4: WASM Integration - Sandboxed Processing
@@ -47,148 +56,22 @@ processors:
       suffix: " ✨"
 ```
 
-### Multi-Backend Architecture
+**Configuration Elements:**
+- **Strategy**: `work_queue` (dependency counting algorithm)
+- **Failure Strategy**: `fail_fast` (stop on first error)
+- **Concurrency**: Set to 2 (mixed backend execution)
+- **Multi-Backend Pipeline**: Local → WASM → Local
 
-This configuration demonstrates seamless integration between:
-- **Local backend**: Native Rust processors
-- **WASM backend**: Sandboxed WASM modules
-- **Mixed execution**: Local → WASM → Local pipeline
+### Expected Output
 
-## Rust Concepts in Action
-
-### 1. WASM Runtime Integration
-
-The WASM processor uses wasmtime for secure execution:
-
-```rust
-// From src/backends/wasm/processor.rs
-use wasmtime::{Engine, Module, Store, Instance, Caller, Linker};
-
-pub struct WasmProcessor {
-    engine: Engine,
-    module: Module,
-    module_path: String,
-}
-
-impl WasmProcessor {
-    pub fn new(module_path: &str) -> Result<Self, WasmError> {
-        let engine = Engine::default();
-        let module_bytes = std::fs::read(module_path)?;
-        let module = Module::new(&engine, &module_bytes)?;
-        
-        Ok(WasmProcessor {
-            engine,
-            module,
-            module_path: module_path.to_string(),
-        })
-    }
-}
-```
-
-**Key Rust features**:
-- **Error propagation**: `?` operator for clean error handling
-- **Ownership**: Module bytes are owned by the processor
-- **Resource management**: Engine and Module are automatically cleaned up
-
-### 2. Memory Management Across Boundaries
-
-WASM modules must manage their own memory, with careful coordination:
-
-```rust
-// WASM module interface (C-style for WASM compatibility)
-#[no_mangle]
-pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char {
-    // Convert C string to Rust String
-    let input = unsafe {
-        CStr::from_ptr(input_ptr).to_string_lossy().into_owned()
-    };
-    
-    // Process the input
-    let output = format!("{}-wasm", input);
-    
-    // Convert back to C string (caller must free!)
-    let c_string = CString::new(output).unwrap();
-    c_string.into_raw()
-}
-
-#[no_mangle]
-pub extern "C" fn allocate(size: usize) -> *mut u8 {
-    let mut buf = Vec::with_capacity(size);
-    let ptr = buf.as_mut_ptr();
-    std::mem::forget(buf); // Prevent Rust from deallocating
-    ptr
-}
-
-#[no_mangle]
-pub extern "C" fn deallocate(ptr: *mut u8, size: usize) {
-    unsafe {
-        Vec::from_raw_parts(ptr, 0, size); // Reconstruct Vec to deallocate
-    }
-}
-```
-
-**Memory safety patterns**:
-- **Explicit allocation**: WASM module controls its memory
-- **Careful ownership transfer**: `into_raw()` and `from_raw_parts()`
-- **Resource cleanup**: Proper deallocation prevents leaks
-
-### 3. Secure Sandboxing
-
-The wasmtime runtime provides complete isolation:
-
-```rust
-// Host function linking (controlled capabilities)
-let mut linker = Linker::new(&engine);
-
-// Only expose specific host functions
-linker.func_wrap("env", "host_log", |caller: Caller<'_, ()>, ptr: i32, len: i32| {
-    // Controlled logging capability
-    // WASM module cannot access arbitrary host functions
-})?;
-
-// Create isolated store for this execution
-let mut store = Store::new(&engine, ());
-let instance = linker.instantiate(&mut store, &module)?;
-```
-
-**Security benefits**:
-- **No file system access**: WASM cannot read/write files
-- **No network access**: Complete network isolation
-- **Controlled host interaction**: Only explicitly linked functions available
-- **Memory isolation**: WASM linear memory is separate from host
-
-### 4. Cross-Language Execution
-
-The same WASM interface could be implemented in multiple languages:
-
-```rust
-// Rust implementation (current example)
-#[no_mangle]
-pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char {
-    // Rust processing logic
-}
-```
-
-```c
-// Hypothetical C implementation
-char* process(const char* input) {
-    // C processing logic
-    char* output = malloc(strlen(input) + 6);
-    sprintf(output, "%s-wasm", input);
-    return output;
-}
-```
-
-```typescript
-// Hypothetical AssemblyScript implementation
-export function process(input: string): string {
-    return input + "-wasm";
-}
-```
-
-## Expected Output
+When you run this demo, you'll see:
 
 ```
+🚀 DAGwood Execution Strategy Demo
+═══════════════════════════════════
+Input: "hello world"
+Config files: ["docs/demo/configs/04-wasm-integration.yaml"]
+
 📋 Configuration: docs/demo/configs/04-wasm-integration.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 2
@@ -200,65 +83,38 @@ export function process(input: string): string {
 
 🔄 Processor Chain:
   1. prepare_input → "hello world"
-  2. wasm_hello_world → "hello world-wasm"
-     📝 Metadata: 3 entries (e.g., module_path)
+  2. wasm_hello_world → "hello world-wasm" (WASM)
   3. final_format → "🦀 Rust + WASM: hello world-wasm ✨"
 
 🎯 Final Transformation:
    Input:  "hello world"
    Output: "🦀 Rust + WASM: hello world-wasm ✨"
-   
-   Pipeline Metadata:
-   wasm_hello_world:
-      • module_path: wasm_modules/hello_world.wasm
-      • input_length: 11
-      • output_length: 16
 ```
 
-## Architecture Deep Dive
+## What You Just Saw
 
-### WASM Module Compilation
+This demo demonstrated:
 
-The hello_world WASM module is compiled from Rust:
+**Multi-Backend Integration:**
+- Seamless integration between Local and WASM backends
+- Mixed execution pipeline: Local → WASM → Local
+- Consistent processor interface across different backends
 
-```toml
-# wasm_modules/hello_world/Cargo.toml
-[package]
-name = "hello_world"
-version = "0.1.0"
-edition = "2021"
+**WASM Security and Isolation:**
+- Complete sandboxing with wasmtime runtime
+- Memory isolation between host and WASM module
+- Controlled capabilities with no host system access
 
-[lib]
-crate-type = ["cdylib"]
+**Rust System Programming:**
+- C-style FFI for WASM compatibility
+- Manual memory management across boundaries
+- Resource cleanup and ownership transfer patterns
+- Error propagation with `?` operator
 
-[dependencies]
-```
-
-```bash
-# Compilation process
-cd wasm_modules/hello_world
-cargo build --target wasm32-unknown-unknown --release
-cp target/wasm32-unknown-unknown/release/hello_world.wasm ../hello_world.wasm
-```
-
-### Factory Pattern Integration
-
-The WASM backend integrates seamlessly with the processor factory:
-
-```rust
-// From src/backends/wasm/factory.rs
-impl ProcessorFactory for WasmProcessorFactory {
-    fn create_processor(&self, config: &ProcessorConfig) -> Result<Box<dyn Processor>, ProcessorError> {
-        let module_path = config.module.as_ref()
-            .ok_or_else(|| ProcessorError::ConfigurationError {
-                message: "WASM processor requires 'module' field".to_string()
-            })?;
-            
-        let processor = WasmProcessor::new(module_path)?;
-        Ok(Box::new(processor))
-    }
-}
-```
+**Cross-Language Potential:**
+- WASM modules can be written in multiple languages
+- Consistent interface regardless of implementation language
+- Future-proof architecture for polyglot processing
 
 ### Performance Characteristics
 

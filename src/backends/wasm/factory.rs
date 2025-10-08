@@ -1,4 +1,4 @@
-use crate::backends::wasm::WasmProcessor;
+use crate::backends::wasm::{WasmProcessor, WasmError, WasmResult};
 use crate::config::ProcessorConfig;
 use crate::traits::processor::{Processor, ProcessorIntent};
 use std::sync::Arc;
@@ -48,42 +48,39 @@ impl WasmProcessorFactory {
     /// 
     /// This function will return an error if:
     /// - The `module` field is missing from the configuration
-    /// - The WASM module file cannot be found or read
-    /// - The WASM module cannot be compiled
-    /// - The `intent` option has an invalid value
-    pub fn create_processor(
-        config: &ProcessorConfig,
-    ) -> Result<Arc<dyn Processor>, Box<dyn std::error::Error + Send + Sync>> {
-        // Extract the module path from configuration
-        let module_path = config
-            .module
-            .as_ref()
-            .ok_or("WASM processor requires 'module' field with path to WASM file")?;
-        
-        // Parse processor intent from options
+    /// - The WASM module cannot be loaded or compiled
+    /// - The intent is invalid
+    pub fn create_processor(config: &ProcessorConfig) -> WasmResult<Arc<dyn Processor>> {
+        // Extract the module path from the configuration
+        let module_path = config.module.as_ref()
+            .ok_or_else(|| WasmError::ValidationError("Missing required 'module' field in WASM processor configuration".to_string()))?;
+
+        // Parse the intent with a default of Transform
         let intent = if let Some(intent_value) = config.options.get("intent") {
-            match intent_value.as_str() {
-                Some("transform") => ProcessorIntent::Transform,
-                Some("analyze") => ProcessorIntent::Analyze,
-                Some(other) => {
-                    return Err(format!(
-                        "Invalid intent '{}' for WASM processor. Must be 'transform' or 'analyze'",
-                        other
-                    ).into());
+            if let Some(intent_str) = intent_value.as_str() {
+                match intent_str.to_lowercase().as_str() {
+                    "transform" => ProcessorIntent::Transform,
+                    "analyze" => ProcessorIntent::Analyze,
+                    invalid => return Err(WasmError::ValidationError(
+                        format!("Invalid intent '{}'. Must be 'transform' or 'analyze'.", invalid)
+                    )),
                 }
-                None => {
-                    return Err("Intent option must be a string".into());
-                }
+            } else {
+                return Err(WasmError::ValidationError(
+                    "Intent option must be a string".to_string()
+                ));
             }
         } else {
-            // Default to Transform if not specified
-            ProcessorIntent::Transform
+            ProcessorIntent::Transform // Default
         };
-        
-        // Create the WASM processor
+
+        // Use module path as-is (assume it's correct)
+        let module_path = module_path.to_string();
+
+        // Create the WASM processor with security features
         let processor = WasmProcessor::new(
             config.id.clone(),
-            module_path.clone(),
+            module_path,
             intent,
         )?;
         

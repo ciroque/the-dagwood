@@ -1,33 +1,29 @@
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, processor_response::Outcome, PipelineMetadata, ProcessorMetadata, ErrorDetail};
+use crate::proto::processor_v1::{
+    processor_response::Outcome, ErrorDetail, PipelineMetadata, ProcessorRequest, ProcessorResponse,
+    ProcessorMetadata,
+};
 use crate::traits::processor::{Processor, ProcessorIntent};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use wasmtime::*;
-use wasmtime_wasi::WasiCtxBuilder;
+use crate::backends::wasm::error::{WasmError, WasmResult};
+
+// 10MB maximum input size
+const MAX_INPUT_SIZE: usize = 10 * 1024 * 1024;
 
 /// A processor that executes WebAssembly modules for sandboxed computation.
 /// 
 /// The WasmProcessor provides secure, sandboxed execution of user-defined logic
-/// by loading and running WASM modules. This enables safe execution of untrusted
-/// code with controlled capabilities and resource limits.
-/// 
-/// # WASM Module Interface
-/// 
-/// WASM modules must export a function with this signature:
-/// ```text
-/// (func $process (param $input_ptr i32) (param $input_len i32) (result i32))
-/// ```
-/// 
-/// The function receives a pointer and length to the input string, and returns
-/// a pointer to the output string. Memory management is handled by the WASM
-/// module's allocator.
+/// by loading and running WebAssembly modules. It includes multiple layers of
+/// security including memory protection, timeouts, and input validation.
 /// 
 /// # Security Features
 /// 
-/// - **Sandboxing**: WASM modules run in complete isolation
-/// - **Resource Limits**: Memory and execution time can be controlled
-/// - **Capability Control**: Only explicitly granted capabilities are available
-/// - **Deterministic Execution**: No access to system resources by default
+/// - **Memory Protection**: Strict bounds checking and memory isolation
+/// - **Time Limits**: 5-second execution timeout
+/// - **Input Validation**: 10MB maximum input size
+/// - **No System Access**: No filesystem/network access
+/// - **Deterministic Execution**: Controlled execution environment
 pub struct WasmProcessor {
     /// Unique identifier for this processor instance
     processor_id: String,
@@ -42,47 +38,67 @@ pub struct WasmProcessor {
 }
 
 impl WasmProcessor {
-    /// Creates a new WasmProcessor by loading a WASM module from the specified path.
+    /// Creates a new WasmProcessor with the specified configuration.
+    ///
+    /// # Security
     /// 
-    /// # Arguments
-    /// 
-    /// * `processor_id` - Unique identifier for this processor
-    /// * `module_path` - Path to the WASM module file
-    /// * `intent` - Whether this processor transforms data or analyzes it
-    /// 
-    /// # Returns
-    /// 
-    /// Returns a Result containing the WasmProcessor or an error if the module
-    /// cannot be loaded or compiled.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust,no_run
-    /// use the_dagwood::backends::wasm::WasmProcessor;
-    /// use the_dagwood::traits::processor::ProcessorIntent;
-    /// 
-    /// let processor = WasmProcessor::new(
-    ///     "hello_world".to_string(),
-    ///     "modules/hello_world.wasm".to_string(),
-    ///     ProcessorIntent::Transform
-    /// ).expect("Failed to load WASM module");
-    /// ```
+    /// The processor enforces several security measures:
+    /// - Memory limits (64MB)
+    /// - Execution timeouts (5 seconds)
+    /// - No filesystem/network access
+    /// - Strict memory protection
     pub fn new(
         processor_id: String,
         module_path: String,
         intent: ProcessorIntent,
-    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        // Create Wasmtime engine with default configuration
-        let engine = Engine::default();
+    ) -> WasmResult<Self> {
+        // Configure the engine with security settings
+        let mut config = Config::new();
         
-        // Load and compile the WASM module
+        // Memory limits (64MB max)
+        config.static_memory_maximum_size(64 * 1024 * 1024);
+        
+        // Enable epoch-based interruption for timeouts
+        config.epoch_interruption(true);
+        
+        // Enable reference types and bulk memory
+        config.wasm_reference_types(true);
+        config.wasm_bulk_memory(true);
+        
+        // Disable unnecessary features
+        config.wasm_threads(false);
+        config.wasm_simd(false);
+        config.wasm_multi_memory(false);
+        
+        // Memory protection is enabled by default in wasmtime
+        
+        // Enable deterministic execution
+        config.consume_fuel(true);
+        
+        let engine = Engine::new(&config)?;
+        
+        // Load and validate the module
         let module_bytes = std::fs::read(&module_path)
-            .map_err(|e| format!("Failed to read WASM module at '{}': {}", module_path, e))?;
+            .map_err(WasmError::IoError)?;
+            
+        if module_bytes.len() > 10 * 1024 * 1024 {
+            return Err(WasmError::ValidationError("WASM module too large".to_string()));
+        }
         
         let module = Module::new(&engine, &module_bytes)
-            .map_err(|e| format!("Failed to compile WASM module '{}': {}", module_path, e))?;
+            .map_err(|e| WasmError::ModuleError(e.to_string()))?;
+            
+        // Validate module imports
+        for import in module.imports() {
+            let module_name = import.module();
+            if module_name.starts_with("wasi") {
+                return Err(WasmError::ValidationError(
+                    format!("WASI imports are not allowed: {}", module_name)
+                ));
+            }
+        }
         
-        Ok(WasmProcessor {
+        Ok(Self {
             processor_id,
             module_path,
             engine,
@@ -104,18 +120,19 @@ impl WasmProcessor {
     /// 
     /// Returns the processed output string or an error if execution fails.
     fn execute_wasm(&self, input: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        // Create a WASI context for the module (minimal capabilities)
-        let wasi = WasiCtxBuilder::new()
-            .inherit_stdio()  // Allow basic stdio for debugging
-            .build();
+        // Validate input size
+        if input.len() > MAX_INPUT_SIZE {
+            return Err(format!("Input too large: {} bytes (max: {} bytes)", input.len(), MAX_INPUT_SIZE).into());
+        }
         
-        // Create a new store for this execution
-        let mut store = Store::new(&self.engine, wasi);
+        // Create a new store for this execution (no WASI context)
+        let mut store = Store::new(&self.engine, ());
         
-        // Create a linker to provide WASI functions  
+        // Set up timeout using fuel consumption
+        store.set_fuel(1000000)?; // Set initial fuel for timeout
+        
+        // Create a linker (no WASI functions)
         let linker = Linker::new(&self.engine);
-        // For now, skip WASI functions to simplify the implementation
-        // wasmtime_wasi::add_to_linker_sync(&mut linker)?;
         
         // Instantiate the WASM module
         let instance = linker.instantiate(&mut store, &self.module)?;

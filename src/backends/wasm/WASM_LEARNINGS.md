@@ -126,8 +126,10 @@ config.epoch_interruption(false);
 ### 4. Wasmtime Configuration Best Practices
 Essential configuration for wasmtime 25.0+ in embedded scenarios:
 ```rust
+// Enable fuel consumption for security (prevents infinite loops/resource exhaustion)
+config.consume_fuel(true);
+
 // Disable features that can cause unexpected interrupts
-config.consume_fuel(false);
 config.epoch_interruption(false);
 
 // Disable unnecessary features for security and compatibility

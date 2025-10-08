@@ -57,8 +57,7 @@ The WASM module exports the following functions:
 
 - `allocate(size: usize) -> *mut u8` - Allocates memory in WASM linear memory
 - `deallocate(ptr: *mut u8, size: usize)` - Frees previously allocated memory  
-- `process(input_ptr: *const c_char) -> *mut c_char` - Main processing function
-- `process_with_length(input_ptr: *const u8, input_len: usize, output_len: *mut usize) -> *mut u8` - Length-based processing
+- `process(input_ptr: *const u8, input_len: usize, output_len: *mut usize) -> *mut u8` - Main processing function
 
 ## Integration with DAGwood
 

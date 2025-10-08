@@ -168,6 +168,7 @@ pub struct WasmProcessor {
 }
 
 const FUEL_LEVEL: u64 = 100_000_000;
+const MAX_WASM_MODULE_SIZE: usize = 10 * 1024 * 1024;
 
 impl WasmProcessor {
     /// Creates a new WasmProcessor with the specified configuration.
@@ -190,9 +191,9 @@ impl WasmProcessor {
         // Memory limits (64MB max)
         config.static_memory_maximum_size(64 * 1024 * 1024);
         
-        // Enable reference types and bulk memory
-        config.wasm_reference_types(true);
-        config.wasm_bulk_memory(true);
+        // Disable reference types and bulk memory for reduced attack surface
+        config.wasm_reference_types(false);
+        config.wasm_bulk_memory(false);
         
         // Disable unnecessary features for security and compatibility
         config.wasm_threads(false);
@@ -218,7 +219,7 @@ impl WasmProcessor {
         let module_bytes = std::fs::read(&module_path)
             .map_err(WasmError::IoError)?;
             
-        if module_bytes.len() > 10 * 1024 * 1024 {
+        if module_bytes.len() > MAX_WASM_MODULE_SIZE {
             return Err(WasmError::ValidationError("WASM module too large".to_string()));
         }
         
@@ -367,8 +368,11 @@ impl WasmProcessor {
             }
             
             // Read 4 bytes as little-endian u32 (WASM is little-endian)
-            let len_bytes = &memory_data[output_len_offset..output_len_offset + 4];
-            u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize
+            u32::from_le_bytes(
+                memory_data[output_len_offset..output_len_offset + 4]
+                    .try_into()
+                    .map_err(|_| "Failed to convert output length bytes to array")?
+            ) as usize
         };
         
         // Clean up output_len allocation

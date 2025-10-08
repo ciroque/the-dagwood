@@ -193,19 +193,16 @@
 <li><strong>ROADMAP</strong>: <code>ROADMAP.md</code> - Development phases and future plans</li>
 </ul>
 <h4 id="code-examples"><a class="header" href="#code-examples">Code Examples</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Explore these key files for learning
-let learning_path = vec![
-    "src/main.rs",                    // Entry point and demo runner
-    "src/engine/work_queue.rs",       // Work Queue executor implementation
-    "src/engine/level_by_level.rs",   // Level-by-Level executor
-    "src/backends/local/",            // Local processor implementations
-    "src/backends/wasm/",             // WASM integration
-    "src/config/",                    // Configuration and validation
-    "src/utils/metadata.rs",          // Metadata handling utilities
-];
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Key Files for Learning:</strong></p>
+<ul>
+<li><strong>Entry Point</strong>: <code>src/main.rs</code> - Demo runner and CLI interface</li>
+<li><strong>Work Queue Executor</strong>: <code>src/engine/work_queue.rs</code> - Dependency counting implementation</li>
+<li><strong>Level-by-Level Executor</strong>: <code>src/engine/level_by_level.rs</code> - Topological level execution</li>
+<li><strong>Local Processors</strong>: <code>src/backends/local/</code> - Built-in processor implementations</li>
+<li><strong>WASM Integration</strong>: <code>src/backends/wasm/</code> - WebAssembly runtime integration</li>
+<li><strong>Configuration</strong>: <code>src/config/</code> - YAML parsing and validation</li>
+<li><strong>Metadata Utilities</strong>: <code>src/utils/metadata.rs</code> - Metadata handling and merging</li>
+</ul>
 <h4 id="configuration-examples"><a class="header" href="#configuration-examples">Configuration Examples</a></h4>
 <ul>
 <li><strong>Demo Configurations</strong>: <code>docs/demo/configs/</code> - Progressive complexity examples</li>
@@ -229,334 +226,237 @@ let learning_path = vec![
 <h2 id="rust-learning-resources"><a class="header" href="#rust-learning-resources">Rust Learning Resources</a></h2>
 <h3 id="essential-rust-materials"><a class="header" href="#essential-rust-materials">Essential Rust Materials</a></h3>
 <h4 id="official-resources"><a class="header" href="#official-resources">Official Resources</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct RustLearningPath {
-    // Beginner resources
-    rust_book: "https://doc.rust-lang.org/book/",
-    rust_by_example: "https://doc.rust-lang.org/rust-by-example/",
-    rustlings: "https://github.com/rust-lang/rustlings",
-    
-    // Intermediate resources
-    async_book: "https://rust-lang.github.io/async-book/",
-    cargo_book: "https://doc.rust-lang.org/cargo/",
-    reference: "https://doc.rust-lang.org/reference/",
-    
-    // Advanced resources
-    nomicon: "https://doc.rust-lang.org/nomicon/",
-    unstable_book: "https://doc.rust-lang.org/unstable-book/",
-    performance_book: "https://nnethercote.github.io/perf-book/",
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Beginner Resources:</strong></p>
+<ul>
+<li><strong>The Rust Book</strong>: https://doc.rust-lang.org/book/</li>
+<li><strong>Rust by Example</strong>: https://doc.rust-lang.org/rust-by-example/</li>
+<li><strong>Rustlings</strong>: https://github.com/rust-lang/rustlings</li>
+</ul>
+<p><strong>Intermediate Resources:</strong></p>
+<ul>
+<li><strong>Async Book</strong>: https://rust-lang.github.io/async-book/</li>
+<li><strong>Cargo Book</strong>: https://doc.rust-lang.org/cargo/</li>
+<li><strong>Rust Reference</strong>: https://doc.rust-lang.org/reference/</li>
+</ul>
+<p><strong>Advanced Resources:</strong></p>
+<ul>
+<li><strong>The Rustonomicon</strong>: https://doc.rust-lang.org/nomicon/</li>
+<li><strong>Unstable Book</strong>: https://doc.rust-lang.org/unstable-book/</li>
+<li><strong>Performance Book</strong>: https://nnethercote.github.io/perf-book/</li>
+</ul>
 <h4 id="key-concepts-for-dagwood"><a class="header" href="#key-concepts-for-dagwood">Key Concepts for DAGwood</a></h4>
 <h5 id="ownership-and-borrowing"><a class="header" href="#ownership-and-borrowing">Ownership and Borrowing</a></h5>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Essential for understanding DAGwood's memory management
-fn ownership_examples() {
-    // Owned values
-    let processor_id = String::from("my_processor");
-    
-    // Borrowed references
-    let id_ref = &amp;processor_id;
-    
-    // Cloning for ownership transfer
-    let id_clone = processor_id.clone();
-    
-    // Arc for shared ownership
-    let shared_id = Arc::new(processor_id);
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Essential for understanding DAGwood's memory management:</strong></p>
+<ul>
+<li><strong>Owned values</strong>: <code>String::from("my_processor")</code> - Full ownership of data</li>
+<li><strong>Borrowed references</strong>: <code>&amp;processor_id</code> - Temporary access without ownership</li>
+<li><strong>Cloning</strong>: <code>processor_id.clone()</code> - Creating owned copies for transfer</li>
+<li><strong>Shared ownership</strong>: <code>Arc::new(processor_id)</code> - Multiple owners with reference counting</li>
+</ul>
 <h5 id="asyncawait-programming"><a class="header" href="#asyncawait-programming">Async/Await Programming</a></h5>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Critical for understanding DAG execution
-#[tokio::main]
-async fn async_examples() {
-    // Spawning concurrent tasks
-    let handle = tokio::spawn(async {
-        // Async work
-    });
-    
-    // Waiting for completion
-    let result = handle.await?;
-    
-    // Parallel execution
-    let (result1, result2) = tokio::join!(
-        async_task_1(),
-        async_task_2()
-    );
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Critical for understanding DAG execution:</strong></p>
+<ul>
+<li><strong>Task spawning</strong>: <code>tokio::spawn(async { ... })</code> - Creating concurrent tasks</li>
+<li><strong>Awaiting completion</strong>: <code>handle.await?</code> - Waiting for task results</li>
+<li><strong>Parallel execution</strong>: <code>tokio::join!(task1(), task2())</code> - Running tasks concurrently</li>
+<li><strong>Error propagation</strong>: <code>?</code> operator for async error handling</li>
+</ul>
 <h5 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h5>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Essential for robust DAG execution
-fn error_handling_examples() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
-    // Using ? operator for propagation
-    let config = load_config("config.yaml")?;
-    
-    // Custom error types
-    match execute_processor(&amp;config) {
-        Ok(result) =&gt; println!("Success: {:?}", result),
-        Err(ProcessorError::ValidationError { message }) =&gt; {
-            eprintln!("Validation failed: {}", message);
-        },
-        Err(e) =&gt; eprintln!("Other error: {}", e),
-    }
-    
-    Ok(())
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Essential for robust DAG execution:</strong></p>
+<ul>
+<li><strong>Error propagation</strong>: <code>?</code> operator for clean error bubbling</li>
+<li><strong>Custom error types</strong>: <code>ProcessorError::ValidationError</code> - Structured error information</li>
+<li><strong>Pattern matching</strong>: <code>match</code> expressions for handling different error cases</li>
+<li><strong>Result types</strong>: <code>Result&lt;T, E&gt;</code> for explicit error handling</li>
+</ul>
 <h3 id="rust-ecosystem-libraries"><a class="header" href="#rust-ecosystem-libraries">Rust Ecosystem Libraries</a></h3>
 <h4 id="libraries-used-in-dagwood"><a class="header" href="#libraries-used-in-dagwood">Libraries Used in DAGwood</a></h4>
-<pre><code class="language-toml"># Key dependencies and their purposes
-[dependencies]
-tokio = "1.0"           # Async runtime
-serde = "1.0"           # Serialization
-serde_yaml = "0.9"      # YAML parsing
-thiserror = "1.0"       # Error handling
-async-trait = "0.1"     # Async traits
-wasmtime = "25.0"       # WASM runtime
-prost = "0.12"          # Protobuf
-base64 = "0.21"         # Base64 encoding
-</code></pre>
+<p><strong>Key Dependencies:</strong></p>
+<ul>
+<li><strong>tokio</strong>: Async runtime for concurrent execution</li>
+<li><strong>serde</strong>: Serialization framework for data handling</li>
+<li><strong>serde_yaml</strong>: YAML parsing for configuration files</li>
+<li><strong>thiserror</strong>: Structured error handling with derive macros</li>
+<li><strong>async-trait</strong>: Async trait support for processor interfaces</li>
+<li><strong>wasmtime</strong>: WebAssembly runtime for sandboxed execution</li>
+<li><strong>prost</strong>: Protocol Buffers for efficient data serialization</li>
+<li><strong>base64</strong>: Base64 encoding for metadata namespacing</li>
+</ul>
 <h4 id="learning-resources-for-each-library"><a class="header" href="#learning-resources-for-each-library">Learning Resources for Each Library</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct LibraryResources {
-    tokio: vec![
-        "https://tokio.rs/tokio/tutorial",
-        "https://github.com/tokio-rs/tokio/tree/master/examples",
-    ],
-    serde: vec![
-        "https://serde.rs/",
-        "https://github.com/serde-rs/serde/tree/master/serde/examples",
-    ],
-    wasmtime: vec![
-        "https://docs.wasmtime.dev/",
-        "https://github.com/bytecodealliance/wasmtime/tree/main/examples",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Library-Specific Resources:</strong></p>
+<ul>
+<li><strong>Tokio</strong>: https://tokio.rs/tokio/tutorial, GitHub examples</li>
+<li><strong>Serde</strong>: https://serde.rs/, comprehensive serialization guide</li>
+<li><strong>Wasmtime</strong>: https://docs.wasmtime.dev/, runtime integration examples</li>
+</ul>
 <h2 id="dag-algorithms-and-theory"><a class="header" href="#dag-algorithms-and-theory">DAG Algorithms and Theory</a></h2>
 <h3 id="fundamental-algorithms"><a class="header" href="#fundamental-algorithms">Fundamental Algorithms</a></h3>
 <h4 id="topological-sorting"><a class="header" href="#topological-sorting">Topological Sorting</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Kahn's Algorithm - used in Work Queue executor
-struct KahnsAlgorithm {
-    description: "Removes nodes with no incoming edges iteratively",
-    time_complexity: "O(V + E)",
-    space_complexity: "O(V)",
-    use_case: "Dependency resolution and scheduling",
-}
-
-// DFS-based Topological Sort - used in Level-by-Level
-struct DfsTopologicalSort {
-    description: "Uses depth-first search with post-order traversal",
-    time_complexity: "O(V + E)",
-    space_complexity: "O(V)",
-    use_case: "Level computation and cycle detection",
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Kahn's Algorithm</strong> (used in Work Queue executor):</p>
+<ul>
+<li><strong>Description</strong>: Removes nodes with no incoming edges iteratively</li>
+<li><strong>Time Complexity</strong>: O(V + E)</li>
+<li><strong>Space Complexity</strong>: O(V)</li>
+<li><strong>Use Case</strong>: Dependency resolution and scheduling</li>
+</ul>
+<p><strong>DFS-based Topological Sort</strong> (used in Level-by-Level):</p>
+<ul>
+<li><strong>Description</strong>: Uses depth-first search with post-order traversal</li>
+<li><strong>Time Complexity</strong>: O(V + E)</li>
+<li><strong>Space Complexity</strong>: O(V)</li>
+<li><strong>Use Case</strong>: Level computation and cycle detection</li>
+</ul>
 <h4 id="graph-theory-resources"><a class="header" href="#graph-theory-resources">Graph Theory Resources</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct GraphTheoryResources {
-    books: vec![
-        "Introduction to Algorithms (CLRS) - Chapter 22",
-        "Algorithm Design Manual - Chapter 5",
-        "Graph Theory by Reinhard Diestel",
-    ],
-    
-    online_courses: vec![
-        "Algorithms Specialization (Coursera)",
-        "Graph Theory (edX)",
-        "Data Structures and Algorithms (MIT OpenCourseWare)",
-    ],
-    
-    papers: vec![
-        "Kahn, A. B. (1962). Topological sorting of large networks",
-        "Tarjan, R. (1972). Depth-first search and linear graph algorithms",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Books:</strong></p>
+<ul>
+<li><strong>Introduction to Algorithms (CLRS)</strong> - Chapter 22</li>
+<li><strong>Algorithm Design Manual</strong> - Chapter 5</li>
+<li><strong>Graph Theory</strong> by Reinhard Diestel</li>
+</ul>
+<p><strong>Online Courses:</strong></p>
+<ul>
+<li><strong>Algorithms Specialization</strong> (Coursera)</li>
+<li><strong>Graph Theory</strong> (edX)</li>
+<li><strong>Data Structures and Algorithms</strong> (MIT OpenCourseWare)</li>
+</ul>
+<p><strong>Foundational Papers:</strong></p>
+<ul>
+<li><strong>Kahn, A. B. (1962)</strong>: Topological sorting of large networks</li>
+<li><strong>Tarjan, R. (1972)</strong>: Depth-first search and linear graph algorithms</li>
+</ul>
 <h3 id="workflow-orchestration-theory"><a class="header" href="#workflow-orchestration-theory">Workflow Orchestration Theory</a></h3>
 <h4 id="academic-papers"><a class="header" href="#academic-papers">Academic Papers</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct AcademicResources {
-    foundational_papers: vec![
-        "Workflow Management: Modeling Concepts, Architecture and Implementation (1995)",
-        "The Anatomy of the Grid: Enabling Scalable Virtual Organizations (2001)",
-        "MapReduce: Simplified Data Processing on Large Clusters (2004)",
-    ],
-    
-    modern_research: vec![
-        "Serverless Computing: Current Trends and Open Problems (2017)",
-        "Workflow Systems in the Cloud: Amazon SWF, Azure Logic Apps, and Google Workflows (2020)",
-        "WASM for Serverless Computing: Performance Analysis and Optimization (2021)",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Foundational Papers:</strong></p>
+<ul>
+<li><strong>Workflow Management</strong>: Modeling Concepts, Architecture and Implementation (1995)</li>
+<li><strong>The Anatomy of the Grid</strong>: Enabling Scalable Virtual Organizations (2001)</li>
+<li><strong>MapReduce</strong>: Simplified Data Processing on Large Clusters (2004)</li>
+</ul>
+<p><strong>Modern Research:</strong></p>
+<ul>
+<li><strong>Serverless Computing</strong>: Current Trends and Open Problems (2017)</li>
+<li><strong>Workflow Systems in the Cloud</strong>: Amazon SWF, Azure Logic Apps, and Google Workflows (2020)</li>
+<li><strong>WASM for Serverless Computing</strong>: Performance Analysis and Optimization (2021)</li>
+</ul>
 <h4 id="industry-systems-analysis"><a class="header" href="#industry-systems-analysis">Industry Systems Analysis</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct IndustrySystemsStudy {
-    workflow_engines: vec![
-        "Apache Airflow - Python-based DAG execution",
-        "Prefect - Modern Python workflow orchestration", 
-        "Temporal - Microservice orchestration platform",
-        "Argo Workflows - Kubernetes-native workflow engine",
-        "Kubeflow Pipelines - ML workflow orchestration",
-    ],
-    
-    comparison_dimensions: vec![
-        "Execution strategies and algorithms",
-        "Fault tolerance and recovery mechanisms", 
-        "Scalability and performance characteristics",
-        "Developer experience and ease of use",
-        "Integration ecosystem and extensibility",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Workflow Engines:</strong></p>
+<ul>
+<li><strong>Apache Airflow</strong>: Python-based DAG execution</li>
+<li><strong>Prefect</strong>: Modern Python workflow orchestration</li>
+<li><strong>Temporal</strong>: Microservice orchestration platform</li>
+<li><strong>Argo Workflows</strong>: Kubernetes-native workflow engine</li>
+<li><strong>Kubeflow Pipelines</strong>: ML workflow orchestration</li>
+</ul>
+<p><strong>Comparison Dimensions:</strong></p>
+<ul>
+<li><strong>Execution strategies</strong>: Algorithms and scheduling approaches</li>
+<li><strong>Fault tolerance</strong>: Recovery mechanisms and resilience patterns</li>
+<li><strong>Scalability</strong>: Performance characteristics and resource management</li>
+<li><strong>Developer experience</strong>: Ease of use and learning curve</li>
+<li><strong>Integration ecosystem</strong>: Extensibility and third-party support</li>
+</ul>
 <h2 id="wasm-resources"><a class="header" href="#wasm-resources">WASM Resources</a></h2>
 <h3 id="webassembly-fundamentals"><a class="header" href="#webassembly-fundamentals">WebAssembly Fundamentals</a></h3>
 <h4 id="core-concepts"><a class="header" href="#core-concepts">Core Concepts</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct WasmConcepts {
-    // Memory model
-    linear_memory: "Contiguous, resizable memory space",
-    memory_safety: "Bounds-checked access, no buffer overflows",
-    
-    // Execution model
-    stack_machine: "Virtual stack-based execution",
-    deterministic: "Same input always produces same output",
-    
-    // Security model
-    sandboxing: "Complete isolation from host system",
-    capability_based: "Explicit permission for host access",
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Memory Model:</strong></p>
+<ul>
+<li><strong>Linear Memory</strong>: Contiguous, resizable memory space</li>
+<li><strong>Memory Safety</strong>: Bounds-checked access, no buffer overflows</li>
+</ul>
+<p><strong>Execution Model:</strong></p>
+<ul>
+<li><strong>Stack Machine</strong>: Virtual stack-based execution</li>
+<li><strong>Deterministic</strong>: Same input always produces same output</li>
+</ul>
+<p><strong>Security Model:</strong></p>
+<ul>
+<li><strong>Sandboxing</strong>: Complete isolation from host system</li>
+<li><strong>Capability-based</strong>: Explicit permission for host access</li>
+</ul>
 <h4 id="learning-resources"><a class="header" href="#learning-resources">Learning Resources</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct WasmLearningResources {
-    official_docs: vec![
-        "https://webassembly.org/",
-        "https://webassembly.github.io/spec/",
-    ],
-    
-    tutorials: vec![
-        "https://rustwasm.github.io/docs/book/",
-        "https://wasmbyexample.dev/",
-        "https://github.com/bytecodealliance/wasmtime/tree/main/docs/tutorial.md",
-    ],
-    
-    books: vec![
-        "Programming WebAssembly with Rust by Kevin Hoffman",
-        "WebAssembly: The Definitive Guide by Brian Sletten",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Official Documentation:</strong></p>
+<ul>
+<li><strong>WebAssembly.org</strong>: https://webassembly.org/</li>
+<li><strong>WASM Specification</strong>: https://webassembly.github.io/spec/</li>
+</ul>
+<p><strong>Tutorials:</strong></p>
+<ul>
+<li><strong>Rust and WebAssembly Book</strong>: https://rustwasm.github.io/docs/book/</li>
+<li><strong>WASM by Example</strong>: https://wasmbyexample.dev/</li>
+<li><strong>Wasmtime Tutorial</strong>: https://github.com/bytecodealliance/wasmtime/tree/main/docs/tutorial.md</li>
+</ul>
+<p><strong>Books:</strong></p>
+<ul>
+<li><strong>Programming WebAssembly with Rust</strong> by Kevin Hoffman</li>
+<li><strong>WebAssembly: The Definitive Guide</strong> by Brian Sletten</li>
+</ul>
 <h3 id="wasm-runtime-integration"><a class="header" href="#wasm-runtime-integration">WASM Runtime Integration</a></h3>
 <h4 id="wasmtime-specific-resources"><a class="header" href="#wasmtime-specific-resources">Wasmtime Specific Resources</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct WasmtimeResources {
-    documentation: "https://docs.wasmtime.dev/",
-    
-    key_concepts: vec![
-        "Engine and Store management",
-        "Instance creation and function calling",
-        "Memory management across boundaries",
-        "Resource limits and security",
-    ],
-    
-    examples: vec![
-        "https://github.com/bytecodealliance/wasmtime/tree/main/examples",
-        "Basic function calling",
-        "Memory allocation and deallocation", 
-        "Multi-value returns and complex types",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Documentation</strong>: https://docs.wasmtime.dev/</p>
+<p><strong>Key Concepts:</strong></p>
+<ul>
+<li><strong>Engine and Store management</strong>: Runtime lifecycle and configuration</li>
+<li><strong>Instance creation</strong>: Module instantiation and function calling</li>
+<li><strong>Memory management</strong>: Safe memory handling across boundaries</li>
+<li><strong>Resource limits</strong>: Security constraints and sandboxing</li>
+</ul>
+<p><strong>Examples:</strong></p>
+<ul>
+<li><strong>GitHub Examples</strong>: https://github.com/bytecodealliance/wasmtime/tree/main/examples</li>
+<li><strong>Basic function calling</strong>: Simple host-WASM interaction</li>
+<li><strong>Memory allocation</strong>: Safe memory management patterns</li>
+<li><strong>Complex types</strong>: Multi-value returns and structured data</li>
+</ul>
 <h4 id="wasi-webassembly-system-interface"><a class="header" href="#wasi-webassembly-system-interface">WASI (WebAssembly System Interface)</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct WasiResources {
-    specification: "https://github.com/WebAssembly/WASI",
-    
-    capabilities: vec![
-        "File system access with sandboxing",
-        "Network access with restrictions",
-        "Environment variable access",
-        "Clock and random number generation",
-    ],
-    
-    future_integration: "Planned for DAGwood Phase 6",
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Specification</strong>: https://github.com/WebAssembly/WASI</p>
+<p><strong>Capabilities:</strong></p>
+<ul>
+<li><strong>File system access</strong>: Sandboxed file operations</li>
+<li><strong>Network access</strong>: Controlled network connectivity</li>
+<li><strong>Environment variables</strong>: Secure environment access</li>
+<li><strong>System services</strong>: Clock and random number generation</li>
+</ul>
+<p><strong>Future Integration</strong>: Planned for advanced DAGwood features</p>
 <h2 id="performance-and-optimization"><a class="header" href="#performance-and-optimization">Performance and Optimization</a></h2>
 <h3 id="rust-performance-resources"><a class="header" href="#rust-performance-resources">Rust Performance Resources</a></h3>
 <h4 id="profiling-and-benchmarking"><a class="header" href="#profiling-and-benchmarking">Profiling and Benchmarking</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct PerformanceResources {
-    profiling_tools: vec![
-        "cargo flamegraph - CPU profiling",
-        "valgrind/massif - Memory profiling", 
-        "perf - System-level profiling",
-        "criterion - Micro-benchmarking",
-    ],
-    
-    optimization_guides: vec![
-        "The Rust Performance Book",
-        "Optimizing Rust for Performance",
-        "Zero-cost Abstractions in Rust",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Profiling Tools:</strong></p>
+<ul>
+<li><strong>cargo flamegraph</strong>: CPU profiling and flame graphs</li>
+<li><strong>valgrind/massif</strong>: Memory profiling and leak detection</li>
+<li><strong>perf</strong>: System-level performance analysis</li>
+<li><strong>criterion</strong>: Micro-benchmarking framework</li>
+</ul>
+<p><strong>Optimization Guides:</strong></p>
+<ul>
+<li><strong>The Rust Performance Book</strong>: Comprehensive optimization guide</li>
+<li><strong>Optimizing Rust for Performance</strong>: Best practices and patterns</li>
+<li><strong>Zero-cost Abstractions</strong>: Understanding Rust's performance model</li>
+</ul>
 <h4 id="dagwood-specific-optimizations"><a class="header" href="#dagwood-specific-optimizations">DAGwood-Specific Optimizations</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct DagwoodOptimizations {
-    memory_optimizations: vec![
-        "Arc&lt;T&gt; for shared ownership without cloning",
-        "Efficient metadata serialization/deserialization",
-        "WASM linear memory management",
-        "Priority queue optimization for blocked tasks",
-    ],
-    
-    concurrency_optimizations: vec![
-        "Semaphore-based concurrency control",
-        "Lock-free data structures where possible",
-        "Efficient async task spawning",
-        "Canonical payload architecture",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Memory Optimizations:</strong></p>
+<ul>
+<li><strong>Arc<T> sharing</strong>: Shared ownership without expensive cloning</li>
+<li><strong>Efficient serialization</strong>: Optimized metadata handling</li>
+<li><strong>WASM memory management</strong>: Linear memory optimization</li>
+<li><strong>Priority queue</strong>: Optimized task scheduling</li>
+</ul>
+<p><strong>Concurrency Optimizations:</strong></p>
+<ul>
+<li><strong>Semaphore control</strong>: Resource-aware concurrency management</li>
+<li><strong>Lock-free structures</strong>: Reduced contention where possible</li>
+<li><strong>Async task spawning</strong>: Efficient task creation and management</li>
+<li><strong>Canonical payload</strong>: Race condition elimination architecture</li>
+</ul>
 <h3 id="benchmarking-and-analysis"><a class="header" href="#benchmarking-and-analysis">Benchmarking and Analysis</a></h3>
 <h4 id="performance-testing-framework"><a class="header" href="#performance-testing-framework">Performance Testing Framework</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Example benchmark structure
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
-fn benchmark_dag_execution(c: &amp;mut Criterion) {
-    c.bench_function("work_queue_diamond_dag", |b| {
-        b.iter(|| {
-            // Benchmark DAG execution
-            black_box(execute_diamond_dag())
-        })
-    });
-}
-
-criterion_group!(benches, benchmark_dag_execution);
-criterion_main!(benches);
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Benchmark Structure:</strong></p>
+<ul>
+<li><strong>Criterion framework</strong>: Micro-benchmarking with statistical analysis</li>
+<li><strong>Black box testing</strong>: Prevent compiler optimizations during benchmarks</li>
+<li><strong>DAG execution benchmarks</strong>: Performance testing for different execution strategies</li>
+<li><strong>Statistical analysis</strong>: Confidence intervals and regression detection</li>
+</ul>
 <h2 id="development-tools-and-environment"><a class="header" href="#development-tools-and-environment">Development Tools and Environment</a></h2>
 <h3 id="essential-development-tools"><a class="header" href="#essential-development-tools">Essential Development Tools</a></h3>
 <h4 id="rust-toolchain"><a class="header" href="#rust-toolchain">Rust Toolchain</a></h4>
@@ -568,40 +468,34 @@ cargo install cargo-outdated    # Dependency updates
 cargo install cargo-tree        # Dependency analysis
 </code></pre>
 <h4 id="ide-and-editor-setup"><a class="header" href="#ide-and-editor-setup">IDE and Editor Setup</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct DevelopmentEnvironment {
-    recommended_editors: vec![
-        "VS Code with rust-analyzer extension",
-        "IntelliJ IDEA with Rust plugin", 
-        "Vim/Neovim with rust.vim and coc-rust-analyzer",
-        "Emacs with rustic-mode",
-    ],
-    
-    useful_extensions: vec![
-        "Error Lens - Inline error display",
-        "CodeLLDB - Debugging support",
-        "Better TOML - Cargo.toml syntax highlighting",
-        "YAML - Configuration file support",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Recommended Editors:</strong></p>
+<ul>
+<li><strong>VS Code</strong>: rust-analyzer extension for comprehensive Rust support</li>
+<li><strong>IntelliJ IDEA</strong>: Rust plugin with advanced debugging features</li>
+<li><strong>Vim/Neovim</strong>: rust.vim and coc-rust-analyzer for terminal-based development</li>
+<li><strong>Emacs</strong>: rustic-mode for integrated Rust development</li>
+</ul>
+<p><strong>Useful Extensions:</strong></p>
+<ul>
+<li><strong>Error Lens</strong>: Inline error display and diagnostics</li>
+<li><strong>CodeLLDB</strong>: Advanced debugging support for Rust</li>
+<li><strong>Better TOML</strong>: Cargo.toml syntax highlighting and validation</li>
+<li><strong>YAML</strong>: Configuration file support for DAGwood configs</li>
+</ul>
 <h3 id="testing-and-quality-assurance"><a class="header" href="#testing-and-quality-assurance">Testing and Quality Assurance</a></h3>
 <h4 id="testing-strategies"><a class="header" href="#testing-strategies">Testing Strategies</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct TestingApproach {
-    unit_tests: "Test individual components in isolation",
-    integration_tests: "Test component interactions",
-    property_tests: "Test invariants with random inputs",
-    benchmark_tests: "Performance regression detection",
-    
-    coverage_tools: vec![
-        "cargo tarpaulin - Code coverage",
-        "grcov - Coverage report generation",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Testing Approaches:</strong></p>
+<ul>
+<li><strong>Unit tests</strong>: Test individual components in isolation</li>
+<li><strong>Integration tests</strong>: Test component interactions and workflows</li>
+<li><strong>Property tests</strong>: Test invariants with random inputs using quickcheck</li>
+<li><strong>Benchmark tests</strong>: Performance regression detection and monitoring</li>
+</ul>
+<p><strong>Coverage Tools:</strong></p>
+<ul>
+<li><strong>cargo tarpaulin</strong>: Code coverage analysis for Rust projects</li>
+<li><strong>grcov</strong>: Coverage report generation and visualization</li>
+</ul>
 <h4 id="code-quality-tools"><a class="header" href="#code-quality-tools">Code Quality Tools</a></h4>
 <pre><code class="language-bash"># Quality assurance workflow
 cargo fmt --check          # Code formatting
@@ -613,154 +507,115 @@ cargo doc --no-deps        # Documentation generation
 <h2 id="research-and-academic-resources"><a class="header" href="#research-and-academic-resources">Research and Academic Resources</a></h2>
 <h3 id="distributed-systems"><a class="header" href="#distributed-systems">Distributed Systems</a></h3>
 <h4 id="foundational-papers"><a class="header" href="#foundational-papers">Foundational Papers</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct DistributedSystemsPapers {
-    consensus: vec![
-        "The Part-Time Parliament (Paxos) - Lamport (1998)",
-        "In Search of an Understandable Consensus Algorithm (Raft) - Ongaro &amp; Ousterhout (2014)",
-    ],
-    
-    fault_tolerance: vec![
-        "The Byzantine Generals Problem - Lamport et al. (1982)",
-        "Practical Byzantine Fault Tolerance - Castro &amp; Liskov (1999)",
-    ],
-    
-    consistency: vec![
-        "Time, Clocks, and the Ordering of Events - Lamport (1978)",
-        "Harvest, Yield, and Scalable Tolerant Systems - Fox &amp; Brewer (1999)",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Consensus Algorithms:</strong></p>
+<ul>
+<li><strong>The Part-Time Parliament (Paxos)</strong> - Lamport (1998)</li>
+<li><strong>In Search of an Understandable Consensus Algorithm (Raft)</strong> - Ongaro &amp; Ousterhout (2014)</li>
+</ul>
+<p><strong>Fault Tolerance:</strong></p>
+<ul>
+<li><strong>The Byzantine Generals Problem</strong> - Lamport et al. (1982)</li>
+<li><strong>Practical Byzantine Fault Tolerance</strong> - Castro &amp; Liskov (1999)</li>
+</ul>
+<p><strong>Consistency Models:</strong></p>
+<ul>
+<li><strong>Time, Clocks, and the Ordering of Events</strong> - Lamport (1978)</li>
+<li><strong>Harvest, Yield, and Scalable Tolerant Systems</strong> - Fox &amp; Brewer (1999)</li>
+</ul>
 <h3 id="workflow-orchestration-research"><a class="header" href="#workflow-orchestration-research">Workflow Orchestration Research</a></h3>
 <h4 id="current-research-areas"><a class="header" href="#current-research-areas">Current Research Areas</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct ResearchAreas {
-    algorithmic_research: vec![
-        "Dynamic DAG optimization algorithms",
-        "Parallel topological sorting techniques",
-        "Fault-tolerant workflow execution",
-    ],
-    
-    systems_research: vec![
-        "Serverless workflow orchestration",
-        "Edge computing workflow deployment",
-        "Multi-cloud workflow federation",
-    ],
-    
-    ml_applications: vec![
-        "ML-driven workflow optimization",
-        "Predictive failure detection",
-        "Automatic resource allocation",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Algorithmic Research:</strong></p>
+<ul>
+<li><strong>Dynamic DAG optimization</strong>: Adaptive algorithms for changing workloads</li>
+<li><strong>Parallel topological sorting</strong>: Concurrent dependency resolution techniques</li>
+<li><strong>Fault-tolerant execution</strong>: Resilient workflow orchestration patterns</li>
+</ul>
+<p><strong>Systems Research:</strong></p>
+<ul>
+<li><strong>Serverless orchestration</strong>: Function-as-a-Service workflow coordination</li>
+<li><strong>Edge computing</strong>: Distributed workflow deployment at the edge</li>
+<li><strong>Multi-cloud federation</strong>: Cross-cloud workflow orchestration</li>
+</ul>
+<p><strong>ML Applications:</strong></p>
+<ul>
+<li><strong>ML-driven optimization</strong>: AI-powered workflow performance tuning</li>
+<li><strong>Predictive failure detection</strong>: Machine learning for proactive error handling</li>
+<li><strong>Automatic resource allocation</strong>: Intelligent resource management</li>
+</ul>
 <h2 id="community-and-contribution"><a class="header" href="#community-and-contribution">Community and Contribution</a></h2>
 <h3 id="open-source-best-practices"><a class="header" href="#open-source-best-practices">Open Source Best Practices</a></h3>
 <h4 id="contribution-guidelines"><a class="header" href="#contribution-guidelines">Contribution Guidelines</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct ContributionBestPractices {
-    code_style: "Follow Rust standard formatting and naming conventions",
-    testing: "Include comprehensive tests for new features",
-    documentation: "Document public APIs and provide examples",
-    commit_messages: "Use conventional commit format with clear descriptions",
-    
-    review_process: vec![
-        "Create focused, single-purpose pull requests",
-        "Include performance impact analysis for changes",
-        "Ensure backward compatibility or document breaking changes",
-        "Respond promptly to review feedback",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
-<h4 id="community-engagement"><a class="header" href="#community-engagement">Community Engagement</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct CommunityEngagement {
-    ways_to_contribute: vec![
-        "Code contributions - features, bug fixes, optimizations",
-        "Documentation - tutorials, examples, API docs",
-        "Testing - edge cases, performance testing, integration testing",
-        "Community support - answering questions, mentoring newcomers",
-    ],
-    
-    recognition_programs: vec![
-        "Contributor of the month recognition",
-        "Conference speaking opportunities",
-        "Mentorship program participation",
-        "Technical blog post opportunities",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Best Practices:</strong></p>
+<ul>
+<li><strong>Code style</strong>: Follow Rust standard formatting and naming conventions</li>
+<li><strong>Testing</strong>: Include comprehensive tests for new features</li>
+<li><strong>Documentation</strong>: Document public APIs and provide examples</li>
+<li><strong>Commit messages</strong>: Use conventional commit format with clear descriptions</li>
+</ul>
+<p><strong>Review Process:</strong></p>
+<ul>
+<li><strong>Focused PRs</strong>: Create single-purpose pull requests</li>
+<li><strong>Performance analysis</strong>: Include impact analysis for changes</li>
+<li><strong>Compatibility</strong>: Ensure backward compatibility or document breaking changes</li>
+<li><strong>Responsiveness</strong>: Respond promptly to review feedback</li>
+</ul>
 <h3 id="learning-and-mentorship"><a class="header" href="#learning-and-mentorship">Learning and Mentorship</a></h3>
 <h4 id="structured-learning-paths"><a class="header" href="#structured-learning-paths">Structured Learning Paths</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct LearningPaths {
-    beginner_path: vec![
-        "Complete Rust Book and Rustlings",
-        "Run DAGwood demo and understand basic concepts",
-        "Implement a simple local processor",
-        "Create custom workflow configurations",
-    ],
-    
-    intermediate_path: vec![
-        "Study DAG execution algorithms in detail",
-        "Implement WASM processor modules",
-        "Contribute to performance optimizations",
-        "Add comprehensive test coverage",
-    ],
-    
-    advanced_path: vec![
-        "Design and implement new execution strategies",
-        "Research distributed execution approaches",
-        "Contribute to academic papers and presentations",
-        "Mentor other contributors and lead major features",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Beginner Path:</strong></p>
+<ul>
+<li><strong>Rust fundamentals</strong>: Complete Rust Book and Rustlings exercises</li>
+<li><strong>DAGwood basics</strong>: Run demo and understand core concepts</li>
+<li><strong>First contribution</strong>: Implement a simple local processor</li>
+<li><strong>Configuration</strong>: Create custom workflow configurations</li>
+</ul>
+<p><strong>Intermediate Path:</strong></p>
+<ul>
+<li><strong>Algorithm study</strong>: Deep dive into DAG execution algorithms</li>
+<li><strong>WASM development</strong>: Implement WASM processor modules</li>
+<li><strong>Performance work</strong>: Contribute to optimization efforts</li>
+<li><strong>Testing</strong>: Add comprehensive test coverage</li>
+</ul>
+<p><strong>Advanced Path:</strong></p>
+<ul>
+<li><strong>Architecture design</strong>: Implement new execution strategies</li>
+<li><strong>Research</strong>: Explore distributed execution approaches</li>
+<li><strong>Academic contribution</strong>: Papers and conference presentations</li>
+<li><strong>Leadership</strong>: Mentor contributors and lead major features</li>
+</ul>
 <h2 id="staying-updated"><a class="header" href="#staying-updated">Staying Updated</a></h2>
 <h3 id="information-sources"><a class="header" href="#information-sources">Information Sources</a></h3>
 <h4 id="official-channels"><a class="header" href="#official-channels">Official Channels</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct InformationSources {
-    project_updates: vec![
-        "GitHub releases and changelogs",
-        "Monthly community calls",
-        "Technical blog posts",
-        "Conference presentations",
-    ],
-    
-    rust_ecosystem: vec![
-        "This Week in Rust newsletter",
-        "Rust Blog (blog.rust-lang.org)",
-        "Rust subreddit (/r/rust)",
-        "Rust Users Forum",
-    ],
-    
-    workflow_orchestration: vec![
-        "CNCF landscape updates",
-        "Serverless computing research",
-        "Cloud native technology trends",
-        "Academic conference proceedings",
-    ],
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Project Updates:</strong></p>
+<ul>
+<li><strong>GitHub releases</strong>: Changelogs and version announcements</li>
+<li><strong>Community calls</strong>: Monthly meetings and updates</li>
+<li><strong>Technical blog</strong>: In-depth articles and tutorials</li>
+<li><strong>Conference presentations</strong>: Speaking engagements and demos</li>
+</ul>
+<p><strong>Rust Ecosystem:</strong></p>
+<ul>
+<li><strong>This Week in Rust</strong>: Weekly newsletter with ecosystem updates</li>
+<li><strong>Rust Blog</strong>: Official Rust language blog (blog.rust-lang.org)</li>
+<li><strong>Rust subreddit</strong>: Community discussions (/r/rust)</li>
+<li><strong>Rust Users Forum</strong>: Technical discussions and help</li>
+</ul>
+<p><strong>Workflow Orchestration:</strong></p>
+<ul>
+<li><strong>CNCF landscape</strong>: Cloud native technology updates</li>
+<li><strong>Serverless research</strong>: Latest developments in serverless computing</li>
+<li><strong>Cloud native trends</strong>: Industry technology trends</li>
+<li><strong>Academic conferences</strong>: Research and academic proceedings</li>
+</ul>
 <h3 id="continuous-learning"><a class="header" href="#continuous-learning">Continuous Learning</a></h3>
 <h4 id="recommended-schedule"><a class="header" href="#recommended-schedule">Recommended Schedule</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct LearningSchedule {
-    daily: "Read Rust/systems programming articles (15-30 min)",
-    weekly: "Contribute to DAGwood or related projects (2-4 hours)",
-    monthly: "Attend community calls and review project roadmap",
-    quarterly: "Evaluate new technologies and research directions",
-    annually: "Attend conferences and present learnings",
-}
-<span class="boring">}</span></code></pre></pre>
+<p><strong>Continuous Learning Schedule:</strong></p>
+<ul>
+<li><strong>Daily</strong>: Read Rust/systems programming articles (15-30 min)</li>
+<li><strong>Weekly</strong>: Contribute to DAGwood or related projects (2-4 hours)</li>
+<li><strong>Monthly</strong>: Attend community calls and review project roadmap</li>
+<li><strong>Quarterly</strong>: Evaluate new technologies and research directions</li>
+<li><strong>Annually</strong>: Attend conferences and present learnings</li>
+</ul>
 <hr />
 <blockquote>
 <p>📚 <strong>Learning Philosophy</strong>: The best way to master The DAGwood project is through hands-on experimentation combined with solid theoretical understanding. Use these resources as a foundation, but don't hesitate to dive into the code, ask questions, and contribute your own insights to the community!</p>

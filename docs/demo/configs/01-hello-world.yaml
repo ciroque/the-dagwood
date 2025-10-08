@@ -1,0 +1,16 @@
+# Demo 1: Hello World - Single Processor
+# This demonstrates the simplest possible DAG: one processor with no dependencies
+
+strategy: work_queue
+failure_strategy: fail_fast
+
+executor_options:
+  max_concurrency: 1
+
+processors:
+  - id: hello_processor
+    type: local
+    processor: change_text_case_upper
+    depends_on: []
+    options:
+      # No additional options needed for this simple example

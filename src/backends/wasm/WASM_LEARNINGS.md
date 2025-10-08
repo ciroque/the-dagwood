@@ -64,8 +64,9 @@ Tried multiple memory allocation approaches to rule out allocator issues:
 3. **Static Buffer Allocation**:
    ```rust
    static mut STATIC_BUFFER: [u8; 4096] = [0; 4096];
-   // Simple bump allocator
-   ```
+   // Implements a simple bump allocator: memory is allocated by incrementing an offset within the static buffer.
+   // Each allocation returns a pointer to the next free region; deallocation is not supported.
+   // This approach is fast but limited to the fixed buffer size and is suitable for demonstration or testing purposes.   ```
 
 4. **std::alloc Direct Usage**:
    ```rust

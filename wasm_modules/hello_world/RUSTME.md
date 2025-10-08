@@ -126,8 +126,17 @@ pub extern "C" fn process(
     // Convert raw pointer to slice
     let input_slice = unsafe { std::slice::from_raw_parts(input_ptr, input_len) };
     
+    // Convert to Rust string with error handling
+    let input_str = match std::str::from_utf8(input_slice) {
+        Ok(s) => s,
+        Err(_) => {
+            unsafe { *output_len = 0; }
+            return ptr::null_mut();
+        }
+    };
+    
     // Process the data
-    let output = format!("{}-wasm", std::str::from_utf8(input_slice)?);
+    let output = format!("{}-wasm", input_str);
     let output_bytes = output.as_bytes();
     
     // Allocate and return result

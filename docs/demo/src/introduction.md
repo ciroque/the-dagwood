@@ -29,6 +29,7 @@ This 10-15 minute demonstration highlights four primary objectives:
 - **Learning Enhancement**: AI-guided exploration of complex Rust concepts
 - **Code Quality**: AI-assisted refactoring and optimization
 - **Documentation**: Comprehensive docs generated with AI collaboration
+- **RUSTME** files, For each subsystem in the project I had the AI generate a RUSTME file. These files highlight the key Rust concepts and patterns used in the code.
 
 ## What You'll See
 

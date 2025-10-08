@@ -32,6 +32,14 @@ This 10-15 minute demonstration highlights four primary objectives:
 
 ## What You'll See
 
+### System Architecture Overview
+Before diving into the demos, the **Architecture Overview** provides essential context:
+- **High-level system design** with component relationships
+- **Design patterns** used throughout (Factory, Strategy, Trait System)
+- **Execution strategies** comparison (Work Queue, Level-by-Level, Reactive)
+- **Memory management** and performance optimizations
+- **Extensibility architecture** for custom processors and backends
+
 ### Progressive Complexity Journey
 1. **Hello World** → Single processor basics
 2. **Text Pipeline** → Linear data flow and chaining  

@@ -163,6 +163,8 @@ pub struct WasmProcessor {
     intent: ProcessorIntent,
 }
 
+const FUEL_LEVEL: u64 = 100_000_000;
+
 impl WasmProcessor {
     /// Creates a new WasmProcessor with the specified configuration.
     ///
@@ -270,7 +272,7 @@ impl WasmProcessor {
         // - Memory allocation: 100-1000 fuel per allocation
         // - String operations: 10-100 fuel per operation
         // 100M fuel should handle even complex text processing tasks
-        store.set_fuel(100_000_000)?;
+        store.set_fuel(FUEL_LEVEL)?;
         
         // Create a linker (no WASI functions)
         let linker = Linker::new(&self.engine);

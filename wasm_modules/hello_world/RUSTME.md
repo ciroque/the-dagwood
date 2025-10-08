@@ -25,14 +25,14 @@ pub extern "C" fn process(input_ptr: *const u8, input_len: usize, output_len: *m
 - **Safety**: All pointer operations require `unsafe` blocks
 - **Memory model**: Direct memory access without Rust's ownership system
 
-#### **3. C String Interoperability**
+#### **3. Binary Data Handling**
 ```rust
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
+use std::slice;
+use std::str;
 ```
-- **`CStr`**: Borrowed reference to null-terminated C string
-- **`CString`**: Owned null-terminated C string
-- **`c_char`**: Platform-specific character type for C compatibility
+- **`slice::from_raw_parts()`**: Converts raw pointer + length to safe slice
+- **`str::from_utf8()`**: Validates and converts byte slice to UTF-8 string
+- **Length-explicit interface**: No null terminators needed, supports binary data
 
 ### Intermediate Level
 

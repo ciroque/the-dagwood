@@ -185,7 +185,7 @@ const FUEL_LEVEL: u64 = 100_000_000;
 
 // The maximum allowed WASM module size is 10MB to prevent excessive memory/resource usage and potential denial-of-service attacks.
 // This limit is chosen as a balance between supporting reasonably large modules and maintaining system stability.
-const MAX_WASM_MODULE_SIZE: usize = 10 * 1024 * 1024;
+const MAX_WASM_COMPONENT_SIZE: usize = 10 * 1024 * 1024;
 
 impl WasmProcessor {
     /// Creates a new WasmProcessor with the specified configuration.
@@ -236,7 +236,7 @@ impl WasmProcessor {
         let module_bytes = std::fs::read(&module_path)
             .map_err(WasmError::IoError)?;
             
-        if module_bytes.len() > MAX_WASM_MODULE_SIZE {
+        if module_bytes.len() > MAX_WASM_COMPONENT_SIZE {
             return Err(WasmError::ValidationError("WASM module too large".to_string()));
         }
         
@@ -330,10 +330,12 @@ impl WasmProcessor {
         }
 
         // Allocate memory for the output length parameter
+        // There are two of these to deal with the different calling conventions;
+        // the WASM functions want i32, while the Rust functions want usize.
         const USIZEOF_I32: usize = std::mem::size_of::<i32>();
         const SIZEOF_I32: i32 = USIZEOF_I32 as i32;
 
-        let output_len_ptr = allocate_func.call(&mut store, SIZEOF_I32) 
+        let output_len_ptr = allocate_func.call(&mut store, SIZEOF_I32)
             .map_err(|e| format!("WASM allocate for output_len failed: {}", e))?;
 
         if output_len_ptr == 0 {

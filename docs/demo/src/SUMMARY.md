@@ -2,6 +2,8 @@
 
 [Introduction](./introduction.md)
 
+[Architecture Overview](./architecture.md)
+
 # Progressive Demo Journey
 
 - [Hello World: Single Processor](./01-hello-world.md)

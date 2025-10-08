@@ -1,0 +1,651 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Complex Workflow: Multi-Backend Pipeline - The DAGwood Project Demo</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Interactive demonstration of DAG execution strategies, Rust concepts, and WASM integration">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The DAGwood Project Demo</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/ciroque/the-dagwood" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/demo/src/05-complex-workflow.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="complex-workflow-multi-backend-pipeline"><a class="header" href="#complex-workflow-multi-backend-pipeline">Complex Workflow: Multi-Backend Pipeline</a></h1>
+<p>Our final demonstration showcases a sophisticated workflow that combines everything we've learned: multiple execution strategies, mixed backends, advanced error handling, and production-ready patterns.</p>
+<h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You'll Learn</a></h2>
+<ul>
+<li><strong>Level-by-Level vs Work Queue</strong> execution strategies</li>
+<li><strong>Mixed local and WASM</strong> processor coordination</li>
+<li><strong>Advanced error handling</strong> with failure strategies</li>
+<li><strong>Production-ready workflow</strong> orchestration patterns</li>
+</ul>
+<h2 id="configuration-overview"><a class="header" href="#configuration-overview">Configuration Overview</a></h2>
+<pre><code class="language-yaml"># Demo 5: Complex Workflow - Multi-Backend Pipeline
+# This demonstrates advanced DAG with multiple backends and execution strategies
+
+strategy: level  # Use level-by-level execution for comparison
+failure_strategy: best_effort
+
+executor_options:
+  max_concurrency: 6
+
+processors:
+  # Entry points: multiple input processors
+  - id: input_a
+    backend: local
+    impl: change_text_case_upper
+    depends_on: []
+    options: {}
+
+  - id: input_b
+    backend: local
+    impl: change_text_case_lower
+    depends_on: []
+    options: {}
+
+  # Processing layer: mix of local and WASM
+  - id: process_a
+    backend: local
+    impl: reverse_text
+    depends_on: [input_a]
+    options: {}
+
+  - id: process_b_wasm
+    backend: wasm
+    module: wasm_modules/hello_world.wasm
+    depends_on: [input_b]
+    options:
+      intent: transform
+
+  # Analysis layer: parallel analysis of both paths
+  - id: analyze_a
+    backend: local
+    impl: token_counter
+    depends_on: [process_a]
+    options:
+      count_type: "characters"
+
+  - id: analyze_b
+    backend: local
+    impl: word_frequency_analyzer
+    depends_on: [process_b_wasm]
+    options: {}
+
+  # Convergence: combine all results
+  - id: final_merge
+    backend: local
+    impl: prefix_suffix_adder
+    depends_on: [analyze_a, analyze_b]
+    options:
+      prefix: "🔄 Multi-Backend Result: "
+      suffix: " [COMPLETE]"
+</code></pre>
+<h3 id="complex-dag-analysis"><a class="header" href="#complex-dag-analysis">Complex DAG Analysis</a></h3>
+<p>This creates a sophisticated multi-path DAG:</p>
+<pre><code>    input_a ──► process_a ──► analyze_a ──┐
+                                          ├──► final_merge
+    input_b ──► process_b_wasm ──► analyze_b ──┘
+</code></pre>
+<ul>
+<li><strong>Multiple entry points</strong>: Two independent starting processors</li>
+<li><strong>Mixed backends</strong>: Local and WASM processors intermixed</li>
+<li><strong>Parallel analysis</strong>: Two analysis paths that converge</li>
+<li><strong>Level-by-Level execution</strong>: Different strategy for comparison</li>
+</ul>
+<h2 id="rust-concepts-in-action"><a class="header" href="#rust-concepts-in-action">Rust Concepts in Action</a></h2>
+<h3 id="1-level-by-level-execution-strategy"><a class="header" href="#1-level-by-level-execution-strategy">1. Level-by-Level Execution Strategy</a></h3>
+<p>Unlike Work Queue's dependency counting, Level-by-Level uses topological levels:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// From src/engine/level_by_level.rs
+fn compute_topological_levels(graph: &amp;DependencyGraph) -&gt; Result&lt;Vec&lt;Vec&lt;String&gt;&gt;, ExecutionError&gt; {
+    let mut levels = Vec::new();
+    let mut processed = HashSet::new();
+    let mut current_level = Vec::new();
+    
+    // Level 0: Entry points (no dependencies)
+    for (processor_id, dependencies) in &amp;graph.0 {
+        if dependencies.is_empty() {
+            current_level.push(processor_id.clone());
+        }
+    }
+    
+    while !current_level.is_empty() {
+        levels.push(current_level.clone());
+        
+        // Mark current level as processed
+        for processor_id in &amp;current_level {
+            processed.insert(processor_id.clone());
+        }
+        
+        // Find next level: processors whose dependencies are all processed
+        let mut next_level = Vec::new();
+        for (processor_id, dependencies) in &amp;graph.0 {
+            if !processed.contains(processor_id) {
+                let all_deps_processed = dependencies.iter()
+                    .all(|dep| processed.contains(dep));
+                    
+                if all_deps_processed {
+                    next_level.push(processor_id.clone());
+                }
+            }
+        }
+        
+        current_level = next_level;
+    }
+    
+    Ok(levels)
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Algorithm characteristics</strong>:</p>
+<ul>
+<li><strong>Batch processing</strong>: Execute entire levels at once</li>
+<li><strong>Clear boundaries</strong>: Explicit level separation</li>
+<li><strong>Predictable ordering</strong>: Deterministic level assignment</li>
+<li><strong>Memory efficiency</strong>: O(V + E) space complexity</li>
+</ul>
+<h3 id="2-best-effort-failure-strategy"><a class="header" href="#2-best-effort-failure-strategy">2. Best Effort Failure Strategy</a></h3>
+<p>The <code>best_effort</code> failure strategy demonstrates resilient execution:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Simplified error handling in level execution
+match processor.process(input).await {
+    Ok(response) =&gt; {
+        // Success: store result and continue
+        results_guard.insert(processor_id.clone(), response);
+    },
+    Err(e) =&gt; match failure_strategy {
+        FailureStrategy::FailFast =&gt; {
+            return Err(e); // Stop immediately
+        },
+        FailureStrategy::BestEffort =&gt; {
+            // Continue with other processors
+            // Failed processor won't contribute to dependents
+            eprintln!("Processor {} failed but continuing: {}", processor_id, e);
+        },
+        FailureStrategy::ContinueOnError =&gt; {
+            // Similar to BestEffort but with different semantics
+        }
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Resilience patterns</strong>:</p>
+<ul>
+<li><strong>Graceful degradation</strong>: System continues despite failures</li>
+<li><strong>Partial results</strong>: Successful processors still contribute</li>
+<li><strong>Error isolation</strong>: Failures don't cascade unnecessarily</li>
+</ul>
+<h3 id="3-multi-backend-coordination"><a class="header" href="#3-multi-backend-coordination">3. Multi-Backend Coordination</a></h3>
+<p>The processor factory seamlessly handles different backends:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// From src/config/processor_map.rs
+pub fn resolve_processor(config: &amp;ProcessorConfig) -&gt; Result&lt;Box&lt;dyn Processor&gt;, ProcessorError&gt; {
+    match config.backend {
+        BackendType::Local =&gt; {
+            LocalProcessorFactory::create_processor(config)
+        },
+        BackendType::Wasm =&gt; {
+            WasmProcessorFactory::create_processor(config)
+        },
+        // Future backends: RPC, SharedLibrary, etc.
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Architectural benefits</strong>:</p>
+<ul>
+<li><strong>Backend abstraction</strong>: Uniform processor interface</li>
+<li><strong>Easy extension</strong>: New backends integrate seamlessly</li>
+<li><strong>Type safety</strong>: Rust's type system prevents backend confusion</li>
+</ul>
+<h3 id="4-advanced-concurrency-patterns"><a class="header" href="#4-advanced-concurrency-patterns">4. Advanced Concurrency Patterns</a></h3>
+<p>With <code>max_concurrency: 6</code>, this workflow demonstrates sophisticated parallelism:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Level-by-level parallel execution within levels
+async fn execute_level(
+    level_processors: &amp;[String],
+    // ... other parameters
+) -&gt; Result&lt;(), ExecutionError&gt; {
+    let semaphore = Arc::new(Semaphore::new(max_concurrency));
+    let mut task_handles = Vec::new();
+    
+    // Spawn tasks for all processors in this level
+    for processor_id in level_processors {
+        let permit = semaphore.clone().acquire_owned().await?;
+        let task_handle = tokio::spawn(async move {
+            let _permit = permit; // RAII: auto-release on completion
+            
+            // Execute processor (may be local or WASM)
+            execute_single_processor(processor_id, input).await
+        });
+        
+        task_handles.push(task_handle);
+    }
+    
+    // Wait for all processors in this level to complete
+    for handle in task_handles {
+        handle.await??; // Double ? for JoinError and ExecutionError
+    }
+    
+    Ok(())
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h2>
+<pre><code>📋 Configuration: docs/demo/configs/05-complex-workflow.yaml
+🔧 Strategy: Level
+⚙️  Max Concurrency: 6
+🛡️  Failure Strategy: BestEffort
+
+📊 Execution Results:
+⏱️  Execution Time: ~8ms
+🔢 Processors Executed: 7
+
+🔄 Processor Chain:
+Level 0 (Entry Points):
+  1. input_a → "HELLO WORLD"
+  2. input_b → "hello world"
+
+Level 1 (Processing):
+  3. process_a → "DLROW OLLEH"
+  4. process_b_wasm → "hello world-wasm"
+
+Level 2 (Analysis):
+  5. analyze_a → "DLROW OLLEH" (+ metadata: char_count: 11)
+  6. analyze_b → "hello world-wasm" (+ metadata: word_analysis: {...})
+
+Level 3 (Convergence):
+  7. final_merge → "🔄 Multi-Backend Result: DLROW OLLEH [COMPLETE]"
+
+🎯 Final Transformation:
+   Input:  "hello world"
+   Output: "🔄 Multi-Backend Result: DLROW OLLEH [COMPLETE]"
+   
+   Pipeline Metadata:
+   analyze_a:
+      • character_count: 11
+      • processing_time_ms: 0.1
+   analyze_b:
+      • unique_words: 2
+      • most_frequent: hello
+   process_b_wasm:
+      • module_path: wasm_modules/hello_world.wasm
+      • execution_time_ms: 2.3
+</code></pre>
+<h2 id="architecture-comparison"><a class="header" href="#architecture-comparison">Architecture Comparison</a></h2>
+<h3 id="level-by-level-vs-work-queue"><a class="header" href="#level-by-level-vs-work-queue">Level-by-Level vs Work Queue</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Aspect</th><th>Level-by-Level</th><th>Work Queue</th></tr></thead><tbody>
+<tr><td><strong>Algorithm</strong></td><td>Topological levels</td><td>Dependency counting</td></tr>
+<tr><td><strong>Execution</strong></td><td>Batch by level</td><td>Individual readiness</td></tr>
+<tr><td><strong>Memory</strong></td><td>Level arrays</td><td>Priority queue + counters</td></tr>
+<tr><td><strong>Parallelism</strong></td><td>Within levels only</td><td>Across entire DAG</td></tr>
+<tr><td><strong>Predictability</strong></td><td>High (clear phases)</td><td>Medium (dynamic ordering)</td></tr>
+<tr><td><strong>Efficiency</strong></td><td>Good for regular DAGs</td><td>Better for irregular DAGs</td></tr>
+</tbody></table>
+</div>
+<h3 id="performance-characteristics"><a class="header" href="#performance-characteristics">Performance Characteristics</a></h3>
+<pre><code>Level-by-Level Timeline:
+0ms: Level 0 starts (input_a, input_b) - parallel
+1ms: Level 0 completes
+1ms: Level 1 starts (process_a, process_b_wasm) - parallel
+3ms: Level 1 completes (WASM takes longer)
+3ms: Level 2 starts (analyze_a, analyze_b) - parallel
+4ms: Level 2 completes
+4ms: Level 3 starts (final_merge)
+5ms: Level 3 completes
+
+Work Queue Timeline (hypothetical):
+0ms: input_a, input_b start - parallel
+1ms: input_a completes, process_a starts
+1ms: input_b completes, process_b_wasm starts
+2ms: process_a completes, analyze_a starts
+3ms: process_b_wasm completes, analyze_b starts
+3ms: analyze_a completes
+4ms: analyze_b completes, final_merge starts
+5ms: final_merge completes
+</code></pre>
+<p><strong>Key insight</strong>: Level-by-Level can be more efficient for regular DAGs due to better batching, while Work Queue excels with irregular dependency patterns.</p>
+<h2 id="production-patterns"><a class="header" href="#production-patterns">Production Patterns</a></h2>
+<h3 id="1-error-recovery-strategies"><a class="header" href="#1-error-recovery-strategies">1. Error Recovery Strategies</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Production-ready error handling
+match execute_workflow(config).await {
+    Ok(results) =&gt; {
+        log::info!("Workflow completed successfully: {} processors", results.len());
+        Ok(results)
+    },
+    Err(ExecutionError::ProcessorError { processor_id, source }) =&gt; {
+        log::error!("Processor {} failed: {}", processor_id, source);
+        // Could implement retry logic here
+        Err(e)
+    },
+    Err(ExecutionError::ValidationError { message }) =&gt; {
+        log::error!("Configuration invalid: {}", message);
+        // Could implement config auto-correction
+        Err(e)
+    },
+    Err(e) =&gt; {
+        log::error!("Unexpected error: {}", e);
+        Err(e)
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="2-observability-integration"><a class="header" href="#2-observability-integration">2. Observability Integration</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Future observability patterns
+struct WorkflowMetrics {
+    total_execution_time: Duration,
+    processor_execution_times: HashMap&lt;String, Duration&gt;,
+    memory_usage_peak: usize,
+    concurrency_utilization: f64,
+}
+
+// Tracing integration
+#[tracing::instrument(skip(processors, executor))]
+async fn execute_workflow(
+    processors: ProcessorRegistry,
+    executor: Box&lt;dyn DagExecutor&gt;,
+    // ...
+) -&gt; Result&lt;WorkflowResults, ExecutionError&gt; {
+    let span = tracing::info_span!("workflow_execution");
+    // ... execution with detailed tracing
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="3-resource-management"><a class="header" href="#3-resource-management">3. Resource Management</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Production resource limits
+struct ExecutorConfig {
+    max_concurrency: usize,
+    max_memory_mb: usize,
+    execution_timeout: Duration,
+    processor_timeout: Duration,
+}
+
+// Graceful shutdown
+impl DagExecutor {
+    async fn shutdown_gracefully(&amp;self, timeout: Duration) -&gt; Result&lt;(), ShutdownError&gt; {
+        // Cancel running tasks
+        // Wait for cleanup
+        // Release resources
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="try-it-yourself"><a class="header" href="#try-it-yourself">Try It Yourself</a></h2>
+<h3 id="experiment-with-strategies"><a class="header" href="#experiment-with-strategies">Experiment with Strategies</a></h3>
+<ol>
+<li><strong>Change to Work Queue</strong>: Modify <code>strategy: work_queue</code> and compare execution</li>
+<li><strong>Add failure scenarios</strong>: Create a processor that always fails</li>
+<li><strong>Scale up</strong>: Add more processors and observe concurrency patterns</li>
+<li><strong>Mix more backends</strong>: When RPC backend is available, create 3-way mixing</li>
+</ol>
+<h3 id="performance-testing"><a class="header" href="#performance-testing">Performance Testing</a></h3>
+<pre><code class="language-bash"># Benchmark different strategies
+time cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "test input"
+
+# Profile memory usage
+valgrind --tool=massif cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "test"
+</code></pre>
+<h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
+<p>This completes our progressive demo journey! You've now seen:</p>
+<p>✅ <strong>Single processor basics</strong> (Hello World)<br />
+✅ <strong>Linear dependency chains</strong> (Text Pipeline)<br />
+✅ <strong>Parallel diamond patterns</strong> (Diamond Analysis)<br />
+✅ <strong>WASM integration</strong> (Sandboxed Processing)<br />
+✅ <strong>Complex multi-backend workflows</strong> (This demo)</p>
+<h3 id="future-exploration"><a class="header" href="#future-exploration">Future Exploration</a></h3>
+<ul>
+<li><strong>Reactive Executor</strong>: Event-driven execution for real-time workflows</li>
+<li><strong>Hybrid Strategies</strong>: Combining multiple execution approaches</li>
+<li><strong>Advanced WASM</strong>: WASI integration and component model</li>
+<li><strong>Distributed Execution</strong>: Multi-node DAG orchestration</li>
+<li><strong>Machine Learning Integration</strong>: AI-powered workflow optimization</li>
+</ul>
+<hr />
+<blockquote>
+<p>🚀 <strong>Production Insight</strong>: This complex workflow demonstrates that The DAGwood Project is ready for real-world usage. The combination of Rust's safety, multiple execution strategies, WASM sandboxing, and robust error handling provides a solid foundation for production workflow orchestration systems!</p>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="04-wasm-integration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="rust-concepts.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="04-wasm-integration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="rust-concepts.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid.min.js"></script>
+        <script src="mermaid-init.js"></script>
+
+
+
+    </div>
+    </body>
+</html>

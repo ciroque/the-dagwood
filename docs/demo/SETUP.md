@@ -12,9 +12,10 @@ source ~/.cargo/env
 ```
 
 ### 2. mdBook Installation
-Install mdBook for the presentation:
+Install mdBook and the Mermaid plugin for diagram rendering:
 ```bash
 cargo install mdbook
+cargo install mdbook-mermaid
 ```
 
 ### 3. Project Dependencies

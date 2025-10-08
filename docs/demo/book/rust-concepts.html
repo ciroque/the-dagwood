@@ -1,0 +1,548 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Rust Concepts Demonstrated - The DAGwood Project Demo</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Interactive demonstration of DAG execution strategies, Rust concepts, and WASM integration">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The DAGwood Project Demo</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/ciroque/the-dagwood" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/demo/src/rust-concepts.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="rust-concepts-demonstrated"><a class="header" href="#rust-concepts-demonstrated">Rust Concepts Demonstrated</a></h1>
+<p>Throughout our demo journey, we've encountered numerous Rust language features and best practices. This chapter consolidates the key concepts and explains why they're essential for building robust workflow orchestration systems.</p>
+<h2 id="ownership-and-borrowing"><a class="header" href="#ownership-and-borrowing">Ownership and Borrowing</a></h2>
+<h3 id="the-foundation-of-memory-safety"><a class="header" href="#the-foundation-of-memory-safety">The Foundation of Memory Safety</a></h3>
+<p>Rust's ownership system eliminates entire classes of bugs common in systems programming:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Ownership transfer in processor execution
+let processor_input = ProcessorRequest {
+    payload: input_data,  // Ownership transferred
+    metadata: HashMap::new(),
+};
+
+// Processor takes ownership, preventing data races
+let result = processor.process(processor_input).await?;
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Key benefits</strong>:</p>
+<ul>
+<li><strong>No memory leaks</strong>: Automatic cleanup when values go out of scope</li>
+<li><strong>No double-free</strong>: Compiler prevents multiple deallocations</li>
+<li><strong>No use-after-free</strong>: Borrowing rules prevent dangling pointers</li>
+</ul>
+<h3 id="borrowing-for-efficiency"><a class="header" href="#borrowing-for-efficiency">Borrowing for Efficiency</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Efficient borrowing in dependency graph traversal
+for (processor_id, dependencies) in &amp;dependency_graph.0 {
+    if dependencies.is_empty() {
+        entry_points.push(processor_id.clone()); // Clone only when needed
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Pattern</strong>: Borrow when reading, clone when ownership transfer is required.</p>
+<h2 id="asyncawait-and-concurrency"><a class="header" href="#asyncawait-and-concurrency">Async/Await and Concurrency</a></h2>
+<h3 id="tokio-runtime-integration"><a class="header" href="#tokio-runtime-integration">Tokio Runtime Integration</a></h3>
+<p>Our DAG executors leverage Rust's async ecosystem for high-performance concurrency:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Spawning concurrent processor tasks
+let task_handle = tokio::spawn(async move {
+    let processor_response = processor.process(input).await?;
+    
+    // Update shared state safely
+    {
+        let mut results_guard = results.lock().await;
+        results_guard.insert(processor_id, processor_response);
+    }
+    
+    Ok(())
+});
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Key concepts</strong>:</p>
+<ul>
+<li><strong>Zero-cost abstractions</strong>: Async/await compiles to efficient state machines</li>
+<li><strong>Cooperative multitasking</strong>: Tasks yield at <code>.await</code> points</li>
+<li><strong>Structured concurrency</strong>: Clear task lifetimes and cleanup</li>
+</ul>
+<h3 id="semaphore-based-concurrency-control"><a class="header" href="#semaphore-based-concurrency-control">Semaphore-Based Concurrency Control</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let semaphore = Arc::new(Semaphore::new(max_concurrency));
+
+for processor in ready_processors {
+    let permit = semaphore.clone().acquire_owned().await?;
+    tokio::spawn(async move {
+        let _permit = permit; // RAII: auto-release on drop
+        execute_processor(processor).await
+    });
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li><strong>Resource limiting</strong>: Prevents system overload</li>
+<li><strong>Backpressure</strong>: Natural flow control</li>
+<li><strong>Graceful degradation</strong>: System remains responsive under load</li>
+</ul>
+<h2 id="error-handling-with-resultt-e"><a class="header" href="#error-handling-with-resultt-e">Error Handling with Result&lt;T, E&gt;</a></h2>
+<h3 id="composable-error-propagation"><a class="header" href="#composable-error-propagation">Composable Error Propagation</a></h3>
+<p>Rust's <code>Result</code> type enables elegant error handling throughout the system:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Error propagation with ? operator
+async fn execute_workflow(config_path: &amp;str) -&gt; Result&lt;WorkflowResults, ExecutionError&gt; {
+    let config = load_and_validate_config(config_path)?;  // Config errors
+    let executor = create_executor(&amp;config)?;             // Creation errors
+    let results = executor.execute(/* ... */).await?;     // Execution errors
+    Ok(results)
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Error hierarchy</strong>:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(Debug, thiserror::Error)]
+pub enum ExecutionError {
+    #[error("Validation failed: {message}")]
+    ValidationError { message: String },
+    
+    #[error("Processor {processor_id} failed: {source}")]
+    ProcessorError { 
+        processor_id: String, 
+        #[source] source: ProcessorError 
+    },
+    
+    #[error("Internal error: {message}")]
+    InternalError { message: String },
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="failure-strategy-implementation"><a class="header" href="#failure-strategy-implementation">Failure Strategy Implementation</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>match processor_result {
+    Ok(response) =&gt; {
+        // Success path
+        results.insert(processor_id, response);
+    },
+    Err(e) =&gt; match failure_strategy {
+        FailureStrategy::FailFast =&gt; return Err(e),
+        FailureStrategy::BestEffort =&gt; {
+            // Log and continue
+            log::warn!("Processor {} failed: {}", processor_id, e);
+        },
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="trait-system-and-polymorphism"><a class="header" href="#trait-system-and-polymorphism">Trait System and Polymorphism</a></h2>
+<h3 id="processor-trait-abstraction"><a class="header" href="#processor-trait-abstraction">Processor Trait Abstraction</a></h3>
+<p>The trait system enables clean abstractions without runtime overhead:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[async_trait]
+pub trait Processor: Send + Sync {
+    async fn process(&amp;self, input: ProcessorRequest) -&gt; Result&lt;ProcessorResponse, ProcessorError&gt;;
+    fn declared_intent(&amp;self) -&gt; ProcessorIntent;
+}
+
+// Different implementations
+impl Processor for ChangeTextCaseProcessor { /* ... */ }
+impl Processor for WasmProcessor { /* ... */ }
+impl Processor for TokenCounterProcessor { /* ... */ }
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li><strong>Zero-cost abstraction</strong>: Monomorphization eliminates virtual calls</li>
+<li><strong>Type safety</strong>: Compile-time guarantees about behavior</li>
+<li><strong>Extensibility</strong>: Easy to add new processor types</li>
+</ul>
+<h3 id="factory-pattern-with-traits"><a class="header" href="#factory-pattern-with-traits">Factory Pattern with Traits</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>trait ProcessorFactory {
+    fn create_processor(&amp;self, config: &amp;ProcessorConfig) -&gt; Result&lt;Box&lt;dyn Processor&gt;, ProcessorError&gt;;
+}
+
+// Backend-specific implementations
+impl ProcessorFactory for LocalProcessorFactory { /* ... */ }
+impl ProcessorFactory for WasmProcessorFactory { /* ... */ }
+<span class="boring">}</span></code></pre></pre>
+<h2 id="memory-management-patterns"><a class="header" href="#memory-management-patterns">Memory Management Patterns</a></h2>
+<h3 id="arc-for-shared-ownership"><a class="header" href="#arc-for-shared-ownership">Arc<T> for Shared Ownership</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Shared canonical payload across parallel processors
+let canonical_payload_mutex = Arc::new(Mutex::new(original_payload));
+
+// Cheap cloning for each processor task
+for processor in parallel_processors {
+    let canonical_payload_clone = canonical_payload_mutex.clone();
+    tokio::spawn(async move {
+        let payload = canonical_payload_clone.lock().await.clone();
+        // Use payload...
+    });
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Pattern</strong>: Use <code>Arc&lt;T&gt;</code> when multiple owners need shared access to immutable data.</p>
+<h3 id="arcmutex-for-shared-mutable-state"><a class="header" href="#arcmutex-for-shared-mutable-state">Arc&lt;Mutex<T>&gt; for Shared Mutable State</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Thread-safe shared results collection
+let results = Arc::new(Mutex::new(HashMap::new()));
+
+// Each task can safely update results
+{
+    let mut results_guard = results.lock().await;
+    results_guard.insert(processor_id, response);
+} // Lock automatically released
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Pattern</strong>: Use <code>Arc&lt;Mutex&lt;T&gt;&gt;</code> for shared mutable state across async tasks.</p>
+<h3 id="avoiding-unnecessary-clones"><a class="header" href="#avoiding-unnecessary-clones">Avoiding Unnecessary Clones</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Efficient: Arc cloning instead of data cloning
+let input_arc = Arc::new(processor_input);
+let task_input = input_arc.clone(); // Cheap reference count increment
+
+// Only clone data when ownership transfer is required
+let owned_input = (*input_arc).clone(); // Dereference then clone
+processor.process(owned_input).await?;
+<span class="boring">}</span></code></pre></pre>
+<h2 id="type-system-strengths"><a class="header" href="#type-system-strengths">Type System Strengths</a></h2>
+<h3 id="compile-time-guarantees"><a class="header" href="#compile-time-guarantees">Compile-Time Guarantees</a></h3>
+<p>Rust's type system catches errors at compile time that would be runtime bugs in other languages:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// This won't compile - prevents data races
+let mut data = vec![1, 2, 3];
+let reference = &amp;data[0];
+data.push(4); // Error: cannot borrow `data` as mutable while immutable borrow exists
+println!("{}", reference);
+<span class="boring">}</span></code></pre></pre>
+<h3 id="enum-pattern-matching"><a class="header" href="#enum-pattern-matching">Enum Pattern Matching</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>match processor_response.outcome {
+    Some(Outcome::NextPayload(payload)) =&gt; {
+        // Handle successful transformation
+        process_payload(payload);
+    },
+    Some(Outcome::Error(error_msg)) =&gt; {
+        // Handle processor error
+        return Err(ProcessorError::ExecutionFailed { message: error_msg });
+    },
+    None =&gt; {
+        // Handle missing outcome
+        return Err(ProcessorError::InvalidResponse);
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li><strong>Exhaustive matching</strong>: Compiler ensures all cases are handled</li>
+<li><strong>No null pointer exceptions</strong>: Option<T> makes nullability explicit</li>
+<li><strong>Refactoring safety</strong>: Adding enum variants causes compile errors until handled</li>
+</ul>
+<h2 id="performance-optimizations"><a class="header" href="#performance-optimizations">Performance Optimizations</a></h2>
+<h3 id="zero-cost-abstractions"><a class="header" href="#zero-cost-abstractions">Zero-Cost Abstractions</a></h3>
+<p>Rust's abstractions compile away, leaving optimal machine code:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// High-level iterator chains...
+let entry_points: Vec&lt;String&gt; = processors
+    .iter()
+    .filter(|p| p.depends_on.is_empty())
+    .map(|p| p.id.clone())
+    .collect();
+
+// ...compile to efficient loops with no overhead
+<span class="boring">}</span></code></pre></pre>
+<h3 id="memory-layout-control"><a class="header" href="#memory-layout-control">Memory Layout Control</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Efficient data structures
+#[repr(C)]
+struct ProcessorMetrics {
+    execution_time_ns: u64,    // 8 bytes
+    memory_usage_bytes: u64,   // 8 bytes
+    success: bool,             // 1 byte
+    // Total: 17 bytes (plus padding)
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="raii-resource-management"><a class="header" href="#raii-resource-management">RAII Resource Management</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Automatic cleanup with RAII
+{
+    let _permit = semaphore.acquire().await?; // Acquire resource
+    execute_processor().await?;
+    // Permit automatically released when _permit goes out of scope
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="why-rust-for-workflow-orchestration"><a class="header" href="#why-rust-for-workflow-orchestration">Why Rust for Workflow Orchestration?</a></h2>
+<h3 id="safety-without-sacrifice"><a class="header" href="#safety-without-sacrifice">Safety Without Sacrifice</a></h3>
+<ul>
+<li><strong>Memory safety</strong>: No segfaults, buffer overflows, or data races</li>
+<li><strong>Thread safety</strong>: Fearless concurrency with compile-time guarantees</li>
+<li><strong>Performance</strong>: Zero-cost abstractions and predictable performance</li>
+</ul>
+<h3 id="ecosystem-strengths"><a class="header" href="#ecosystem-strengths">Ecosystem Strengths</a></h3>
+<ul>
+<li><strong>Tokio</strong>: World-class async runtime</li>
+<li><strong>Serde</strong>: Powerful serialization framework</li>
+<li><strong>Wasmtime</strong>: Industry-leading WASM runtime</li>
+<li><strong>Rich type system</strong>: Expressive types that prevent bugs</li>
+</ul>
+<h3 id="production-readiness"><a class="header" href="#production-readiness">Production Readiness</a></h3>
+<ul>
+<li><strong>Reliability</strong>: Rust's guarantees reduce production incidents</li>
+<li><strong>Maintainability</strong>: Strong types make refactoring safe</li>
+<li><strong>Performance</strong>: Predictable, low-latency execution</li>
+<li><strong>Observability</strong>: Rich ecosystem for monitoring and debugging</li>
+</ul>
+<hr />
+<blockquote>
+<p>🦀 <strong>Rust Philosophy</strong>: "Fast, reliable, productive—pick three." Rust delivers on all fronts by leveraging compile-time analysis to eliminate runtime overhead while maintaining safety and expressiveness. This makes it ideal for systems like DAGwood where correctness and performance are both critical.</p>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="05-complex-workflow.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="dag-strategies.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="05-complex-workflow.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="dag-strategies.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid.min.js"></script>
+        <script src="mermaid-init.js"></script>
+
+
+
+    </div>
+    </body>
+</html>

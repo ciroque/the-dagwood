@@ -100,15 +100,16 @@ Processors are the fundamental units of computation in DAGwood, implementing the
 - **Data Processing**: Transform or analyze input data according to processor-specific logic
 - **Metadata Generation**: Produce structured metadata about processing results and context
 - **Error Handling**: Report failures with detailed error information for debugging
-- **Intent Declaration**: Specify whether the processor transforms data or only analyzes it
+- **Intent Declaration**: Specify whether the processor transforms data or only analyzes it (Transform vs Analyze)
 
 **Processor Types:**
 - **Transform Processors**: Modify the canonical payload (e.g., text case conversion, formatting)
-- **Analyze Processors**: Extract information without modifying data (e.g., word counting, analysis)- 
+- **Analyze Processors**: Extract information without modifying data (e.g., word counting, analysis) 
 
 **Processor Implementations:**
 - **Local Processors**: Built-in implementations for common text processing tasks
 - **WASM Processors**: Sandboxed modules for secure, multi-language processing
+- **RPC Processors**: (Not Yet Implemented) Remote execution through gRPC / HTTP 
 
 **Backend Integration:**
 - **Local Backend**: Direct Rust implementations with zero-overhead execution, compiled into binary

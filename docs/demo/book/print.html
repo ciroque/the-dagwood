@@ -349,17 +349,18 @@
 <li><strong>Data Processing</strong>: Transform or analyze input data according to processor-specific logic</li>
 <li><strong>Metadata Generation</strong>: Produce structured metadata about processing results and context</li>
 <li><strong>Error Handling</strong>: Report failures with detailed error information for debugging</li>
-<li><strong>Intent Declaration</strong>: Specify whether the processor transforms data or only analyzes it</li>
+<li><strong>Intent Declaration</strong>: Specify whether the processor transforms data or only analyzes it (Transform vs Analyze)</li>
 </ul>
 <p><strong>Processor Types:</strong></p>
 <ul>
 <li><strong>Transform Processors</strong>: Modify the canonical payload (e.g., text case conversion, formatting)</li>
-<li><strong>Analyze Processors</strong>: Extract information without modifying data (e.g., word counting, analysis)-</li>
+<li><strong>Analyze Processors</strong>: Extract information without modifying data (e.g., word counting, analysis)</li>
 </ul>
 <p><strong>Processor Implementations:</strong></p>
 <ul>
 <li><strong>Local Processors</strong>: Built-in implementations for common text processing tasks</li>
 <li><strong>WASM Processors</strong>: Sandboxed modules for secure, multi-language processing</li>
+<li><strong>RPC Processors</strong>: (Not Yet Implemented) Remote execution through gRPC / HTTP</li>
 </ul>
 <p><strong>Backend Integration:</strong></p>
 <ul>

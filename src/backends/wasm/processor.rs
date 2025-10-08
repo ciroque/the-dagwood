@@ -187,9 +187,7 @@ impl WasmProcessor {
             
             Ok(result)
         } else {
-            // Fallback: simple string processing (for demo purposes)
-            // In a real implementation, you'd want a more robust interface
-            Ok(format!("{}-wasm", input))
+            Err("WASM module does not export required 'process' function".into())
         }
     }
 }

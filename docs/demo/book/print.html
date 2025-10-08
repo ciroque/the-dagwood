@@ -270,543 +270,254 @@
     
     subgraph "Core Engine"
         Runtime[Runtime Builder]
-        Executor[DAG Executors]
         Validator[Config Validator]
     end
     
     subgraph "Execution Strategies"
-        WQ[Work Queue]
-        LBL[Level-by-Level]
-        Reactive[Reactive]
-        Hybrid[Hybrid]
+        WQ[Work Queue Executor]
+        LBL[Level-by-Level Executor]
+        Reactive[Reactive Executor]
+        Hybrid[Hybrid Executor]
     end
     
-    subgraph "Backend Systems"
-        Local[Local Backend]
-        WASM[WASM Backend]
-        Future[Future Backends]
+    subgraph "Processor Factories"
+        LocalFactory[Local Factory]
+        WasmFactory[WASM Factory]
+        FutureFactory[Future Factories]
     end
     
-    subgraph "Processor Layer"
-        LP[Local Processors]
-        WP[WASM Processors]
-        Custom[Custom Processors]
+    subgraph "Processors"
+        TextProc[Text Processors]
+        WasmProc[WASM Processors]
+        CustomProc[Custom Processors]
     end
     
     CLI --&gt; Runtime
     Config --&gt; Validator
     Validator --&gt; Runtime
-    Runtime --&gt; Executor
-    Executor --&gt; WQ
-    Executor --&gt; LBL
-    Executor --&gt; Reactive
-    Executor --&gt; Hybrid
-    WQ --&gt; Local
-    WQ --&gt; WASM
-    LBL --&gt; Local
-    LBL --&gt; WASM
-    Local --&gt; LP
-    WASM --&gt; WP
+    Runtime --&gt; WQ
+    Runtime --&gt; LBL
+    Runtime --&gt; Reactive
+    Runtime --&gt; Hybrid
+    Runtime --&gt; LocalFactory
+    Runtime --&gt; WasmFactory
+    LocalFactory --&gt; TextProc
+    WasmFactory --&gt; WasmProc
+    WQ --&gt; TextProc
+    WQ --&gt; WasmProc
+    LBL --&gt; TextProc
+    LBL --&gt; WasmProc
+    Reactive --&gt; TextProc
+    Reactive --&gt; WasmProc
 </code></pre>
 <h3 id="core-components"><a class="header" href="#core-components">Core Components</a></h3>
 <h4 id="1-configuration-system"><a class="header" href="#1-configuration-system">1. Configuration System</a></h4>
-<p>The configuration system is the entry point for defining workflows:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Configuration structure
-pub struct Config {
-    pub strategy: Strategy,                    // Execution strategy selection
-    pub failure_strategy: FailureStrategy,    // Error handling approach
-    pub executor_options: ExecutorOptions,    // Runtime configuration
-    pub processors: Vec&lt;ProcessorConfig&gt;,     // Processor definitions
-}
-
-pub struct ProcessorConfig {
-    pub id: String,                           // Unique processor identifier
-    pub backend: String,                      // Backend type (local, wasm)
-    pub impl_: Option&lt;String&gt;,                // Implementation name
-    pub module: Option&lt;String&gt;,               // WASM module path
-    pub depends_on: Vec&lt;String&gt;,              // Dependency list
-    pub options: HashMap&lt;String, String&gt;,     // Processor-specific options
-}
-<span class="boring">}</span></code></pre></pre>
+<p>The configuration system serves as the entry point for defining workflows through YAML files.</p>
 <p><strong>Key Features:</strong></p>
 <ul>
-<li><strong>YAML-based</strong>: Human-readable workflow definitions</li>
-<li><strong>Validation</strong>: Comprehensive validation with detailed error messages</li>
-<li><strong>Dependency Resolution</strong>: Automatic cycle detection and reference validation</li>
-<li><strong>Flexible Options</strong>: Processor-specific configuration support</li>
+<li><strong>YAML-based</strong>: Human-readable workflow definitions with strategy selection, failure handling, and processor specifications</li>
+<li><strong>Validation</strong>: Comprehensive validation with cycle detection and reference resolution</li>
+<li><strong>Flexible Options</strong>: Processor-specific configuration support with backend selection</li>
+<li><strong>Dependency Management</strong>: Automatic dependency graph construction and validation</li>
 </ul>
 <h4 id="2-runtime-builder"><a class="header" href="#2-runtime-builder">2. Runtime Builder</a></h4>
-<p>The Runtime Builder creates execution components from configuration using several key design patterns:</p>
+<p>The Runtime Builder orchestrates the creation of all execution components from configuration:</p>
+<p><strong>Key Responsibilities:</strong></p>
+<ul>
+<li><strong>Processor Instantiation</strong>: Creates processor instances using appropriate factories (Local, WASM)</li>
+<li><strong>Executor Selection</strong>: Chooses execution strategy based on configuration (WorkQueue, Level-by-Level, Reactive)</li>
+<li><strong>Dependency Graph Construction</strong>: Builds internal graph representation from processor dependencies</li>
+<li><strong>Failure Strategy Configuration</strong>: Sets up error handling behavior (FailFast, ContinueOnError, BestEffort)</li>
+<li><strong>Concurrency Management</strong>: Configures parallelism limits and resource constraints</li>
+<li><strong>Validation Integration</strong>: Ensures all processors and dependencies are valid before execution</li>
+</ul>
 <p><strong>Design Patterns Used:</strong></p>
 <ul>
 <li><strong>Factory Pattern</strong>: Dynamic processor creation based on configuration type</li>
-<li><strong>Strategy Pattern</strong>: Pluggable execution strategies (WorkQueue, Level-by-Level, Reactive)</li>
+<li><strong>Strategy Pattern</strong>: Pluggable execution strategies</li>
 <li><strong>Builder Pattern</strong>: Fluent configuration construction from YAML</li>
 </ul>
-<p>The Runtime Builder transforms YAML configuration into executable components, handling processor instantiation, executor selection, and failure strategy configuration.</p>
+<p>The Runtime Builder acts as the central orchestrator, transforming declarative YAML into a fully configured, executable DAG system.</p>
 <h4 id="3-dag-execution-engine"><a class="header" href="#3-dag-execution-engine">3. DAG Execution Engine</a></h4>
-<p>The execution engine coordinates workflow execution across different strategies:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>#[async_trait]
-pub trait DagExecutor: Send + Sync {
-    async fn execute_with_strategy(
-        &amp;self,
-        processors: HashMap&lt;String, Box&lt;dyn Processor&gt;&gt;,
-        dependency_graph: DependencyGraph,
-        entry_points: EntryPoints,
-        input: ProcessorRequest,
-        pipeline_metadata: PipelineMetadata,
-        failure_strategy: FailureStrategy,
-    ) -&gt; Result&lt;(ExecutionResults, PipelineMetadata), ExecutionError&gt;;
-}
-<span class="boring">}</span></code></pre></pre>
+<p>The execution engine coordinates workflow execution across different strategies through a common trait interface.</p>
 <p><strong>Key Responsibilities:</strong></p>
 <ul>
-<li><strong>Dependency Resolution</strong>: Topological ordering and cycle detection</li>
-<li><strong>Concurrency Management</strong>: Parallel execution with configurable limits</li>
-<li><strong>Error Handling</strong>: Comprehensive failure strategies</li>
-<li><strong>Metadata Tracking</strong>: Complete audit trail and context preservation</li>
+<li><strong>Dependency Resolution</strong>: Topological ordering and cycle detection for safe execution</li>
+<li><strong>Concurrency Management</strong>: Parallel execution with configurable limits and resource control</li>
+<li><strong>Error Handling</strong>: Comprehensive failure strategies (FailFast, ContinueOnError, BestEffort)</li>
+<li><strong>Metadata Tracking</strong>: Complete audit trail and context preservation throughout execution</li>
 </ul>
 <h2 id="execution-strategies"><a class="header" href="#execution-strategies">Execution Strategies</a></h2>
 <h3 id="work-queue-strategy"><a class="header" href="#work-queue-strategy">Work Queue Strategy</a></h3>
-<p>The Work Queue strategy maximizes parallelism through dependency counting:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct WorkQueueExecutor {
-    max_concurrency: usize,
-}
-
-impl WorkQueueExecutor {
-    async fn execute_dag(&amp;self, /* parameters */) -&gt; Result&lt;ExecutionResults, ExecutionError&gt; {
-        // 1. Initialize dependency counts
-        let mut dependency_counts = self.calculate_dependency_counts(&amp;graph);
-        
-        // 2. Queue processors with no dependencies
-        let mut ready_queue = self.find_ready_processors(&amp;dependency_counts);
-        
-        // 3. Execute with concurrency control
-        let semaphore = Arc::new(Semaphore::new(self.max_concurrency));
-        
-        while !ready_queue.is_empty() || !active_tasks.is_empty() {
-            // Spawn tasks up to concurrency limit
-            while !ready_queue.is_empty() &amp;&amp; semaphore.available_permits() &gt; 0 {
-                let processor_id = ready_queue.pop_front().unwrap();
-                let task = self.spawn_processor_task(processor_id, &amp;semaphore);
-                active_tasks.push(task);
-            }
-            
-            // Wait for task completion and update dependencies
-            let (processor_id, result) = select_completed_task(&amp;mut active_tasks).await;
-            self.update_dependencies(processor_id, &amp;mut dependency_counts, &amp;mut ready_queue);
-        }
-        
-        Ok(results)
-    }
-}
-<span class="boring">}</span></code></pre></pre>
+<p>The Work Queue strategy maximizes parallelism through dependency counting and priority-based scheduling.</p>
+<p><strong>Algorithm Overview:</strong></p>
+<ul>
+<li><strong>Dependency Counting</strong>: Tracks unresolved dependencies for each processor</li>
+<li><strong>Priority Queue</strong>: Orders processors by topological rank and intent (Transform &gt; Analyze)</li>
+<li><strong>Dynamic Execution</strong>: Processors execute immediately when dependencies complete</li>
+<li><strong>Concurrency Control</strong>: Semaphore-based limits prevent resource exhaustion</li>
+</ul>
 <p><strong>Characteristics:</strong></p>
 <ul>
 <li><strong>Maximum Parallelism</strong>: Executes processors as soon as dependencies are satisfied</li>
-<li><strong>Dynamic Scheduling</strong>: Adapts to irregular DAG structures</li>
+<li><strong>Dynamic Scheduling</strong>: Adapts to irregular DAG structures with optimal resource utilization</li>
 <li><strong>Memory Efficient</strong>: Uses dependency counting instead of level computation</li>
-<li><strong>Best For</strong>: Complex DAGs with irregular dependency patterns</li>
+<li><strong>Best For</strong>: Complex DAGs with irregular dependency patterns and CPU-bound processors</li>
 </ul>
 <h3 id="level-by-level-strategy"><a class="header" href="#level-by-level-strategy">Level-by-Level Strategy</a></h3>
-<p>The Level-by-Level strategy executes processors in topological levels:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct LevelByLevelExecutor {
-    max_concurrency: usize,
-}
-
-impl LevelByLevelExecutor {
-    async fn execute_dag(&amp;self, /* parameters */) -&gt; Result&lt;ExecutionResults, ExecutionError&gt; {
-        // 1. Compute topological levels
-        let levels = self.compute_topological_levels(&amp;graph)?;
-        
-        // 2. Execute level by level
-        for level in levels {
-            // Execute all processors in current level concurrently
-            let level_tasks: Vec&lt;_&gt; = level.into_iter()
-                .map(|processor_id| self.spawn_processor_task(processor_id))
-                .collect();
-            
-            // Wait for entire level to complete
-            let level_results = futures::future::join_all(level_tasks).await;
-            
-            // Process results and handle errors
-            for result in level_results {
-                self.process_result(result)?;
-            }
-        }
-        
-        Ok(results)
-    }
-}
-<span class="boring">}</span></code></pre></pre>
+<p>The Level-by-Level strategy executes processors in computed topological levels for predictable execution patterns.</p>
+<p><strong>Algorithm Overview:</strong></p>
+<ul>
+<li><strong>Level Computation</strong>: Pre-computes topological levels using Kahn's algorithm</li>
+<li><strong>Batch Execution</strong>: Executes entire levels concurrently before proceeding</li>
+<li><strong>Synchronization Points</strong>: Waits for level completion before advancing</li>
+<li><strong>Resource Management</strong>: Applies concurrency limits within each level</li>
+</ul>
 <p><strong>Characteristics:</strong></p>
 <ul>
-<li><strong>Predictable Execution</strong>: Clear level-by-level progression</li>
+<li><strong>Predictable Execution</strong>: Clear level-by-level progression with defined synchronization points</li>
 <li><strong>Simpler State Management</strong>: No complex dependency tracking during execution</li>
-<li><strong>Level Parallelism</strong>: Full parallelism within each level</li>
-<li><strong>Best For</strong>: Regular DAGs with clear hierarchical structure</li>
+<li><strong>Level Parallelism</strong>: Full parallelism within each level, sequential between levels</li>
+<li><strong>Best For</strong>: Regular DAGs with clear hierarchical structure and predictable execution patterns</li>
 </ul>
 <h3 id="reactive-strategy"><a class="header" href="#reactive-strategy">Reactive Strategy</a></h3>
-<p>The Reactive strategy uses event-driven execution for maximum responsiveness:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct ReactiveExecutor {
-    max_concurrency: usize,
-}
-
-impl ReactiveExecutor {
-    async fn execute_dag(&amp;self, /* parameters */) -&gt; Result&lt;ExecutionResults, ExecutionError&gt; {
-        // 1. Create event channels for each processor
-        let (senders, receivers) = self.create_event_channels(&amp;graph);
-        
-        // 2. Spawn processor tasks that wait for dependency events
-        for processor_id in graph.processors() {
-            let task = self.spawn_reactive_task(processor_id, &amp;receivers, &amp;senders);
-            active_tasks.insert(processor_id, task);
-        }
-        
-        // 3. Trigger entry point processors
-        for entry_point in entry_points {
-            senders[&amp;entry_point].send(ProcessorEvent::Ready)?;
-        }
-        
-        // 4. Event-driven execution - processors notify dependents when complete
-        while !active_tasks.is_empty() {
-            let (processor_id, result) = select_completed_task(&amp;mut active_tasks).await;
-            self.notify_dependents(processor_id, &amp;result, &amp;senders).await;
-        }
-        
-        Ok(results)
-    }
-}
-<span class="boring">}</span></code></pre></pre>
+<p>The Reactive strategy uses event-driven execution for maximum responsiveness and real-time processing.</p>
+<p><strong>Algorithm Overview:</strong></p>
+<ul>
+<li><strong>Event Channels</strong>: MPSC channels enable processor-to-processor communication</li>
+<li><strong>Reactive Tasks</strong>: All processors spawn immediately and wait for dependency events</li>
+<li><strong>Immediate Notification</strong>: Completed processors instantly notify dependents</li>
+<li><strong>Cancellation Support</strong>: Coordinated shutdown and error propagation</li>
+</ul>
 <p><strong>Characteristics:</strong></p>
 <ul>
-<li><strong>Event-Driven</strong>: Processors react immediately to dependency completion</li>
-<li><strong>Maximum Responsiveness</strong>: No waiting for levels or queue processing</li>
-<li><strong>Real-Time Execution</strong>: Optimal for low-latency requirements</li>
-<li><strong>Complex State Management</strong>: Sophisticated event coordination</li>
-<li><strong>Best For</strong>: I/O-bound processors, real-time workflows, irregular DAGs</li>
+<li><strong>Event-Driven</strong>: Processors react immediately to dependency completion events</li>
+<li><strong>Maximum Responsiveness</strong>: No artificial delays, batching, or synchronization points</li>
+<li><strong>Real-Time Execution</strong>: Optimal for low-latency requirements and streaming workflows</li>
+<li><strong>Complex State Management</strong>: Sophisticated event coordination with cancellation tokens</li>
+<li><strong>Best For</strong>: I/O-bound processors, real-time workflows, and irregular DAGs requiring immediate response</li>
 </ul>
 <h3 id="canonical-payload-architecture"><a class="header" href="#canonical-payload-architecture">Canonical Payload Architecture</a></h3>
-<p>All three strategies use a canonical payload approach for data flow:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct CanonicalPayloadArchitecture {
-    // Single source of truth for data
-    canonical_payload: Arc&lt;Mutex&lt;Vec&lt;u8&gt;&gt;&gt;,
-    
-    // Processor classification
-    transform_processors: Vec&lt;String&gt;,  // Modify canonical payload
-    analyze_processors: Vec&lt;String&gt;,    // Add metadata only
-}
-
-impl CanonicalPayloadArchitecture {
-    async fn execute_processor(&amp;self, processor: &amp;dyn Processor) -&gt; ProcessorResponse {
-        match processor.declared_intent() {
-            ProcessorIntent::Transform =&gt; {
-                // Transform processors modify the canonical payload
-                let mut payload = self.canonical_payload.lock().await;
-                let result = processor.process(&amp;*payload).await?;
-                if let Some(new_payload) = result.next_payload {
-                    *payload = new_payload;
-                }
-                result
-            },
-            ProcessorIntent::Analyze =&gt; {
-                // Analyze processors only add metadata
-                let payload = self.canonical_payload.lock().await;
-                processor.process(&amp;*payload).await
-            },
-        }
-    }
-}
-<span class="boring">}</span></code></pre></pre>
+<p>All three strategies use a canonical payload approach to eliminate race conditions in diamond dependency patterns.</p>
+<p><strong>Core Concept:</strong></p>
+<ul>
+<li><strong>Single Source of Truth</strong>: One canonical payload flows through the entire DAG</li>
+<li><strong>Transform vs Analyze</strong>: Only Transform processors can modify the canonical payload</li>
+<li><strong>Metadata Separation</strong>: Analyze processors contribute metadata without payload changes</li>
+<li><strong>Deterministic Execution</strong>: Eliminates race conditions in parallel execution scenarios</li>
+</ul>
 <p><strong>Benefits:</strong></p>
 <ul>
-<li><strong>Data Consistency</strong>: Single source of truth prevents data races</li>
-<li><strong>Clear Semantics</strong>: Transform vs Analyze intent is explicit</li>
+<li><strong>Data Consistency</strong>: Single source of truth prevents data races and non-deterministic behavior</li>
+<li><strong>Clear Semantics</strong>: Transform vs Analyze intent provides explicit architectural separation</li>
 <li><strong>Metadata Preservation</strong>: Analysis results are preserved without payload modification</li>
-<li><strong>Race Condition Prevention</strong>: Eliminates non-deterministic execution</li>
+<li><strong>Race Condition Prevention</strong>: Eliminates the classic diamond dependency race condition problem</li>
 </ul>
 <h2 id="backend-architecture"><a class="header" href="#backend-architecture">Backend Architecture</a></h2>
 <h3 id="local-backend"><a class="header" href="#local-backend">Local Backend</a></h3>
-<p>The local backend provides built-in processors with factory-based creation:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct LocalProcessorFactory;
-
-impl LocalProcessorFactory {
-    pub fn create_processor(config: &amp;ProcessorConfig) -&gt; Result&lt;Box&lt;dyn Processor&gt;, ProcessorError&gt; {
-        let impl_name = config.impl_.as_deref().unwrap_or("stub");
-        
-        match impl_name {
-            "change_text_case_upper" =&gt; Ok(Box::new(ChangeTextCaseProcessor::new(TextCase::Upper))),
-            "token_counter" =&gt; Ok(Box::new(TokenCounterProcessor::new(config.options.clone()))),
-            "word_frequency_analyzer" =&gt; Ok(Box::new(WordFrequencyProcessor::new())),
-            "prefix_suffix_adder" =&gt; Ok(Box::new(PrefixSuffixProcessor::new(config.options.clone()))),
-            _ =&gt; Err(ProcessorError::UnknownImplementation { name: impl_name.to_string() }),
-        }
-    }
-}
-<span class="boring">}</span></code></pre></pre>
+<p>The local backend provides built-in processors with factory-based creation for native Rust execution.</p>
+<p><strong>Architecture:</strong></p>
+<ul>
+<li><strong>Factory Pattern</strong>: Dynamic processor creation based on configuration</li>
+<li><strong>Native Performance</strong>: Direct Rust execution without sandboxing overhead</li>
+<li><strong>Extensible Design</strong>: Easy addition of new processors through factory registration</li>
+<li><strong>Configuration-Driven</strong>: Processor selection and options via YAML configuration</li>
+</ul>
 <p><strong>Available Processors:</strong></p>
 <ul>
 <li><strong>Text Transformation</strong>: Case conversion, reversal, prefix/suffix addition</li>
-<li><strong>Text Analysis</strong>: Token counting, word frequency analysis</li>
-<li><strong>Extensible</strong>: Easy to add new processors through factory pattern</li>
+<li><strong>Text Analysis</strong>: Token counting, word frequency analysis, pattern matching</li>
+<li><strong>Configurable Options</strong>: Processor-specific parameters through configuration</li>
+<li><strong>Error Handling</strong>: Graceful fallback to stub processors for unknown implementations</li>
 </ul>
 <h3 id="wasm-backend"><a class="header" href="#wasm-backend">WASM Backend</a></h3>
-<p>The WASM backend provides secure, sandboxed execution:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct WasmProcessor {
-    engine: wasmtime::Engine,
-    module: wasmtime::Module,
-    store: wasmtime::Store&lt;WasmState&gt;,
-}
-
-impl WasmProcessor {
-    pub fn new(module_path: &amp;str) -&gt; Result&lt;Self, WasmError&gt; {
-        // Create WASM engine with security configuration
-        let mut config = wasmtime::Config::new();
-        config.wasm_simd(false);           // Disable SIMD for security
-        config.wasm_bulk_memory(false);    // Disable bulk memory operations
-        config.consume_fuel(true);         // Enable fuel consumption for limits
-        
-        let engine = wasmtime::Engine::new(&amp;config)?;
-        let module = wasmtime::Module::from_file(&amp;engine, module_path)?;
-        
-        // Create store with resource limits
-        let mut store = wasmtime::Store::new(&amp;engine, WasmState::new());
-        store.limiter(|state| &amp;mut state.limiter);  // Apply resource limits
-        
-        Ok(WasmProcessor { engine, module, store })
-    }
-    
-    async fn execute_wasm(&amp;mut self, input: &amp;[u8]) -&gt; Result&lt;Vec&lt;u8&gt;, WasmError&gt; {
-        // Create instance with imported functions
-        let instance = wasmtime::Instance::new(&amp;mut self.store, &amp;self.module, &amp;[])?;
-        
-        // Get exported functions
-        let process_func = instance.get_typed_func::&lt;(i32,), i32&gt;(&amp;mut self.store, "process")?;
-        let allocate_func = instance.get_typed_func::&lt;i32, i32&gt;(&amp;mut self.store, "allocate")?;
-        let deallocate_func = instance.get_typed_func::&lt;(i32, i32), ()&gt;(&amp;mut self.store, "deallocate")?;
-        
-        // Allocate memory in WASM module
-        let input_ptr = allocate_func.call(&amp;mut self.store, input.len() as i32)?;
-        
-        // Copy input data to WASM memory
-        let memory = instance.get_memory(&amp;mut self.store, "memory")
-            .ok_or(WasmError::MemoryNotFound)?;
-        memory.write(&amp;mut self.store, input_ptr as usize, input)?;
-        
-        // Call WASM function
-        let result_ptr = process_func.call(&amp;mut self.store, input_ptr)?;
-        
-        // Read result from WASM memory
-        let result = self.read_cstring_from_memory(&amp;mut self.store, &amp;memory, result_ptr)?;
-        
-        // Clean up allocated memory
-        deallocate_func.call(&amp;mut self.store, (input_ptr, input.len() as i32))?;
-        
-        Ok(result.into_bytes())
-    }
-}
-<span class="boring">}</span></code></pre></pre>
+<p>The WASM backend provides secure, sandboxed execution using wasmtime for complete isolation.</p>
+<p><strong>Architecture:</strong></p>
+<ul>
+<li><strong>Wasmtime Integration</strong>: Industry-standard WASM runtime with security focus</li>
+<li><strong>Module Loading</strong>: Dynamic WASM module loading from filesystem</li>
+<li><strong>Memory Management</strong>: Safe memory allocation and deallocation across boundaries</li>
+<li><strong>Function Interface</strong>: Standardized C-compatible function signatures</li>
+</ul>
 <p><strong>Security Features:</strong></p>
 <ul>
-<li><strong>Complete Sandboxing</strong>: WASM modules cannot access host system</li>
-<li><strong>Resource Limits</strong>: CPU and memory consumption limits</li>
-<li><strong>Controlled Memory Access</strong>: Safe memory management across boundaries</li>
-<li><strong>Capability-Based Security</strong>: Explicit permissions for host access</li>
+<li><strong>Complete Sandboxing</strong>: WASM modules cannot access host system resources</li>
+<li><strong>Resource Limits</strong>: CPU fuel consumption and memory usage limits</li>
+<li><strong>Controlled Memory Access</strong>: Bounds-checked memory operations</li>
+<li><strong>Capability-Based Security</strong>: Explicit permissions required for any host access</li>
+<li><strong>Deterministic Execution</strong>: Same input always produces same output</li>
 </ul>
 <h2 id="data-flow-architecture"><a class="header" href="#data-flow-architecture">Data Flow Architecture</a></h2>
 <h3 id="requestresponse-flow"><a class="header" href="#requestresponse-flow">Request/Response Flow</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Data flow through the system
-pub struct DataFlow {
-    // 1. Input Processing
-    input: ProcessorRequest {
-        payload: Vec&lt;u8&gt;,  // Raw input data
-    },
-    
-    // 2. Pipeline Metadata
-    pipeline_metadata: PipelineMetadata {
-        metadata: HashMap&lt;String, ProcessorMetadata&gt;,  // Accumulated context
-    },
-    
-    // 3. Processor Response
-    response: ProcessorResponse {
-        outcome: Option&lt;Outcome&gt;,           // Transform result or analysis
-        metadata: Option&lt;PipelineMetadata&gt;, // Additional context
-    },
-    
-    // 4. Final Results
-    results: ExecutionResults {
-        processor_results: HashMap&lt;String, ProcessorResponse&gt;,
-        final_metadata: PipelineMetadata,
-    },
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="metadata-system"><a class="header" href="#metadata-system">Metadata System</a></h3>
-<p>The metadata system provides comprehensive context tracking:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct MetadataSystem {
-    // Namespace isolation prevents collisions
-    namespaces: HashMap&lt;String, ProcessorMetadata&gt;,
-}
-
-impl MetadataSystem {
-    pub fn merge_metadata(&amp;mut self, new_metadata: PipelineMetadata) {
-        for (processor_id, processor_metadata) in new_metadata.metadata {
-            // Collision-resistant merging
-            let namespace = format!("{}_{}", processor_id, self.generate_unique_suffix());
-            self.namespaces.insert(namespace, processor_metadata);
-        }
-    }
-    
-    pub fn get_processor_context(&amp;self, processor_id: &amp;str) -&gt; Option&lt;&amp;ProcessorMetadata&gt; {
-        // Retrieve processor-specific context
-        self.namespaces.get(processor_id)
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Features:</strong></p>
+<p>The system uses a structured data flow with protobuf-based serialization for cross-language compatibility.</p>
+<p><strong>Flow Stages:</strong></p>
 <ul>
-<li><strong>Namespace Isolation</strong>: Prevents metadata key collisions</li>
-<li><strong>Context Preservation</strong>: Complete audit trail of execution</li>
-<li><strong>Hierarchical Structure</strong>: Nested metadata for complex workflows</li>
-<li><strong>Serializable</strong>: Protobuf-based for efficient storage and transmission</li>
+<li><strong>Input Processing</strong>: Raw input data wrapped in ProcessorRequest with initial metadata</li>
+<li><strong>Pipeline Metadata</strong>: Accumulated context from all processors with collision-resistant namespacing</li>
+<li><strong>Processor Response</strong>: Transform results or analysis metadata with optional payload updates</li>
+<li><strong>Final Results</strong>: Complete execution results with processor outputs and accumulated metadata</li>
+</ul>
+<h3 id="metadata-system"><a class="header" href="#metadata-system">Metadata System</a></h3>
+<p>The metadata system provides comprehensive context tracking with collision-resistant namespacing.</p>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li><strong>Namespace Isolation</strong>: Prevents metadata key collisions between processors</li>
+<li><strong>Context Preservation</strong>: Complete audit trail of execution with processor-specific context</li>
+<li><strong>Hierarchical Structure</strong>: Nested metadata organization for complex workflows</li>
+<li><strong>Serializable Format</strong>: Protobuf-based for efficient storage and cross-language transmission</li>
+<li><strong>Collision-Resistant Merging</strong>: Base64-encoded namespacing prevents key conflicts</li>
 </ul>
 <h2 id="error-handling-architecture"><a class="header" href="#error-handling-architecture">Error Handling Architecture</a></h2>
 <h3 id="comprehensive-error-types"><a class="header" href="#comprehensive-error-types">Comprehensive Error Types</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>#[derive(Debug, thiserror::Error)]
-pub enum ExecutionError {
-    #[error("Configuration validation failed: {message}")]
-    ConfigurationError { message: String },
-    
-    #[error("Processor {processor_id} failed: {source}")]
-    ProcessorError { 
-        processor_id: String, 
-        #[source] source: ProcessorError 
-    },
-    
-    #[error("Dependency cycle detected: {cycle:?}")]
-    CyclicDependencyError { cycle: Vec&lt;String&gt; },
-    
-    #[error("WASM execution failed: {source}")]
-    WasmError { #[source] source: WasmError },
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ProcessorError {
-    #[error("Validation failed: {message}")]
-    ValidationError { message: String },
-    
-    #[error("Unknown implementation: {name}")]
-    UnknownImplementation { name: String },
-    
-    #[error("WASM module error: {message}")]
-    WasmModuleError { message: String },
-}
-<span class="boring">}</span></code></pre></pre>
+<p>The system uses structured error types with proper error chaining and context preservation.</p>
+<p><strong>Error Categories:</strong></p>
+<ul>
+<li><strong>Configuration Errors</strong>: YAML parsing, validation, and dependency resolution failures</li>
+<li><strong>Processor Errors</strong>: Individual processor execution failures with context</li>
+<li><strong>Execution Errors</strong>: DAG execution failures including cycles and resource exhaustion</li>
+<li><strong>WASM Errors</strong>: Sandboxing, module loading, and runtime failures</li>
+<li><strong>Validation Errors</strong>: Pre-execution validation failures with detailed messages</li>
+</ul>
 <h3 id="failure-strategies"><a class="header" href="#failure-strategies">Failure Strategies</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub enum FailureStrategy {
-    FailFast,        // Stop on first error
-    ContinueOnError, // Continue with remaining processors
-    BestEffort,      // Attempt recovery and partial results
-}
-
-impl FailureStrategy {
-    pub async fn handle_processor_failure(
-        &amp;self,
-        processor_id: &amp;str,
-        error: ProcessorError,
-        context: &amp;ExecutionContext,
-    ) -&gt; FailureAction {
-        match self {
-            FailureStrategy::FailFast =&gt; FailureAction::AbortExecution,
-            FailureStrategy::ContinueOnError =&gt; FailureAction::SkipProcessor,
-            FailureStrategy::BestEffort =&gt; {
-                // Attempt recovery or provide default result
-                if let Some(recovery) = self.attempt_recovery(processor_id, &amp;error, context).await {
-                    FailureAction::UseRecoveryResult(recovery)
-                } else {
-                    FailureAction::SkipProcessor
-                }
-            }
-        }
-    }
-}
-<span class="boring">}</span></code></pre></pre>
+<p>Configurable failure handling strategies provide different approaches to error recovery.</p>
+<p><strong>Strategy Types:</strong></p>
+<ul>
+<li><strong>FailFast</strong>: Stop execution immediately on first processor failure</li>
+<li><strong>ContinueOnError</strong>: Skip failed processors and continue with remaining workflow</li>
+<li><strong>BestEffort</strong>: Attempt recovery with default results or graceful degradation</li>
+</ul>
+<p><strong>Implementation Features:</strong></p>
+<ul>
+<li><strong>Context-Aware</strong>: Error handling considers processor dependencies and workflow state</li>
+<li><strong>Configurable</strong>: Strategy selection via YAML configuration</li>
+<li><strong>Graceful Degradation</strong>: Partial results when possible with clear failure indication</li>
+</ul>
 <h2 id="performance-architecture"><a class="header" href="#performance-architecture">Performance Architecture</a></h2>
 <h3 id="concurrency-management"><a class="header" href="#concurrency-management">Concurrency Management</a></h3>
-<p>Each executor implements concurrency control using tokio's Semaphore:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// From WorkQueueExecutor - actual implementation
-impl WorkQueueExecutor {
-    async fn execute_with_strategy(/* ... */) -&gt; Result&lt;ExecutionResults, ExecutionError&gt; {
-        // Create semaphore for concurrency control
-        let semaphore = Arc::new(tokio::sync::Semaphore::new(self.max_concurrency));
-        
-        // Process work queue with concurrency limits
-        while !work_queue.is_empty() {
-            // Acquire permit before spawning task
-            let permit = semaphore.clone().acquire_owned().await
-                .map_err(|_| ExecutionError::InternalError { 
-                    message: "Failed to acquire semaphore permit".to_string() 
-                })?;
-            
-            let processor_id = work_queue.pop().unwrap().processor_id;
-            
-            // Spawn processor task with permit
-            let task_handle = tokio::spawn(async move {
-                let _permit = permit; // Permit released when task completes
-                // Execute processor...
-            });
-            
-            active_tasks.insert(processor_id, task_handle);
-        }
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Real Implementation Features:</strong></p>
+<p>Each executor implements concurrency control using tokio's Semaphore for resource management.</p>
+<p><strong>Concurrency Features:</strong></p>
 <ul>
-<li><strong>Semaphore-based limits</strong>: <code>tokio::sync::Semaphore</code> controls concurrent executions</li>
-<li><strong>Permit-based execution</strong>: Tasks acquire permits before running</li>
-<li><strong>Automatic cleanup</strong>: Permits released when tasks complete</li>
-<li><strong>Configurable concurrency</strong>: <code>max_concurrency</code> parameter sets limits</li>
+<li><strong>Semaphore-based Limits</strong>: <code>tokio::sync::Semaphore</code> controls concurrent processor executions</li>
+<li><strong>Permit-based Execution</strong>: Tasks acquire permits before running, ensuring resource limits</li>
+<li><strong>Automatic Cleanup</strong>: Permits automatically released when tasks complete</li>
+<li><strong>Configurable Limits</strong>: <code>max_concurrency</code> parameter allows tuning based on system resources</li>
+<li><strong>Backpressure Handling</strong>: Natural backpressure when semaphore permits are exhausted</li>
 </ul>
 <h3 id="memory-management"><a class="header" href="#memory-management">Memory Management</a></h3>
-<p>The DAGwood implementation uses several key memory management patterns:</p>
+<p>The system uses several key memory management patterns for efficiency and safety.</p>
 <h4 id="canonical-payload-architecture-1"><a class="header" href="#canonical-payload-architecture-1">Canonical Payload Architecture</a></h4>
 <ul>
 <li><strong>Single Source of Truth</strong>: One canonical payload flows through the DAG</li>
 <li><strong>Transform vs Analyze</strong>: Only Transform processors can modify the canonical payload</li>
 <li><strong>Race Condition Prevention</strong>: Eliminates non-deterministic behavior in diamond patterns</li>
-<li><strong>Arc&lt;Mutex<T>&gt;</strong>: Thread-safe shared ownership for concurrent access</li>
+<li><strong>Thread-Safe Access</strong>: Arc&lt;Mutex<T>&gt; provides safe concurrent access to shared state</li>
 </ul>
 <h4 id="memory-optimization-patterns"><a class="header" href="#memory-optimization-patterns">Memory Optimization Patterns</a></h4>
 <ul>
-<li><strong>Arc Sharing</strong>: Reference counting for large payloads instead of cloning</li>
-<li><strong>Lazy Cloning</strong>: Clone only when ownership transfer is required</li>
-<li><strong>Efficient Metadata</strong>: Collision-resistant namespacing for metadata keys</li>
+<li><strong>Arc Sharing</strong>: Reference counting for large payloads instead of expensive cloning</li>
+<li><strong>Lazy Cloning</strong>: Clone only when ownership transfer is absolutely required</li>
+<li><strong>Efficient Metadata</strong>: Base64-encoded namespacing prevents key collisions</li>
+<li><strong>WASM Memory Isolation</strong>: Separate linear memory spaces for complete sandboxing</li>
 </ul>
 <h2 id="extensibility-architecture"><a class="header" href="#extensibility-architecture">Extensibility Architecture</a></h2>
 <h3 id="design-patterns-for-extensibility"><a class="header" href="#design-patterns-for-extensibility">Design Patterns for Extensibility</a></h3>
@@ -842,18 +553,15 @@ impl WorkQueueExecutor {
 <li><strong>Semaphore Concurrency</strong>: Configurable parallelism with resource limits</li>
 </ol>
 <h3 id="design-principles"><a class="header" href="#design-principles">Design Principles</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct ArchitecturalPrinciples {
-    // Core principles guiding the design
-    safety_first: "Memory safety and security are non-negotiable",
-    performance_by_design: "Efficient algorithms and zero-cost abstractions",
-    extensibility: "Plugin architecture for custom backends and processors",
-    observability: "Complete audit trails and performance metrics",
-    simplicity: "Complex internals, simple external interfaces",
-    reliability: "Comprehensive error handling and recovery strategies",
-}
-<span class="boring">}</span></code></pre></pre>
+<p>The core principles guiding the DAGwood architecture:</p>
+<ul>
+<li><strong>Safety First</strong>: Memory safety and security are non-negotiable requirements</li>
+<li><strong>Performance by Design</strong>: Efficient algorithms and zero-cost abstractions throughout</li>
+<li><strong>Extensibility</strong>: Plugin architecture enables custom backends and processors</li>
+<li><strong>Observability</strong>: Complete audit trails and performance metrics for production use</li>
+<li><strong>Simplicity</strong>: Complex internals hidden behind simple, intuitive external interfaces</li>
+<li><strong>Reliability</strong>: Comprehensive error handling and recovery strategies for robust operation</li>
+</ul>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <p>Now that you understand the architecture, you're ready to see it in action! The following demos will show how these components work together to execute real workflows, from simple single-processor tasks to complex multi-backend pipelines.</p>
 <p>The architecture provides:</p>

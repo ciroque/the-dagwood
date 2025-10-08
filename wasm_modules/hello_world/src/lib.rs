@@ -170,7 +170,6 @@ mod tests {
         assert_eq!(output_len, 0);
     }
 
-
     #[test]
     fn test_allocate_and_deallocate() {
         let size = 1024;

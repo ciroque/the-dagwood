@@ -329,8 +329,10 @@ impl WasmProcessor {
             return Err("WASM module allocate returned null pointer".into());
         }
         
-        // Allocate memory for output length parameter
-        let output_len_ptr = allocate_func.call(&mut store, 4) // sizeof(usize) as i32 in WASM
+        // Allocate memory for the output length parameter
+        const SIZEOF_I32: i32 = 4;
+        const USIZEOF_I32: usize = SIZEOF_I32 as usize;
+        let output_len_ptr = allocate_func.call(&mut store, SIZEOF_I32) // sizeof(usize) as i32 in WASM
             .map_err(|e| format!("WASM allocate for output_len failed: {}", e))?;
         
         if output_len_ptr == 0 {
@@ -348,7 +350,7 @@ impl WasmProcessor {
             if input_offset >= memory_data.len() || input_offset + input_bytes.len() > memory_data.len() {
                 // Clean up allocations
                 let _ = deallocate_func.call(&mut store, (input_ptr, input_len));
-                let _ = deallocate_func.call(&mut store, (output_len_ptr, 4));
+                let _ = deallocate_func.call(&mut store, (output_len_ptr, SIZEOF_I32));
                 return Err("WASM input allocation out of bounds".into());
             }
             
@@ -361,7 +363,7 @@ impl WasmProcessor {
             .map_err(|e| {
                 // Clean up allocations on error
                 let _ = deallocate_func.call(&mut store, (input_ptr, input_len));
-                let _ = deallocate_func.call(&mut store, (output_len_ptr, 4));
+                let _ = deallocate_func.call(&mut store, (output_len_ptr, SIZEOF_I32));
                 format!("WASM process function failed: {}", e)
             })?;
         
@@ -370,7 +372,7 @@ impl WasmProcessor {
         
         if result_ptr == 0 {
             // Clean up output_len allocation
-            let _ = deallocate_func.call(&mut store, (output_len_ptr, 4));
+            let _ = deallocate_func.call(&mut store, (output_len_ptr, SIZEOF_I32));
             return Err("WASM module returned null pointer".into());
         }
         
@@ -379,21 +381,21 @@ impl WasmProcessor {
             let memory_data = memory.data(&store);
             let output_len_offset = output_len_ptr as usize;
             
-            if output_len_offset + 4 > memory_data.len() {
-                let _ = deallocate_func.call(&mut store, (output_len_ptr, 4));
+            if output_len_offset + USIZEOF_I32 > memory_data.len() {
+                let _ = deallocate_func.call(&mut store, (output_len_ptr, SIZEOF_I32));
                 return Err("WASM output_len pointer out of bounds".into());
             }
             
             // Read 4 bytes as little-endian u32 (WASM is little-endian)
             u32::from_le_bytes(
-                memory_data[output_len_offset..output_len_offset + 4]
+                memory_data[output_len_offset..output_len_offset + USIZEOF_I32]
                     .try_into()
                     .map_err(|_| "Failed to convert output length bytes to array")?
             ) as usize
         };
         
         // Clean up output_len allocation
-        let _ = deallocate_func.call(&mut store, (output_len_ptr, 4));
+        let _ = deallocate_func.call(&mut store, (output_len_ptr, SIZEOF_I32));
         
         // Validate output length
         if output_len > MAX_INPUT_SIZE {

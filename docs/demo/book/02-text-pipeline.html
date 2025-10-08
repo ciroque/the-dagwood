@@ -207,20 +207,20 @@ executor_options:
 
 processors:
   - id: uppercase
-    backend: local
-    impl: change_text_case_upper
+    type: local
+    processor: change_text_case_upper
     depends_on: []
     options: {}
 
   - id: reverse
-    backend: local
-    impl: reverse_text
+    type: local
+    processor: reverse_text
     depends_on: [uppercase]
     options: {}
 
   - id: add_prefix
-    backend: local
-    impl: prefix_suffix_adder
+    type: local
+    processor: prefix_suffix_adder
     depends_on: [reverse]
     options:
       prefix: "&gt;&gt;&gt; "

@@ -208,14 +208,14 @@ executor_options:
 processors:
   # Local processor prepares input
   - id: prepare_input
-    backend: local
-    impl: change_text_case_lower
+    type: local
+    processor: change_text_case_lower
     depends_on: []
     options: {}
 
   # WASM processor provides sandboxed execution
   - id: wasm_hello_world
-    backend: wasm
+    type: wasm
     module: wasm_modules/hello_world.wasm
     depends_on: [prepare_input]
     options:
@@ -223,8 +223,8 @@ processors:
 
   # Local processor adds final formatting
   - id: final_format
-    backend: local
-    impl: prefix_suffix_adder
+    type: local
+    processor: prefix_suffix_adder
     depends_on: [wasm_hello_world]
     options:
       prefix: "🦀 Rust + WASM: "

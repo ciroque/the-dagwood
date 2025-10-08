@@ -32,10 +32,11 @@ executor_options:
 
 processors:
   - id: hello_processor
-    backend: local
-    impl: change_text_case_upper
+    type: local
+    processor: change_text_case_upper
     depends_on: []
-    options: {}
+    options:
+    # No additional options needed for this simple example
 ```
 
 **Configuration Elements:**

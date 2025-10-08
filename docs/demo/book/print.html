@@ -625,10 +625,11 @@ executor_options:
 
 processors:
   - id: hello_processor
-    backend: local
-    impl: change_text_case_upper
+    type: local
+    processor: change_text_case_upper
     depends_on: []
-    options: {}
+    options:
+    # No additional options needed for this simple example
 </code></pre>
 <p><strong>Configuration Elements:</strong></p>
 <ul>
@@ -718,20 +719,20 @@ executor_options:
 
 processors:
   - id: uppercase
-    backend: local
-    impl: change_text_case_upper
+    type: local
+    processor: change_text_case_upper
     depends_on: []
     options: {}
 
   - id: reverse
-    backend: local
-    impl: reverse_text
+    type: local
+    processor: reverse_text
     depends_on: [uppercase]
     options: {}
 
   - id: add_prefix
-    backend: local
-    impl: prefix_suffix_adder
+    type: local
+    processor: prefix_suffix_adder
     depends_on: [reverse]
     options:
       prefix: "&gt;&gt;&gt; "
@@ -828,29 +829,29 @@ executor_options:
 processors:
   # Entry point: prepare the text
   - id: prepare_text
-    backend: local
-    impl: change_text_case_lower
+    type: local
+    processor: change_text_case_lower
     depends_on: []
     options: {}
 
   # Parallel analysis processors (both depend on prepare_text)
   - id: count_tokens
-    backend: local
-    impl: token_counter
+    type: local
+    processor: token_counter
     depends_on: [prepare_text]
     options:
       count_type: "words"
 
   - id: analyze_frequency
-    backend: local
-    impl: word_frequency_analyzer
+    type: local
+    processor: word_frequency_analyzer
     depends_on: [prepare_text]
     options: {}
 
   # Convergence point: combine results (depends on both analysis processors)
   - id: final_summary
-    backend: local
-    impl: prefix_suffix_adder
+    type: local
+    processor: prefix_suffix_adder
     depends_on: [count_tokens, analyze_frequency]
     options:
       prefix: "Analysis Complete: "
@@ -964,14 +965,14 @@ executor_options:
 processors:
   # Local processor prepares input
   - id: prepare_input
-    backend: local
-    impl: change_text_case_lower
+    type: local
+    processor: change_text_case_lower
     depends_on: []
     options: {}
 
   # WASM processor provides sandboxed execution
   - id: wasm_hello_world
-    backend: wasm
+    type: wasm
     module: wasm_modules/hello_world.wasm
     depends_on: [prepare_input]
     options:
@@ -979,8 +980,8 @@ processors:
 
   # Local processor adds final formatting
   - id: final_format
-    backend: local
-    impl: prefix_suffix_adder
+    type: local
+    processor: prefix_suffix_adder
     depends_on: [wasm_hello_world]
     options:
       prefix: "🦀 Rust + WASM: "
@@ -1114,8 +1115,8 @@ cargo build --target wasm32-unknown-unknown --release
 <pre><code class="language-bash">cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "hello world"
 </code></pre>
 <h3 id="configuration-4"><a class="header" href="#configuration-4">Configuration</a></h3>
-<pre><code class="language-yaml"># Demo 5: Complex Workflow - Multi-Backend Pipeline
-# This demonstrates advanced DAG with multiple backends and execution strategies
+<pre><code class="language-yaml"># Demo 5: Complex Workflow - Multi-type Pipeline
+# This demonstrates advanced DAG with multiple types and execution strategies
 
 strategy: level  # Use level-by-level execution for comparison
 failure_strategy: best_effort
@@ -1126,26 +1127,26 @@ executor_options:
 processors:
   # Entry points: multiple input processors
   - id: input_a
-    backend: local
-    impl: change_text_case_upper
+    type: local
+    processor: change_text_case_upper
     depends_on: []
     options: {}
 
   - id: input_b
-    backend: local
-    impl: change_text_case_lower
+    type: local
+    processor: change_text_case_lower
     depends_on: []
     options: {}
 
   # Processing layer: mix of local and WASM
   - id: process_a
-    backend: local
-    impl: reverse_text
+    type: local
+    processor: reverse_text
     depends_on: [input_a]
     options: {}
 
   - id: process_b_wasm
-    backend: wasm
+    type: wasm
     module: wasm_modules/hello_world.wasm
     depends_on: [input_b]
     options:
@@ -1153,25 +1154,25 @@ processors:
 
   # Analysis layer: parallel analysis of both paths
   - id: analyze_a
-    backend: local
-    impl: token_counter
+    type: local
+    processor: token_counter
     depends_on: [process_a]
     options:
       count_type: "characters"
 
   - id: analyze_b
-    backend: local
-    impl: word_frequency_analyzer
+    type: local
+    processor: word_frequency_analyzer
     depends_on: [process_b_wasm]
     options: {}
 
   # Convergence: combine all results
   - id: final_merge
-    backend: local
-    impl: prefix_suffix_adder
+    type: local
+    processor: prefix_suffix_adder
     depends_on: [analyze_a, analyze_b]
     options:
-      prefix: "🔄 Multi-Backend Result: "
+      prefix: "🔄 Multi-type Result: "
       suffix: " [COMPLETE]"
 </code></pre>
 <h3 id="complex-dag-analysis"><a class="header" href="#complex-dag-analysis">Complex DAG Analysis</a></h3>

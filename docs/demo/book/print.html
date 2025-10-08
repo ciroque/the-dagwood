@@ -182,11 +182,11 @@
                         <h1 id="the-dagwood-project-demo"><a class="header" href="#the-dagwood-project-demo">The DAGwood Project Demo</a></h1>
 <p>Welcome to an interactive demonstration of <strong>The DAGwood Project</strong> - a modern workflow orchestration system built in Rust that showcases cutting-edge DAG execution strategies and WASM component integration.</p>
 <h2 id="demo-goals"><a class="header" href="#demo-goals">Demo Goals</a></h2>
-<p>This 10-15 minute demonstration highlights our four primary objectives:</p>
+<p>This 10-15 minute demonstration highlights four primary objectives:</p>
 <h3 id="-1-learn-rust"><a class="header" href="#-1-learn-rust">🦀 <strong>1. Learn Rust</strong></a></h3>
 <ul>
 <li><strong>Ownership &amp; Borrowing</strong>: See how Rust's memory safety enables high-performance concurrent execution</li>
-<li><strong>Async/Await</strong>: Discover how tokio powers our non-blocking DAG processors</li>
+<li><strong>Async/Await</strong>: Discover how tokio powers non-blocking DAG processors</li>
 <li><strong>Trait System</strong>: Explore how traits create pluggable execution strategies</li>
 <li><strong>Error Handling</strong>: Experience Rust's <code>Result&lt;T, E&gt;</code> pattern for robust workflow orchestration</li>
 </ul>
@@ -244,10 +244,10 @@
 </ul>
 <h2 id="ready-to-begin"><a class="header" href="#ready-to-begin">Ready to Begin?</a></h2>
 <p>The demo follows a carefully crafted progression from simple concepts to advanced architectures. Each section builds on the previous one, culminating in a sophisticated workflow orchestration system that demonstrates the power of modern Rust development.</p>
-<p><strong>Let's start with our first example: Hello World!</strong></p>
+<p><strong>Let's start with the first example: Hello World!</strong></p>
 <hr />
 <blockquote>
-<p>💡 <strong>Tip</strong>: Keep the terminal window visible alongside this presentation to see the live execution results as we progress through each example.</p>
+<p>💡 <strong>Tip</strong>: Keep the terminal window visible alongside this presentation to see the live execution results as the examples progress.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h1>
 <p>Before diving into the demos, let's understand how The DAGwood project is architected. This chapter provides a comprehensive overview of the system design, key components, and architectural decisions that make DAGwood a robust workflow orchestration platform.</p>
@@ -822,7 +822,7 @@ impl WorkQueueExecutor {
 </ul>
 <h2 id="key-architectural-decisions"><a class="header" href="#key-architectural-decisions">Key Architectural Decisions</a></h2>
 <h3 id="adr-summary"><a class="header" href="#adr-summary">ADR Summary</a></h3>
-<p>The architecture reflects several key decisions documented in our ADRs:</p>
+<p>The architecture reflects several key decisions documented in the project ADRs:</p>
 <ol>
 <li><strong>Language Choice (Rust)</strong>: Memory safety, performance, and excellent async support</li>
 <li><strong>Canonical Payload</strong>: Single source of truth prevents race conditions</li>
@@ -860,7 +860,7 @@ impl WorkQueueExecutor {
 <p>🏗️ <strong>Architecture Philosophy</strong>: The DAGwood architecture prioritizes safety, performance, and extensibility. Every component is designed to be both powerful and secure, with clear separation of concerns and well-defined interfaces. This foundation enables complex workflow orchestration while maintaining system reliability and developer productivity.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="hello-world-single-processor"><a class="header" href="#hello-world-single-processor">Hello World: Single Processor</a></h1>
-<p>Welcome to our first demonstration! This example shows the simplest possible DAG execution with a single processor and no dependencies.</p>
+<p>Welcome to the first demonstration! This example shows the simplest possible DAG execution with a single processor and no dependencies.</p>
 <h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You'll Learn</a></h2>
 <ul>
 <li><strong>Basic Rust ownership patterns</strong> in processor execution</li>
@@ -869,7 +869,7 @@ impl WorkQueueExecutor {
 <li><strong>Entry point detection</strong> in DAG execution algorithms</li>
 </ul>
 <h2 id="configuration-overview"><a class="header" href="#configuration-overview">Configuration Overview</a></h2>
-<p>Let's examine our first configuration file:</p>
+<p>Let's examine the first configuration file:</p>
 <pre><code class="language-yaml"># Demo 1: Hello World - Single Processor
 # This demonstrates the simplest possible DAG: one processor with no dependencies
 
@@ -913,7 +913,7 @@ for processor_config in &amp;config.processors {
 </span>// Simplified processor execution
 let processor_response = processor.process(input).await?;
 <span class="boring">}</span></code></pre></pre>
-<p><strong>Key insight</strong>: The <code>await</code> point allows other tasks to run, but since we have <code>max_concurrency: 1</code>, this example runs sequentially.</p>
+<p><strong>Key insight</strong>: The <code>await</code> point allows other tasks to run, but since this example has <code>max_concurrency: 1</code>, it runs sequentially.</p>
 <h3 id="3-resultt-e-error-handling"><a class="header" href="#3-resultt-e-error-handling">3. Result&lt;T, E&gt; Error Handling</a></h3>
 <p>Every operation returns a <code>Result</code> for graceful error handling:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -972,7 +972,7 @@ match impl_name {
 <pre><code class="language-bash">cargo run --release -- docs/demo/configs/01-hello-world.yaml "hello world"
 </code></pre>
 <h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
-<p>In the next demo, we'll explore <strong>linear chains</strong> where processors depend on each other, introducing:</p>
+<p>In the next demo, the exploration moves to <strong>linear chains</strong> where processors depend on each other, introducing:</p>
 <ul>
 <li>Data flow between processors</li>
 <li>Dependency resolution algorithms</li>
@@ -980,10 +980,10 @@ match impl_name {
 </ul>
 <hr />
 <blockquote>
-<p>💡 <strong>Rust Learning Tip</strong>: Notice how Rust's ownership system prevents data races and memory issues that are common in other languages. The compiler ensures that our DAG execution is memory-safe without runtime overhead!</p>
+<p>💡 <strong>Rust Learning Tip</strong>: Notice how Rust's ownership system prevents data races and memory issues that are common in other languages. The compiler ensures that DAG execution is memory-safe without runtime overhead!</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="text-pipeline-linear-chain"><a class="header" href="#text-pipeline-linear-chain">Text Pipeline: Linear Chain</a></h1>
-<p>Our second demonstration shows data flowing through a sequence of processors, introducing dependency resolution and the fundamental concepts of DAG execution.</p>
+<p>The second demonstration shows data flowing through a sequence of processors, introducing dependency resolution and the fundamental concepts of DAG execution.</p>
 <h2 id="what-youll-learn-1"><a class="header" href="#what-youll-learn-1">What You'll Learn</a></h2>
 <ul>
 <li><strong>Data flow chaining</strong> between processors</li>
@@ -1133,7 +1133,7 @@ while let Some(current_processor) = ready_queue.pop() {
 }
 <span class="boring">}</span></code></pre></pre>
 <h3 id="canonical-payload-architecture-2"><a class="header" href="#canonical-payload-architecture-2">Canonical Payload Architecture</a></h3>
-<p>A revolutionary insight from our development: only Transform processors update the payload, while Analyze processors contribute metadata:</p>
+<p>A revolutionary insight from the development: only Transform processors update the payload, while Analyze processors contribute metadata:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// After processor execution
@@ -1152,7 +1152,7 @@ if processor.declared_intent() == ProcessorIntent::Transform {
 </ul>
 <h2 id="performance-characteristics"><a class="header" href="#performance-characteristics">Performance Characteristics</a></h2>
 <h3 id="concurrency-analysis"><a class="header" href="#concurrency-analysis">Concurrency Analysis</a></h3>
-<p>With <code>max_concurrency: 2</code>, this linear chain still executes sequentially because each processor depends on the previous one. However, the infrastructure is ready for parallel execution when we introduce diamond patterns.</p>
+<p>With <code>max_concurrency: 2</code>, this linear chain still executes sequentially because each processor depends on the previous one. However, the infrastructure is ready for parallel execution when diamond patterns are introduced.</p>
 <h3 id="memory-efficiency"><a class="header" href="#memory-efficiency">Memory Efficiency</a></h3>
 <p>The <code>Arc&lt;ProcessorRequest&gt;</code> optimization reduces memory usage:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -1177,7 +1177,7 @@ processors:
 </code></pre>
 <p>The dependency validation will catch this cycle during config loading!</p>
 <h2 id="whats-next-1"><a class="header" href="#whats-next-1">What's Next?</a></h2>
-<p>In our next demo, we'll explore the <strong>diamond dependency pattern</strong> where multiple processors can run in parallel, introducing:</p>
+<p>In the next demo, the exploration moves to the <strong>diamond dependency pattern</strong> where multiple processors can run in parallel, introducing:</p>
 <ul>
 <li>True concurrent execution</li>
 <li>Metadata merging strategies</li>
@@ -1189,7 +1189,7 @@ processors:
 <p>🔍 <strong>Architecture Insight</strong>: The linear chain might seem simple, but it demonstrates the foundation for complex DAG execution. Every workflow orchestration system must solve dependency resolution - Rust's ownership system makes this both memory-safe and performant!</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="diamond-analysis-parallel-execution"><a class="header" href="#diamond-analysis-parallel-execution">Diamond Analysis: Parallel Execution</a></h1>
-<p>Our third demonstration showcases the classic diamond dependency pattern, where multiple processors run in parallel and their results converge. This is where DAG execution becomes truly powerful!</p>
+<p>The third demonstration showcases the classic diamond dependency pattern, where multiple processors run in parallel and their results converge. This is where DAG execution becomes truly powerful!</p>
 <h2 id="what-youll-learn-2"><a class="header" href="#what-youll-learn-2">What You'll Learn</a></h2>
 <ul>
 <li><strong>Parallel execution</strong> with tokio async tasks</li>
@@ -1443,7 +1443,7 @@ let freq_task_input = input_arc.clone();  // Another cheap increment
 <li><strong>Create nested diamonds</strong>: Can you build <code>A → [B, C] → [D, E] → F</code>?</li>
 </ol>
 <h2 id="whats-next-2"><a class="header" href="#whats-next-2">What's Next?</a></h2>
-<p>In our next demo, we'll explore <strong>WASM integration</strong> where processors run in secure sandboxes, introducing:</p>
+<p>In the next demo, the exploration moves to <strong>WASM integration</strong> where processors run in secure sandboxes, introducing:</p>
 <ul>
 <li>Cross-language processor execution</li>
 <li>Memory management across WASM boundaries</li>
@@ -1452,10 +1452,10 @@ let freq_task_input = input_arc.clone();  // Another cheap increment
 </ul>
 <hr />
 <blockquote>
-<p>⚡ <strong>Performance Insight</strong>: The diamond pattern is where DAG execution shines! By running analysis processors in parallel while maintaining deterministic results, we achieve both performance and correctness - a classic challenge in distributed systems that Rust's ownership model helps us solve elegantly.</p>
+<p>⚡ <strong>Performance Insight</strong>: The diamond pattern is where DAG execution shines! By running analysis processors in parallel while maintaining deterministic results, both performance and correctness are achieved - a classic challenge in distributed systems that Rust's ownership model helps solve elegantly.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="wasm-integration-sandboxed-processing"><a class="header" href="#wasm-integration-sandboxed-processing">WASM Integration: Sandboxed Processing</a></h1>
-<p>Our fourth demonstration introduces WebAssembly (WASM) processors, showcasing cutting-edge sandboxing technology and multi-language support within our Rust-based DAG execution system.</p>
+<p>The fourth demonstration introduces WebAssembly (WASM) processors, showcasing cutting-edge sandboxing technology and multi-language support within the Rust-based DAG execution system.</p>
 <h2 id="what-youll-learn-3"><a class="header" href="#what-youll-learn-3">What You'll Learn</a></h2>
 <ul>
 <li><strong>WASM module loading and execution</strong> with wasmtime</li>
@@ -1608,7 +1608,7 @@ let instance = linker.instantiate(&amp;mut store, &amp;module)?;
 <p>The same WASM interface could be implemented in multiple languages:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// Rust implementation (what we use)
+</span>// Rust implementation (current example)
 #[no_mangle]
 pub extern "C" fn process(input_ptr: *const c_char) -&gt; *mut c_char {
     // Rust processing logic
@@ -1732,7 +1732,7 @@ cargo build --target wasm32-unknown-unknown --release
 <li><strong>Test isolation</strong>: Try to access host resources (it should fail!)</li>
 </ol>
 <h2 id="whats-next-3"><a class="header" href="#whats-next-3">What's Next?</a></h2>
-<p>In our final demo, we'll explore a <strong>complex multi-backend workflow</strong> that combines everything we've learned:</p>
+<p>In the final demo, the exploration moves to a <strong>complex multi-backend workflow</strong> that combines everything learned:</p>
 <ul>
 <li>Multiple execution strategies</li>
 <li>Mixed local and WASM processors</li>
@@ -1741,10 +1741,10 @@ cargo build --target wasm32-unknown-unknown --release
 </ul>
 <hr />
 <blockquote>
-<p>🔒 <strong>Security Insight</strong>: WASM represents the future of secure code execution. By combining Rust's memory safety with WASM's sandboxing, we achieve both performance and security - essential for processing untrusted code in production environments!</p>
+<p>🔒 <strong>Security Insight</strong>: WASM represents the future of secure code execution. By combining Rust's memory safety with WASM's sandboxing, both performance and security are achieved - essential for processing untrusted code in production environments!</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="complex-workflow-multi-backend-pipeline"><a class="header" href="#complex-workflow-multi-backend-pipeline">Complex Workflow: Multi-Backend Pipeline</a></h1>
-<p>Our final demonstration showcases a sophisticated workflow that combines everything we've learned: multiple execution strategies, mixed backends, advanced error handling, and production-ready patterns.</p>
+<p>The final demonstration showcases a sophisticated workflow that combines everything learned: multiple execution strategies, mixed backends, advanced error handling, and production-ready patterns.</p>
 <h2 id="what-youll-learn-4"><a class="header" href="#what-youll-learn-4">What You'll Learn</a></h2>
 <ul>
 <li><strong>Level-by-Level vs Work Queue</strong> execution strategies</li>
@@ -2122,7 +2122,7 @@ time cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "test inp
 valgrind --tool=massif cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "test"
 </code></pre>
 <h2 id="whats-next-4"><a class="header" href="#whats-next-4">What's Next?</a></h2>
-<p>This completes our progressive demo journey! You've now seen:</p>
+<p>This completes the progressive demo journey! The demonstrations have shown:</p>
 <p>✅ <strong>Single processor basics</strong> (Hello World)<br />
 ✅ <strong>Linear dependency chains</strong> (Text Pipeline)<br />
 ✅ <strong>Parallel diamond patterns</strong> (Diamond Analysis)<br />
@@ -2141,7 +2141,7 @@ valgrind --tool=massif cargo run --release -- docs/demo/configs/05-complex-workf
 <p>🚀 <strong>Production Insight</strong>: This complex workflow demonstrates that The DAGwood Project is ready for real-world usage. The combination of Rust's safety, multiple execution strategies, WASM sandboxing, and robust error handling provides a solid foundation for production workflow orchestration systems!</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="rust-concepts-demonstrated"><a class="header" href="#rust-concepts-demonstrated">Rust Concepts Demonstrated</a></h1>
-<p>Throughout our demo journey, we've encountered numerous Rust language features and best practices. This chapter consolidates the key concepts and explains why they're essential for building robust workflow orchestration systems.</p>
+<p>Throughout the demo journey, numerous Rust language features and best practices have been encountered. This chapter consolidates the key concepts and explains why they're essential for building robust workflow orchestration systems.</p>
 <h2 id="ownership-and-borrowing"><a class="header" href="#ownership-and-borrowing">Ownership and Borrowing</a></h2>
 <h3 id="the-foundation-of-memory-safety"><a class="header" href="#the-foundation-of-memory-safety">The Foundation of Memory Safety</a></h3>
 <p>Rust's ownership system eliminates entire classes of bugs common in systems programming:</p>
@@ -2175,7 +2175,7 @@ for (processor_id, dependencies) in &amp;dependency_graph.0 {
 <p><strong>Pattern</strong>: Borrow when reading, clone when ownership transfer is required.</p>
 <h2 id="asyncawait-and-concurrency"><a class="header" href="#asyncawait-and-concurrency">Async/Await and Concurrency</a></h2>
 <h3 id="tokio-runtime-integration"><a class="header" href="#tokio-runtime-integration">Tokio Runtime Integration</a></h3>
-<p>Our DAG executors leverage Rust's async ecosystem for high-performance concurrency:</p>
+<p>The DAG executors leverage Rust's async ecosystem for high-performance concurrency:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// Spawning concurrent processor tasks
@@ -2862,7 +2862,7 @@ executor_options:
 <p>📊 <strong>Strategy Philosophy</strong>: Different DAG structures benefit from different execution strategies. The DAGwood project's pluggable architecture allows you to choose the optimal approach for your specific use case, or even mix strategies within a single workflow for maximum efficiency.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="wasm-component-architecture"><a class="header" href="#wasm-component-architecture">WASM Component Architecture</a></h1>
-<p>WebAssembly (WASM) integration in The DAGwood project represents a cutting-edge approach to secure, sandboxed processor execution. This chapter explores the architecture, security model, and implementation details of our WASM backend.</p>
+<p>WebAssembly (WASM) integration in The DAGwood project represents a cutting-edge approach to secure, sandboxed processor execution. This chapter explores the architecture, security model, and implementation details of the WASM backend.</p>
 <h2 id="wasm-integration-overview"><a class="header" href="#wasm-integration-overview">WASM Integration Overview</a></h2>
 <h3 id="why-wasm-for-workflow-orchestration"><a class="header" href="#why-wasm-for-workflow-orchestration">Why WASM for Workflow Orchestration?</a></h3>
 <p>Traditional workflow systems face several challenges when executing user-provided code:</p>
@@ -3427,7 +3427,7 @@ impl LearningPattern {
     fn explain_ownership_in_context() {
         // AI provides context-specific explanations
         println!("
-        In this DAG executor, we use Arc&lt;Mutex&lt;T&gt;&gt; because:
+        In this DAG executor, Arc&lt;Mutex&lt;T&gt;&gt; is used because:
         
         1. Arc&lt;T&gt; enables shared ownership across async tasks
         2. Mutex&lt;T&gt; provides thread-safe interior mutability
@@ -3501,7 +3501,7 @@ fn demonstrate_ownership_learning() {
     let graph_ref = &amp;dependency_graph;             // Borrowed reference
     let graph_clone = dependency_graph.clone();    // Cloned value
     
-    // AI explains: "In this DAG context, we clone because..."
+    // AI explains: "In this DAG context, cloning occurs because..."
     // Much more effective than generic ownership tutorials
 }
 <span class="boring">}</span></code></pre></pre>
@@ -3806,7 +3806,7 @@ impl FutureDevelopmentWorkflow {
 <p>🤖 <strong>AI Development Philosophy</strong>: The most effective AI-assisted development treats AI as a knowledgeable pair programming partner rather than a replacement for human judgment. The key is maintaining curiosity, asking for explanations, and using AI to accelerate learning rather than bypass it. The DAGwood project demonstrates that this approach can dramatically increase both development velocity and learning outcomes.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="roadmap--future-plans"><a class="header" href="#roadmap--future-plans">Roadmap &amp; Future Plans</a></h1>
-<p>The DAGwood project has achieved significant milestones in workflow orchestration, Rust mastery, and WASM integration. This chapter outlines our current progress and exciting future directions.</p>
+<p>The DAGwood project has achieved significant milestones in workflow orchestration, Rust mastery, and WASM integration. This chapter outlines current progress and exciting future directions.</p>
 <h2 id="current-status"><a class="header" href="#current-status">Current Status</a></h2>
 <h3 id="-completed-milestones"><a class="header" href="#-completed-milestones">✅ Completed Milestones</a></h3>
 <h4 id="phase-1-foundation-complete"><a class="header" href="#phase-1-foundation-complete">Phase 1: Foundation (Complete)</a></h4>
@@ -4305,7 +4305,7 @@ struct ExecutionMetrics {
 </ol>
 <hr />
 <blockquote>
-<p>🚀 <strong>Future Vision</strong>: The DAGwood project aims to become the definitive platform for workflow orchestration, combining the safety and performance of Rust with cutting-edge technologies like WASM sandboxing and AI-powered optimization. Join us in building the future of distributed computing!</p>
+<p>🚀 <strong>Future Vision</strong>: The DAGwood project aims to become the definitive platform for workflow orchestration, combining the safety and performance of Rust with cutting-edge technologies like WASM sandboxing and AI-powered optimization. Join the effort to build the future of distributed computing!</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started-guide"><a class="header" href="#getting-started-guide">Getting Started Guide</a></h1>
 <p>Ready to dive into The DAGwood project? This guide will help you set up your development environment, run your first workflows, and start contributing to this exciting Rust-based workflow orchestration system.</p>

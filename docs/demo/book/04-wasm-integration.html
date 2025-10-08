@@ -182,7 +182,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="wasm-integration-sandboxed-processing"><a class="header" href="#wasm-integration-sandboxed-processing">WASM Integration: Sandboxed Processing</a></h1>
-<p>Our fourth demonstration introduces WebAssembly (WASM) processors, showcasing cutting-edge sandboxing technology and multi-language support within our Rust-based DAG execution system.</p>
+<p>The fourth demonstration introduces WebAssembly (WASM) processors, showcasing cutting-edge sandboxing technology and multi-language support within the Rust-based DAG execution system.</p>
 <h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You'll Learn</a></h2>
 <ul>
 <li><strong>WASM module loading and execution</strong> with wasmtime</li>
@@ -335,7 +335,7 @@ let instance = linker.instantiate(&amp;mut store, &amp;module)?;
 <p>The same WASM interface could be implemented in multiple languages:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// Rust implementation (what we use)
+</span>// Rust implementation (current example)
 #[no_mangle]
 pub extern "C" fn process(input_ptr: *const c_char) -&gt; *mut c_char {
     // Rust processing logic
@@ -459,7 +459,7 @@ cargo build --target wasm32-unknown-unknown --release
 <li><strong>Test isolation</strong>: Try to access host resources (it should fail!)</li>
 </ol>
 <h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
-<p>In our final demo, we'll explore a <strong>complex multi-backend workflow</strong> that combines everything we've learned:</p>
+<p>In the final demo, the exploration moves to a <strong>complex multi-backend workflow</strong> that combines everything learned:</p>
 <ul>
 <li>Multiple execution strategies</li>
 <li>Mixed local and WASM processors</li>
@@ -468,7 +468,7 @@ cargo build --target wasm32-unknown-unknown --release
 </ul>
 <hr />
 <blockquote>
-<p>🔒 <strong>Security Insight</strong>: WASM represents the future of secure code execution. By combining Rust's memory safety with WASM's sandboxing, we achieve both performance and security - essential for processing untrusted code in production environments!</p>
+<p>🔒 <strong>Security Insight</strong>: WASM represents the future of secure code execution. By combining Rust's memory safety with WASM's sandboxing, both performance and security are achieved - essential for processing untrusted code in production environments!</p>
 </blockquote>
 
                     </main>

@@ -600,7 +600,7 @@ The DAGwood project uses several key patterns to enable extensibility:
 
 ### ADR Summary
 
-The architecture reflects several key decisions documented in our ADRs:
+The architecture reflects several key decisions documented in the project ADRs:
 
 1. **Language Choice (Rust)**: Memory safety, performance, and excellent async support
 2. **Canonical Payload**: Single source of truth prevents race conditions

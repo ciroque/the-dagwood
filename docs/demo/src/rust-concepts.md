@@ -1,6 +1,6 @@
 # Rust Concepts Demonstrated
 
-Throughout our demo journey, we've encountered numerous Rust language features and best practices. This chapter consolidates the key concepts and explains why they're essential for building robust workflow orchestration systems.
+Throughout the demo journey, numerous Rust language features and best practices have been encountered. This chapter consolidates the key concepts and explains why they're essential for building robust workflow orchestration systems.
 
 ## Ownership and Borrowing
 
@@ -41,7 +41,7 @@ for (processor_id, dependencies) in &dependency_graph.0 {
 
 ### Tokio Runtime Integration
 
-Our DAG executors leverage Rust's async ecosystem for high-performance concurrency:
+The DAG executors leverage Rust's async ecosystem for high-performance concurrency:
 
 ```rust
 // Spawning concurrent processor tasks

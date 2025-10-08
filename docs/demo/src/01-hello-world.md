@@ -1,6 +1,6 @@
 # Hello World: Single Processor
 
-Welcome to our first demonstration! This example shows the simplest possible DAG execution with a single processor and no dependencies.
+Welcome to the first demonstration! This example shows the simplest possible DAG execution with a single processor and no dependencies.
 
 ## What You'll Learn
 
@@ -11,7 +11,7 @@ Welcome to our first demonstration! This example shows the simplest possible DAG
 
 ## Configuration Overview
 
-Let's examine our first configuration file:
+Let's examine the first configuration file:
 
 ```yaml
 # Demo 1: Hello World - Single Processor
@@ -64,7 +64,7 @@ The processor execution uses Rust's async/await pattern:
 let processor_response = processor.process(input).await?;
 ```
 
-**Key insight**: The `await` point allows other tasks to run, but since we have `max_concurrency: 1`, this example runs sequentially.
+**Key insight**: The `await` point allows other tasks to run, but since this example has `max_concurrency: 1`, it runs sequentially.
 
 ### 3. Result<T, E> Error Handling
 
@@ -144,11 +144,11 @@ cargo run --release -- docs/demo/configs/01-hello-world.yaml "hello world"
 
 ## What's Next?
 
-In the next demo, we'll explore **linear chains** where processors depend on each other, introducing:
+In the next demo, the exploration moves to **linear chains** where processors depend on each other, introducing:
 - Data flow between processors
 - Dependency resolution algorithms
 - More complex ownership patterns with `Arc<T>` and `Mutex<T>`
 
 ---
 
-> 💡 **Rust Learning Tip**: Notice how Rust's ownership system prevents data races and memory issues that are common in other languages. The compiler ensures that our DAG execution is memory-safe without runtime overhead!
+> 💡 **Rust Learning Tip**: Notice how Rust's ownership system prevents data races and memory issues that are common in other languages. The compiler ensures that DAG execution is memory-safe without runtime overhead!

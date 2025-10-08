@@ -182,7 +182,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="rust-concepts-demonstrated"><a class="header" href="#rust-concepts-demonstrated">Rust Concepts Demonstrated</a></h1>
-<p>Throughout our demo journey, we've encountered numerous Rust language features and best practices. This chapter consolidates the key concepts and explains why they're essential for building robust workflow orchestration systems.</p>
+<p>Throughout the demo journey, numerous Rust language features and best practices have been encountered. This chapter consolidates the key concepts and explains why they're essential for building robust workflow orchestration systems.</p>
 <h2 id="ownership-and-borrowing"><a class="header" href="#ownership-and-borrowing">Ownership and Borrowing</a></h2>
 <h3 id="the-foundation-of-memory-safety"><a class="header" href="#the-foundation-of-memory-safety">The Foundation of Memory Safety</a></h3>
 <p>Rust's ownership system eliminates entire classes of bugs common in systems programming:</p>
@@ -216,7 +216,7 @@ for (processor_id, dependencies) in &amp;dependency_graph.0 {
 <p><strong>Pattern</strong>: Borrow when reading, clone when ownership transfer is required.</p>
 <h2 id="asyncawait-and-concurrency"><a class="header" href="#asyncawait-and-concurrency">Async/Await and Concurrency</a></h2>
 <h3 id="tokio-runtime-integration"><a class="header" href="#tokio-runtime-integration">Tokio Runtime Integration</a></h3>
-<p>Our DAG executors leverage Rust's async ecosystem for high-performance concurrency:</p>
+<p>The DAG executors leverage Rust's async ecosystem for high-performance concurrency:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// Spawning concurrent processor tasks

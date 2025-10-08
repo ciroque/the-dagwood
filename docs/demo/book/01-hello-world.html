@@ -182,7 +182,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="hello-world-single-processor"><a class="header" href="#hello-world-single-processor">Hello World: Single Processor</a></h1>
-<p>Welcome to our first demonstration! This example shows the simplest possible DAG execution with a single processor and no dependencies.</p>
+<p>Welcome to the first demonstration! This example shows the simplest possible DAG execution with a single processor and no dependencies.</p>
 <h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You'll Learn</a></h2>
 <ul>
 <li><strong>Basic Rust ownership patterns</strong> in processor execution</li>
@@ -191,7 +191,7 @@
 <li><strong>Entry point detection</strong> in DAG execution algorithms</li>
 </ul>
 <h2 id="configuration-overview"><a class="header" href="#configuration-overview">Configuration Overview</a></h2>
-<p>Let's examine our first configuration file:</p>
+<p>Let's examine the first configuration file:</p>
 <pre><code class="language-yaml"># Demo 1: Hello World - Single Processor
 # This demonstrates the simplest possible DAG: one processor with no dependencies
 
@@ -235,7 +235,7 @@ for processor_config in &amp;config.processors {
 </span>// Simplified processor execution
 let processor_response = processor.process(input).await?;
 <span class="boring">}</span></code></pre></pre>
-<p><strong>Key insight</strong>: The <code>await</code> point allows other tasks to run, but since we have <code>max_concurrency: 1</code>, this example runs sequentially.</p>
+<p><strong>Key insight</strong>: The <code>await</code> point allows other tasks to run, but since this example has <code>max_concurrency: 1</code>, it runs sequentially.</p>
 <h3 id="3-resultt-e-error-handling"><a class="header" href="#3-resultt-e-error-handling">3. Result&lt;T, E&gt; Error Handling</a></h3>
 <p>Every operation returns a <code>Result</code> for graceful error handling:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -294,7 +294,7 @@ match impl_name {
 <pre><code class="language-bash">cargo run --release -- docs/demo/configs/01-hello-world.yaml "hello world"
 </code></pre>
 <h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
-<p>In the next demo, we'll explore <strong>linear chains</strong> where processors depend on each other, introducing:</p>
+<p>In the next demo, the exploration moves to <strong>linear chains</strong> where processors depend on each other, introducing:</p>
 <ul>
 <li>Data flow between processors</li>
 <li>Dependency resolution algorithms</li>
@@ -302,7 +302,7 @@ match impl_name {
 </ul>
 <hr />
 <blockquote>
-<p>💡 <strong>Rust Learning Tip</strong>: Notice how Rust's ownership system prevents data races and memory issues that are common in other languages. The compiler ensures that our DAG execution is memory-safe without runtime overhead!</p>
+<p>💡 <strong>Rust Learning Tip</strong>: Notice how Rust's ownership system prevents data races and memory issues that are common in other languages. The compiler ensures that DAG execution is memory-safe without runtime overhead!</p>
 </blockquote>
 
                     </main>

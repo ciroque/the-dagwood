@@ -1,6 +1,6 @@
 # Diamond Analysis: Parallel Execution
 
-Our third demonstration showcases the classic diamond dependency pattern, where multiple processors run in parallel and their results converge. This is where DAG execution becomes truly powerful!
+The third demonstration showcases the classic diamond dependency pattern, where multiple processors run in parallel and their results converge. This is where DAG execution becomes truly powerful!
 
 ## What You'll Learn
 
@@ -283,7 +283,7 @@ Experiment with processor intents:
 
 ## What's Next?
 
-In our next demo, we'll explore **WASM integration** where processors run in secure sandboxes, introducing:
+In the next demo, the exploration moves to **WASM integration** where processors run in secure sandboxes, introducing:
 - Cross-language processor execution
 - Memory management across WASM boundaries
 - Security isolation patterns
@@ -291,4 +291,4 @@ In our next demo, we'll explore **WASM integration** where processors run in sec
 
 ---
 
-> ⚡ **Performance Insight**: The diamond pattern is where DAG execution shines! By running analysis processors in parallel while maintaining deterministic results, we achieve both performance and correctness - a classic challenge in distributed systems that Rust's ownership model helps us solve elegantly.
+> ⚡ **Performance Insight**: The diamond pattern is where DAG execution shines! By running analysis processors in parallel while maintaining deterministic results, both performance and correctness are achieved - a classic challenge in distributed systems that Rust's ownership model helps solve elegantly.

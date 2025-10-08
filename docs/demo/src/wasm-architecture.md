@@ -1,6 +1,6 @@
 # WASM Component Architecture
 
-WebAssembly (WASM) integration in The DAGwood project represents a cutting-edge approach to secure, sandboxed processor execution. This chapter explores the architecture, security model, and implementation details of our WASM backend.
+WebAssembly (WASM) integration in The DAGwood project represents a cutting-edge approach to secure, sandboxed processor execution. This chapter explores the architecture, security model, and implementation details of the WASM backend.
 
 ## WASM Integration Overview
 

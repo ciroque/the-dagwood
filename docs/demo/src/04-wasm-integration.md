@@ -1,6 +1,6 @@
 # WASM Integration: Sandboxed Processing
 
-Our fourth demonstration introduces WebAssembly (WASM) processors, showcasing cutting-edge sandboxing technology and multi-language support within our Rust-based DAG execution system.
+The fourth demonstration introduces WebAssembly (WASM) processors, showcasing cutting-edge sandboxing technology and multi-language support within the Rust-based DAG execution system.
 
 ## What You'll Learn
 
@@ -162,7 +162,7 @@ let instance = linker.instantiate(&mut store, &module)?;
 The same WASM interface could be implemented in multiple languages:
 
 ```rust
-// Rust implementation (what we use)
+// Rust implementation (current example)
 #[no_mangle]
 pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char {
     // Rust processing logic
@@ -314,7 +314,7 @@ cargo build --target wasm32-unknown-unknown --release
 
 ## What's Next?
 
-In our final demo, we'll explore a **complex multi-backend workflow** that combines everything we've learned:
+In the final demo, the exploration moves to a **complex multi-backend workflow** that combines everything learned:
 - Multiple execution strategies
 - Mixed local and WASM processors
 - Advanced error handling
@@ -322,4 +322,4 @@ In our final demo, we'll explore a **complex multi-backend workflow** that combi
 
 ---
 
-> 🔒 **Security Insight**: WASM represents the future of secure code execution. By combining Rust's memory safety with WASM's sandboxing, we achieve both performance and security - essential for processing untrusted code in production environments!
+> 🔒 **Security Insight**: WASM represents the future of secure code execution. By combining Rust's memory safety with WASM's sandboxing, both performance and security are achieved - essential for processing untrusted code in production environments!

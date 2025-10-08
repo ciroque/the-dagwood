@@ -4,11 +4,11 @@ Welcome to an interactive demonstration of **The DAGwood Project** - a modern wo
 
 ## Demo Goals
 
-This 10-15 minute demonstration highlights our four primary objectives:
+This 10-15 minute demonstration highlights four primary objectives:
 
 ### 🦀 **1. Learn Rust**
 - **Ownership & Borrowing**: See how Rust's memory safety enables high-performance concurrent execution
-- **Async/Await**: Discover how tokio powers our non-blocking DAG processors  
+- **Async/Await**: Discover how tokio powers non-blocking DAG processors  
 - **Trait System**: Explore how traits create pluggable execution strategies
 - **Error Handling**: Experience Rust's `Result<T, E>` pattern for robust workflow orchestration
 
@@ -64,8 +64,8 @@ This presentation uses **mdBook** - the same tool used by the official Rust docu
 
 The demo follows a carefully crafted progression from simple concepts to advanced architectures. Each section builds on the previous one, culminating in a sophisticated workflow orchestration system that demonstrates the power of modern Rust development.
 
-**Let's start with our first example: Hello World!**
+**Let's start with the first example: Hello World!**
 
 ---
 
-> 💡 **Tip**: Keep the terminal window visible alongside this presentation to see the live execution results as we progress through each example.
+> 💡 **Tip**: Keep the terminal window visible alongside this presentation to see the live execution results as the examples progress.

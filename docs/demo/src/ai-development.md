@@ -72,7 +72,7 @@ impl LearningPattern {
     fn explain_ownership_in_context() {
         // AI provides context-specific explanations
         println!("
-        In this DAG executor, we use Arc<Mutex<T>> because:
+        In this DAG executor, Arc<Mutex<T>> is used because:
         
         1. Arc<T> enables shared ownership across async tasks
         2. Mutex<T> provides thread-safe interior mutability
@@ -152,7 +152,7 @@ fn demonstrate_ownership_learning() {
     let graph_ref = &dependency_graph;             // Borrowed reference
     let graph_clone = dependency_graph.clone();    // Cloned value
     
-    // AI explains: "In this DAG context, we clone because..."
+    // AI explains: "In this DAG context, cloning occurs because..."
     // Much more effective than generic ownership tutorials
 }
 ```

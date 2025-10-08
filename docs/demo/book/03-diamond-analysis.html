@@ -182,7 +182,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="diamond-analysis-parallel-execution"><a class="header" href="#diamond-analysis-parallel-execution">Diamond Analysis: Parallel Execution</a></h1>
-<p>Our third demonstration showcases the classic diamond dependency pattern, where multiple processors run in parallel and their results converge. This is where DAG execution becomes truly powerful!</p>
+<p>The third demonstration showcases the classic diamond dependency pattern, where multiple processors run in parallel and their results converge. This is where DAG execution becomes truly powerful!</p>
 <h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You'll Learn</a></h2>
 <ul>
 <li><strong>Parallel execution</strong> with tokio async tasks</li>
@@ -436,7 +436,7 @@ let freq_task_input = input_arc.clone();  // Another cheap increment
 <li><strong>Create nested diamonds</strong>: Can you build <code>A → [B, C] → [D, E] → F</code>?</li>
 </ol>
 <h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
-<p>In our next demo, we'll explore <strong>WASM integration</strong> where processors run in secure sandboxes, introducing:</p>
+<p>In the next demo, the exploration moves to <strong>WASM integration</strong> where processors run in secure sandboxes, introducing:</p>
 <ul>
 <li>Cross-language processor execution</li>
 <li>Memory management across WASM boundaries</li>
@@ -445,7 +445,7 @@ let freq_task_input = input_arc.clone();  // Another cheap increment
 </ul>
 <hr />
 <blockquote>
-<p>⚡ <strong>Performance Insight</strong>: The diamond pattern is where DAG execution shines! By running analysis processors in parallel while maintaining deterministic results, we achieve both performance and correctness - a classic challenge in distributed systems that Rust's ownership model helps us solve elegantly.</p>
+<p>⚡ <strong>Performance Insight</strong>: The diamond pattern is where DAG execution shines! By running analysis processors in parallel while maintaining deterministic results, both performance and correctness are achieved - a classic challenge in distributed systems that Rust's ownership model helps solve elegantly.</p>
 </blockquote>
 
                     </main>

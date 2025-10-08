@@ -1,6 +1,6 @@
 # Text Pipeline: Linear Chain
 
-Our second demonstration shows data flowing through a sequence of processors, introducing dependency resolution and the fundamental concepts of DAG execution.
+The second demonstration shows data flowing through a sequence of processors, introducing dependency resolution and the fundamental concepts of DAG execution.
 
 ## What You'll Learn
 
@@ -167,7 +167,7 @@ while let Some(current_processor) = ready_queue.pop() {
 
 ### Canonical Payload Architecture
 
-A revolutionary insight from our development: only Transform processors update the payload, while Analyze processors contribute metadata:
+A revolutionary insight from the development: only Transform processors update the payload, while Analyze processors contribute metadata:
 
 ```rust
 // After processor execution
@@ -188,7 +188,7 @@ if processor.declared_intent() == ProcessorIntent::Transform {
 
 ### Concurrency Analysis
 
-With `max_concurrency: 2`, this linear chain still executes sequentially because each processor depends on the previous one. However, the infrastructure is ready for parallel execution when we introduce diamond patterns.
+With `max_concurrency: 2`, this linear chain still executes sequentially because each processor depends on the previous one. However, the infrastructure is ready for parallel execution when diamond patterns are introduced.
 
 ### Memory Efficiency
 
@@ -222,7 +222,7 @@ The dependency validation will catch this cycle during config loading!
 
 ## What's Next?
 
-In our next demo, we'll explore the **diamond dependency pattern** where multiple processors can run in parallel, introducing:
+In the next demo, the exploration moves to the **diamond dependency pattern** where multiple processors can run in parallel, introducing:
 - True concurrent execution
 - Metadata merging strategies  
 - Race condition prevention

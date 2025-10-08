@@ -1,6 +1,6 @@
 # Roadmap & Future Plans
 
-The DAGwood project has achieved significant milestones in workflow orchestration, Rust mastery, and WASM integration. This chapter outlines our current progress and exciting future directions.
+The DAGwood project has achieved significant milestones in workflow orchestration, Rust mastery, and WASM integration. This chapter outlines current progress and exciting future directions.
 
 ## Current Status
 
@@ -513,4 +513,4 @@ Ready to explore The DAGwood project further?
 
 ---
 
-> 🚀 **Future Vision**: The DAGwood project aims to become the definitive platform for workflow orchestration, combining the safety and performance of Rust with cutting-edge technologies like WASM sandboxing and AI-powered optimization. Join us in building the future of distributed computing!
+> 🚀 **Future Vision**: The DAGwood project aims to become the definitive platform for workflow orchestration, combining the safety and performance of Rust with cutting-edge technologies like WASM sandboxing and AI-powered optimization. Join the effort to build the future of distributed computing!

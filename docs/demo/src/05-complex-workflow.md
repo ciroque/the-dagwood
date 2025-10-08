@@ -1,6 +1,6 @@
 # Complex Workflow: Multi-Backend Pipeline
 
-Our final demonstration showcases a sophisticated workflow that combines everything we've learned: multiple execution strategies, mixed backends, advanced error handling, and production-ready patterns.
+The final demonstration showcases a sophisticated workflow that combines everything learned: multiple execution strategies, mixed backends, advanced error handling, and production-ready patterns.
 
 ## What You'll Learn
 
@@ -409,7 +409,7 @@ valgrind --tool=massif cargo run --release -- docs/demo/configs/05-complex-workf
 
 ## What's Next?
 
-This completes our progressive demo journey! You've now seen:
+This completes the progressive demo journey! The demonstrations have shown:
 
 ✅ **Single processor basics** (Hello World)  
 ✅ **Linear dependency chains** (Text Pipeline)  

@@ -209,8 +209,8 @@ impl WasmProcessor {
         config.static_memory_maximum_size(64 * 1024 * 1024);
         
         // Disable reference types and bulk memory for reduced attack surface
-        config.wasm_reference_types(false);
-        config.wasm_bulk_memory(false);
+        config.wasm_reference_types(true);
+        config.wasm_bulk_memory(true);
         
         // Disable unnecessary features for security and compatibility
         config.wasm_threads(false);

@@ -159,8 +159,23 @@ impl WasmProcessor {
             // Write input data to WASM memory
             let memory_data = memory.data_mut(&mut store);
             let input_bytes = input_cstring.as_bytes_with_nul();
-            memory_data[input_ptr as usize..(input_ptr as usize + input_bytes.len())]
-                .copy_from_slice(input_bytes);
+            let input_offset = input_ptr as usize;
+            
+            // Validate that the allocated memory region is within bounds
+            if input_offset >= memory_data.len() {
+                return Err("WASM module returned invalid allocation pointer: out of bounds".into());
+            }
+            
+            // Check for integer overflow and bounds
+            let end_offset = input_offset.checked_add(input_bytes.len())
+                .ok_or("Integer overflow in memory offset calculation")?;
+            
+            if end_offset > memory_data.len() {
+                return Err("WASM module allocated insufficient memory: region extends beyond memory bounds".into());
+            }
+            
+            // Safe to copy - bounds have been validated
+            memory_data[input_offset..end_offset].copy_from_slice(input_bytes);
             
             // Call the WASM process function
             let result_ptr = process_func.call(&mut store, input_ptr)?;

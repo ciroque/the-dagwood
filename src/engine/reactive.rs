@@ -84,7 +84,7 @@
 //! ).await?;
 //! 
 //! // Ensure all async operations complete
-//! tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+//! tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 //! 
 //! // All processors executed reactively
 //! assert_eq!(results.len(), 3);
@@ -138,7 +138,7 @@
 //! ).await?;
 //! 
 //! // Ensure all async operations complete
-//! tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+//! tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 //! 
 //! assert_eq!(results.len(), 4);
 //! # Ok(())

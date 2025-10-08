@@ -1,0 +1,29 @@
+# Demo 2: Text Pipeline - Linear Chain
+# This demonstrates data flow through a sequence of processors
+
+strategy: work_queue
+failure_strategy: fail_fast
+
+executor_options:
+  max_concurrency: 2
+
+processors:
+  - id: uppercase
+    backend: local
+    impl: change_text_case_upper
+    depends_on: []
+    options: {}
+
+  - id: reverse
+    backend: local
+    impl: reverse_text
+    depends_on: [uppercase]
+    options: {}
+
+  - id: add_prefix
+    backend: local
+    impl: prefix_suffix_adder
+    depends_on: [reverse]
+    options:
+      prefix: ">>> "
+      suffix: " <<<"

@@ -1,0 +1,39 @@
+# Demo 3: Diamond Analysis - Parallel Execution
+# This demonstrates the classic diamond dependency pattern with parallel analysis
+
+strategy: work_queue
+failure_strategy: fail_fast
+
+executor_options:
+  max_concurrency: 4
+
+processors:
+  # Entry point: prepare the text
+  - id: prepare_text
+    backend: local
+    impl: change_text_case_lower
+    depends_on: []
+    options: {}
+
+  # Parallel analysis processors (both depend on prepare_text)
+  - id: count_tokens
+    backend: local
+    impl: token_counter
+    depends_on: [prepare_text]
+    options:
+      count_type: "words"
+
+  - id: analyze_frequency
+    backend: local
+    impl: word_frequency_analyzer
+    depends_on: [prepare_text]
+    options: {}
+
+  # Convergence point: combine results (depends on both analysis processors)
+  - id: final_summary
+    backend: local
+    impl: prefix_suffix_adder
+    depends_on: [count_tokens, analyze_frequency]
+    options:
+      prefix: "Analysis Complete: "
+      suffix: " [END]"

@@ -328,13 +328,14 @@ impl WasmProcessor {
         if input_ptr == 0 {
             return Err("WASM module allocate returned null pointer".into());
         }
-        
+
         // Allocate memory for the output length parameter
-        const SIZEOF_I32: i32 = 4;
-        const USIZEOF_I32: usize = SIZEOF_I32 as usize;
+        const USIZEOF_I32: usize = std::mem::size_of::<i32>();
+        const SIZEOF_I32: i32 = USIZEOF_I32 as i32;
+
         let output_len_ptr = allocate_func.call(&mut store, SIZEOF_I32) // sizeof(usize) as i32 in WASM
             .map_err(|e| format!("WASM allocate for output_len failed: {}", e))?;
-        
+
         if output_len_ptr == 0 {
             // Clean up input allocation
             let _ = deallocate_func.call(&mut store, (input_ptr, input_len));

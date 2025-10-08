@@ -17,9 +17,9 @@ pub extern "C" fn process(input_ptr: *const u8, input_len: usize, output_len: *m
 
 #### **2. Raw Pointers**
 ```rust
-*const c_char  // Immutable raw pointer to C-style char
-*mut c_char    // Mutable raw pointer to C-style char
-*const u8      // Immutable raw pointer to byte
+*const u8      // Immutable raw pointer to byte data
+*mut u8        // Mutable raw pointer to byte data
+*mut usize     // Mutable raw pointer to size parameter
 ```
 - **Why needed**: WASM linear memory is accessed via raw pointers
 - **Safety**: All pointer operations require `unsafe` blocks
@@ -116,18 +116,27 @@ pub extern "C" fn deallocate(ptr: *mut u8, size: usize) {
 - **Caller responsibility**: Host must call `deallocate()` to free memory
 - **Memory leak prevention**: Careful ownership transfer across language boundaries
 
-#### **2. Adapter Pattern Implementation**
+#### **2. Length-Explicit Interface Implementation**
 ```rust
-pub extern "C" fn process(input_ptr: *const c_char) -> *mut c_char {
-    // Convert C-string to bytes
-    let input_bytes = input_cstr.to_bytes();
+pub extern "C" fn process(
+    input_ptr: *const u8, 
+    input_len: usize,
+    output_len: *mut usize
+) -> *mut u8 {
+    // Convert raw pointer to slice
+    let input_slice = unsafe { std::slice::from_raw_parts(input_ptr, input_len) };
     
-    // Delegate to core implementation
-    let mut output_len = 0;
-    let result_ptr = process_with_length(input_bytes.as_ptr(), input_bytes.len(), &mut output_len);
+    // Process the data
+    let output = format!("{}-wasm", std::str::from_utf8(input_slice)?);
+    let output_bytes = output.as_bytes();
     
-    // Convert result back to C-string format
-    // ... conversion logic
+    // Allocate and return result
+    let result_ptr = allocate(output_bytes.len());
+    unsafe { 
+        std::ptr::copy_nonoverlapping(output_bytes.as_ptr(), result_ptr, output_bytes.len());
+        *output_len = output_bytes.len();
+    }
+    result_ptr
 }
 ```
 - **Separation of concerns**: Interface adaptation vs. business logic

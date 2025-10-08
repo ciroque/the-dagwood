@@ -1,13 +1,13 @@
 # Roadmap & Future Plans
 
-The DAGwood project has achieved significant milestones in workflow orchestration, Rust mastery, and WASM integration. This chapter outlines current progress and exciting future directions.
+The DAGwood project has achieved significant milestones in pipeline orchestration, Rust mastery, and WASM integration. This chapter outlines current progress and exciting future directions.
 
 ## Current Status
 
 ### ✅ Completed Milestones
 
 #### Phase 1: Foundation (Complete)
-- **Configuration System**: YAML-based workflow definitions with validation
+- **Configuration System**: YAML-based pipeline definitions with validation
 - **Dependency Graph Validation**: Cycle detection and reference resolution
 - **Error Handling**: Comprehensive error types and graceful failure strategies
 - **Protobuf Integration**: Structured data exchange between components
@@ -115,4 +115,4 @@ Ready to explore The DAGwood project further?
 
 ---
 
-> 🚀 **Future Vision**: The DAGwood project aims to become the definitive platform for workflow orchestration, combining the safety and performance of Rust with cutting-edge technologies like WASM sandboxing and AI-powered optimization. Join the effort to build the future of distributed computing!
+> 🚀 **Future Vision**: The DAGwood project aims to become the definitive platform for pipeline orchestration, combining the safety and performance of Rust with cutting-edge technologies like WASM sandboxing and AI-powered optimization. Join the effort to build the future of distributed computing!

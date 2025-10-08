@@ -10,7 +10,7 @@ Rather than replacing human expertise, AI tools augment developer capabilities:
 
 **Human Contributions:**
 - **Architectural vision**: Overall system design and goals
-- **Domain expertise**: Workflow orchestration requirements
+- **Domain expertise**: Pipeline orchestration requirements
 - **Quality standards**: Code review and testing standards
 - **Learning objectives**: Rust concepts and DAG algorithms to explore
 
@@ -26,7 +26,7 @@ Rather than replacing human expertise, AI tools augment developer capabilities:
 - **Broader exploration**: Investigation of multiple approaches
 - **Reduced friction**: Less time on boilerplate, more on architecture
 
-## Development Workflow Patterns
+## Development Pipeline Patterns
 
 ### 1. Iterative Refinement Pattern
 
@@ -184,7 +184,7 @@ Beyond metrics, AI assistance provided qualitative improvements:
 
 ### Impact on The DAGwood Project
 
-AI assistance enabled rapid development of a sophisticated workflow orchestration system while maintaining high code quality and comprehensive documentation. The collaborative approach accelerated learning of advanced Rust concepts and facilitated exploration of multiple architectural approaches.
+AI assistance enabled rapid development of a sophisticated pipeline orchestration system while maintaining high code quality and comprehensive documentation. The collaborative approach accelerated learning of advanced Rust concepts and facilitated exploration of multiple architectural approaches.
 
 ---
 

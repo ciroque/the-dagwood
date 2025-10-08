@@ -182,7 +182,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h1>
-<p>Before diving into the demos, let's understand how The DAGwood project is architected. This chapter provides a comprehensive overview of the system design, key components, and architectural decisions that make DAGwood a robust workflow orchestration platform.</p>
+<p>Before diving into the demos, let's understand how The DAGwood project is architected. This chapter provides a comprehensive overview of the system design, key components, and architectural decisions that make DAGwood a robust pipeline orchestration platform.</p>
 <h2 id="system-architecture"><a class="header" href="#system-architecture">System Architecture</a></h2>
 <h3 id="high-level-architecture"><a class="header" href="#high-level-architecture">High-Level Architecture</a></h3>
 <pre><code class="language-mermaid">graph TB
@@ -235,10 +235,10 @@
 </code></pre>
 <h3 id="core-components"><a class="header" href="#core-components">Core Components</a></h3>
 <h4 id="1-configuration-system"><a class="header" href="#1-configuration-system">1. Configuration System</a></h4>
-<p>The configuration system serves as the entry point for defining workflows through YAML files.</p>
+<p>The configuration system serves as the entry point for defining pipelines through YAML files.</p>
 <p><strong>Key Features:</strong></p>
 <ul>
-<li><strong>YAML-based</strong>: Human-readable workflow definitions with strategy selection, failure handling, and processor specifications</li>
+<li><strong>YAML-based</strong>: Human-readable pipeline definitions with strategy selection, failure handling, and processor specifications</li>
 <li><strong>Validation</strong>: Comprehensive validation with cycle detection and reference resolution</li>
 <li><strong>Flexible Options</strong>: Processor-specific configuration support with backend selection</li>
 <li><strong>Dependency Management</strong>: Automatic dependency graph construction and validation</li>
@@ -254,15 +254,9 @@
 <li><strong>Concurrency Management</strong>: Configures parallelism limits and resource constraints</li>
 <li><strong>Validation Integration</strong>: Ensures all processors and dependencies are valid before execution</li>
 </ul>
-<p><strong>Design Patterns Used:</strong></p>
-<ul>
-<li><strong>Factory Pattern</strong>: Dynamic processor creation based on configuration type</li>
-<li><strong>Strategy Pattern</strong>: Pluggable execution strategies</li>
-<li><strong>Builder Pattern</strong>: Fluent configuration construction from YAML</li>
-</ul>
 <p>The Runtime Builder acts as the central orchestrator, transforming declarative YAML into a fully configured, executable DAG system.</p>
 <h4 id="3-dag-execution-engine"><a class="header" href="#3-dag-execution-engine">3. DAG Execution Engine</a></h4>
-<p>The execution engine coordinates workflow execution across different strategies through a common trait interface.</p>
+<p>The execution engine coordinates pipeline execution across different strategies through a common trait interface.</p>
 <p><strong>Key Responsibilities:</strong></p>
 <ul>
 <li><strong>Dependency Resolution</strong>: Topological ordering and cycle detection for safe execution</li>
@@ -270,6 +264,33 @@
 <li><strong>Error Handling</strong>: Comprehensive failure strategies (FailFast, ContinueOnError, BestEffort)</li>
 <li><strong>Metadata Tracking</strong>: Complete audit trail and context preservation throughout execution</li>
 </ul>
+<h4 id="4-processors"><a class="header" href="#4-processors">4. Processors</a></h4>
+<p>Processors are the fundamental units of computation in DAGwood, implementing the actual data transformation and analysis logic.</p>
+<p><strong>Key Responsibilities:</strong></p>
+<ul>
+<li><strong>Data Processing</strong>: Transform or analyze input data according to processor-specific logic</li>
+<li><strong>Metadata Generation</strong>: Produce structured metadata about processing results and context</li>
+<li><strong>Error Handling</strong>: Report failures with detailed error information for debugging</li>
+<li><strong>Intent Declaration</strong>: Specify whether the processor transforms data or only analyzes it</li>
+</ul>
+<p><strong>Processor Types:</strong></p>
+<ul>
+<li><strong>Transform Processors</strong>: Modify the canonical payload (e.g., text case conversion, formatting)</li>
+<li><strong>Analyze Processors</strong>: Extract information without modifying data (e.g., word counting, analysis)-</li>
+</ul>
+<p><strong>Processor Implementations:</strong></p>
+<ul>
+<li><strong>Local Processors</strong>: Built-in implementations for common text processing tasks</li>
+<li><strong>WASM Processors</strong>: Sandboxed modules for secure, multi-language processing</li>
+</ul>
+<p><strong>Backend Integration:</strong></p>
+<ul>
+<li><strong>Local Backend</strong>: Direct Rust implementations with zero-overhead execution, compiled into binary</li>
+<li><strong>WASM Backend</strong>: Secure sandboxed execution with wasmtime runtime</li>
+</ul>
+<blockquote>
+<p><strong>Note</strong>: The current built-in processors assume a text payload, but the execution engine makes no assumptions about the payload type.</p>
+</blockquote>
 <h2 id="execution-strategies"><a class="header" href="#execution-strategies">Execution Strategies</a></h2>
 <h3 id="work-queue-strategy"><a class="header" href="#work-queue-strategy">Work Queue Strategy</a></h3>
 <p>The Work Queue strategy maximizes parallelism through dependency counting and priority-based scheduling.</p>

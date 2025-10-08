@@ -1,6 +1,6 @@
 # The DAGwood Project Demo
 
-Welcome to an interactive demonstration of **The DAGwood Project** - a modern workflow orchestration system built in Rust that showcases cutting-edge DAG execution strategies and WASM component integration.
+Welcome to an interactive demonstration of **The DAGwood Project** - a modern pipeline orchestration system built in Rust that showcases cutting-edge DAG execution strategies and WASM component integration.
 
 ## Demo Goals
 
@@ -10,12 +10,12 @@ This 10-15 minute demonstration highlights four primary objectives:
 - **Ownership & Borrowing**: See how Rust's memory safety enables high-performance concurrent execution
 - **Async/Await**: Discover how tokio powers non-blocking DAG processors  
 - **Trait System**: Explore how traits create pluggable execution strategies
-- **Error Handling**: Experience Rust's `Result<T, E>` pattern for robust workflow orchestration
+- **Error Handling**: Experience Rust's `Result<T, E>` pattern for robust pipeline orchestration
 
 ### 🔄 **2. Learn DAG Execution Strategies**
 - **Work Queue + Dependency Counting**: Efficient topological execution with priority queues
 - **Level-by-Level**: Batch processing with clear dependency boundaries
-- **Reactive/Event-Driven**: Future implementation for real-time workflow orchestration
+- **Reactive/Event-Driven**: Future implementation for real-time pipeline orchestration
 - **Hybrid Scheduling**: Advanced strategies combining multiple approaches
 
 ### 🧩 **3. Learn WASM Components**
@@ -45,11 +45,11 @@ Before diving into the demos, the **Architecture Overview** provides essential c
 2. **Text Pipeline** → Linear data flow and chaining  
 3. **Diamond Analysis** → Parallel execution and metadata collection
 4. **WASM Integration** → Sandboxed processing with multiple languages
-5. **Complex Workflow** → Real-world multi-backend orchestration
+5. **Complex Pipeline** → Real-world multi-backend orchestration
 
 ### Live Demonstrations
 - **Interactive Execution**: Real DAG processing with live output
-- **Configuration Examples**: YAML-driven workflow definitions
+- **Configuration Examples**: YAML-driven pipeline definitions
 - **Performance Comparison**: Different execution strategies in action
 - **Error Handling**: Graceful failure and recovery mechanisms
 
@@ -70,7 +70,7 @@ This presentation uses **mdBook** - the same tool used by the official Rust docu
 
 ## Ready to Begin?
 
-The demo follows a carefully crafted progression from simple concepts to advanced architectures. Each section builds on the previous one, culminating in a sophisticated workflow orchestration system that demonstrates the power of modern Rust development.
+The demo follows a carefully crafted progression from simple concepts to advanced architectures. Each section builds on the previous one, culminating in a sophisticated pipeline orchestration system that demonstrates the power of modern Rust development.
 
 **Let's start with the first example: Hello World!**
 

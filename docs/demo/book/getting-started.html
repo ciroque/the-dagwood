@@ -182,7 +182,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="getting-started-guide"><a class="header" href="#getting-started-guide">Getting Started Guide</a></h1>
-<p>Ready to dive into The DAGwood project? This guide will help you set up your development environment, run your first workflows, and start contributing to this exciting Rust-based workflow orchestration system.</p>
+<p>Ready to dive into The DAGwood project? This guide will help you set up your development environment, run your first pipelines, and start contributing to this exciting Rust-based pipeline orchestration system.</p>
 <h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
 <h3 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h3>
 <p>Ensure you have the following installed:</p>
@@ -213,9 +213,9 @@ cargo test
 # Run the interactive demo
 cargo run --release -- --demo-mode
 </code></pre>
-<h2 id="your-first-workflow"><a class="header" href="#your-first-workflow">Your First Workflow</a></h2>
+<h2 id="your-first-pipeline"><a class="header" href="#your-first-pipeline">Your First Pipeline</a></h2>
 <h3 id="1-create-a-simple-configuration"><a class="header" href="#1-create-a-simple-configuration">1. Create a Simple Configuration</a></h3>
-<p>Create a file called <code>my-first-workflow.yaml</code>:</p>
+<p>Create a file called <code>my-first-pipeline.yaml</code>:</p>
 <pre><code class="language-yaml">strategy: work_queue
 failure_strategy: fail_fast
 
@@ -237,16 +237,16 @@ processors:
       prefix: "🎉 "
       suffix: " 🚀"
 </code></pre>
-<h3 id="2-run-your-workflow"><a class="header" href="#2-run-your-workflow">2. Run Your Workflow</a></h3>
-<pre><code class="language-bash">cargo run --release -- my-first-workflow.yaml "hello dagwood"
+<h3 id="2-run-your-pipeline"><a class="header" href="#2-run-your-pipeline">2. Run Your Pipeline</a></h3>
+<pre><code class="language-bash">cargo run --release -- my-first-pipeline.yaml "hello dagwood"
 </code></pre>
 <p>Expected output:</p>
 <pre><code>🚀 DAGwood Execution Strategy Demo
 ═══════════════════════════════════
 Input: "hello dagwood"
-Config files: ["my-first-workflow.yaml"]
+Config files: ["my-first-pipeline.yaml"]
 
-📋 Configuration: my-first-workflow.yaml
+📋 Configuration: my-first-pipeline.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 2
 🛡️  Failure Strategy: FailFast
@@ -263,10 +263,10 @@ Config files: ["my-first-workflow.yaml"]
    Input:  "hello dagwood"
    Output: "🎉 HELLO DAGWOOD 🚀"
 </code></pre>
-<p>Congratulations! You've just run your first DAGwood workflow! 🎉</p>
+<p>Congratulations! You've just run your first DAGwood pipeline! 🎉</p>
 <h2 id="understanding-the-components"><a class="header" href="#understanding-the-components">Understanding the Components</a></h2>
 <h3 id="configuration-structure"><a class="header" href="#configuration-structure">Configuration Structure</a></h3>
-<p>Every DAGwood workflow is defined by a YAML configuration:</p>
+<p>Every DAGwood pipeline is defined by a YAML configuration:</p>
 <pre><code class="language-yaml"># Execution strategy selection
 strategy: work_queue  # Options: work_queue, level, reactive
 
@@ -314,7 +314,7 @@ processors:
 - impl: word_frequency_analyzer   # Returns JSON with word counts
 </code></pre>
 <h3 id="execution-strategies"><a class="header" href="#execution-strategies">Execution Strategies</a></h3>
-<p>Choose the right strategy for your workflow:</p>
+<p>Choose the right strategy for your pipeline:</p>
 <h4 id="work-queue-default"><a class="header" href="#work-queue-default">Work Queue (Default)</a></h4>
 <pre><code class="language-yaml">strategy: work_queue
 </code></pre>
@@ -335,7 +335,7 @@ processors:
 <pre><code class="language-yaml">strategy: reactive
 </code></pre>
 <ul>
-<li><strong>Best for</strong>: Real-time workflows, I/O-bound processors</li>
+<li><strong>Best for</strong>: Real-time pipelines, I/O-bound processors</li>
 <li><strong>Algorithm</strong>: Event-driven execution with immediate response</li>
 <li><strong>Parallelism</strong>: Maximum responsiveness - processors react instantly to dependency completion</li>
 </ul>
@@ -466,9 +466,9 @@ cp target/wasm32-unknown-unknown/release/my_module.wasm ../my_module.wasm
     options:
       intent: transform
 </code></pre>
-<h2 id="advanced-workflows"><a class="header" href="#advanced-workflows">Advanced Workflows</a></h2>
+<h2 id="advanced-pipelines"><a class="header" href="#advanced-pipelines">Advanced Pipelines</a></h2>
 <h3 id="diamond-dependency-pattern"><a class="header" href="#diamond-dependency-pattern">Diamond Dependency Pattern</a></h3>
-<p>Create workflows with parallel processing:</p>
+<p>Create pipelines with parallel processing:</p>
 <pre><code class="language-yaml">processors:
   # Entry point
   - id: input_processor
@@ -498,7 +498,7 @@ cp target/wasm32-unknown-unknown/release/my_module.wasm ../my_module.wasm
       prefix: "Analysis: "
       suffix: " [Complete]"
 </code></pre>
-<h3 id="multi-backend-workflows"><a class="header" href="#multi-backend-workflows">Multi-Backend Workflows</a></h3>
+<h3 id="multi-backend-pipelines"><a class="header" href="#multi-backend-pipelines">Multi-Backend Pipelines</a></h3>
 <p>Combine local and WASM processors:</p>
 <pre><code class="language-yaml">processors:
   - id: local_prep

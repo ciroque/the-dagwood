@@ -1,6 +1,6 @@
 # Getting Started Guide
 
-Ready to dive into The DAGwood project? This guide will help you set up your development environment, run your first workflows, and start contributing to this exciting Rust-based workflow orchestration system.
+Ready to dive into The DAGwood project? This guide will help you set up your development environment, run your first pipelines, and start contributing to this exciting Rust-based pipeline orchestration system.
 
 ## Quick Start
 
@@ -40,11 +40,11 @@ cargo test
 cargo run --release -- --demo-mode
 ```
 
-## Your First Workflow
+## Your First Pipeline
 
 ### 1. Create a Simple Configuration
 
-Create a file called `my-first-workflow.yaml`:
+Create a file called `my-first-pipeline.yaml`:
 
 ```yaml
 strategy: work_queue
@@ -69,10 +69,10 @@ processors:
       suffix: " 🚀"
 ```
 
-### 2. Run Your Workflow
+### 2. Run Your Pipeline
 
 ```bash
-cargo run --release -- my-first-workflow.yaml "hello dagwood"
+cargo run --release -- my-first-pipeline.yaml "hello dagwood"
 ```
 
 Expected output:
@@ -80,9 +80,9 @@ Expected output:
 🚀 DAGwood Execution Strategy Demo
 ═══════════════════════════════════
 Input: "hello dagwood"
-Config files: ["my-first-workflow.yaml"]
+Config files: ["my-first-pipeline.yaml"]
 
-📋 Configuration: my-first-workflow.yaml
+📋 Configuration: my-first-pipeline.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 2
 🛡️  Failure Strategy: FailFast
@@ -100,13 +100,13 @@ Config files: ["my-first-workflow.yaml"]
    Output: "🎉 HELLO DAGWOOD 🚀"
 ```
 
-Congratulations! You've just run your first DAGwood workflow! 🎉
+Congratulations! You've just run your first DAGwood pipeline! 🎉
 
 ## Understanding the Components
 
 ### Configuration Structure
 
-Every DAGwood workflow is defined by a YAML configuration:
+Every DAGwood pipeline is defined by a YAML configuration:
 
 ```yaml
 # Execution strategy selection
@@ -164,7 +164,7 @@ The local backend provides several built-in processors:
 
 ### Execution Strategies
 
-Choose the right strategy for your workflow:
+Choose the right strategy for your pipeline:
 
 #### Work Queue (Default)
 ```yaml
@@ -186,7 +186,7 @@ strategy: level
 ```yaml
 strategy: reactive
 ```
-- **Best for**: Real-time workflows, I/O-bound processors
+- **Best for**: Real-time pipelines, I/O-bound processors
 - **Algorithm**: Event-driven execution with immediate response
 - **Parallelism**: Maximum responsiveness - processors react instantly to dependency completion
 
@@ -333,11 +333,11 @@ processors:
       intent: transform
 ```
 
-## Advanced Workflows
+## Advanced Pipelines
 
 ### Diamond Dependency Pattern
 
-Create workflows with parallel processing:
+Create pipelines with parallel processing:
 
 ```yaml
 processors:
@@ -370,7 +370,7 @@ processors:
       suffix: " [Complete]"
 ```
 
-### Multi-Backend Workflows
+### Multi-Backend Pipelines
 
 Combine local and WASM processors:
 

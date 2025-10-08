@@ -180,7 +180,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="the-dagwood-project-demo"><a class="header" href="#the-dagwood-project-demo">The DAGwood Project Demo</a></h1>
-<p>Welcome to an interactive demonstration of <strong>The DAGwood Project</strong> - a modern workflow orchestration system built in Rust that showcases cutting-edge DAG execution strategies and WASM component integration.</p>
+<p>Welcome to an interactive demonstration of <strong>The DAGwood Project</strong> - a modern pipeline orchestration system built in Rust that showcases cutting-edge DAG execution strategies and WASM component integration.</p>
 <h2 id="demo-goals"><a class="header" href="#demo-goals">Demo Goals</a></h2>
 <p>This 10-15 minute demonstration highlights four primary objectives:</p>
 <h3 id="-1-learn-rust"><a class="header" href="#-1-learn-rust">🦀 <strong>1. Learn Rust</strong></a></h3>
@@ -188,13 +188,13 @@
 <li><strong>Ownership &amp; Borrowing</strong>: See how Rust's memory safety enables high-performance concurrent execution</li>
 <li><strong>Async/Await</strong>: Discover how tokio powers non-blocking DAG processors</li>
 <li><strong>Trait System</strong>: Explore how traits create pluggable execution strategies</li>
-<li><strong>Error Handling</strong>: Experience Rust's <code>Result&lt;T, E&gt;</code> pattern for robust workflow orchestration</li>
+<li><strong>Error Handling</strong>: Experience Rust's <code>Result&lt;T, E&gt;</code> pattern for robust pipeline orchestration</li>
 </ul>
 <h3 id="-2-learn-dag-execution-strategies"><a class="header" href="#-2-learn-dag-execution-strategies">🔄 <strong>2. Learn DAG Execution Strategies</strong></a></h3>
 <ul>
 <li><strong>Work Queue + Dependency Counting</strong>: Efficient topological execution with priority queues</li>
 <li><strong>Level-by-Level</strong>: Batch processing with clear dependency boundaries</li>
-<li><strong>Reactive/Event-Driven</strong>: Future implementation for real-time workflow orchestration</li>
+<li><strong>Reactive/Event-Driven</strong>: Future implementation for real-time pipeline orchestration</li>
 <li><strong>Hybrid Scheduling</strong>: Advanced strategies combining multiple approaches</li>
 </ul>
 <h3 id="-3-learn-wasm-components"><a class="header" href="#-3-learn-wasm-components">🧩 <strong>3. Learn WASM Components</strong></a></h3>
@@ -227,12 +227,12 @@
 <li><strong>Text Pipeline</strong> → Linear data flow and chaining</li>
 <li><strong>Diamond Analysis</strong> → Parallel execution and metadata collection</li>
 <li><strong>WASM Integration</strong> → Sandboxed processing with multiple languages</li>
-<li><strong>Complex Workflow</strong> → Real-world multi-backend orchestration</li>
+<li><strong>Complex Pipeline</strong> → Real-world multi-backend orchestration</li>
 </ol>
 <h3 id="live-demonstrations"><a class="header" href="#live-demonstrations">Live Demonstrations</a></h3>
 <ul>
 <li><strong>Interactive Execution</strong>: Real DAG processing with live output</li>
-<li><strong>Configuration Examples</strong>: YAML-driven workflow definitions</li>
+<li><strong>Configuration Examples</strong>: YAML-driven pipeline definitions</li>
 <li><strong>Performance Comparison</strong>: Different execution strategies in action</li>
 <li><strong>Error Handling</strong>: Graceful failure and recovery mechanisms</li>
 </ul>
@@ -252,14 +252,14 @@
 <li><strong>Follow along</strong> with the live terminal demonstrations</li>
 </ul>
 <h2 id="ready-to-begin"><a class="header" href="#ready-to-begin">Ready to Begin?</a></h2>
-<p>The demo follows a carefully crafted progression from simple concepts to advanced architectures. Each section builds on the previous one, culminating in a sophisticated workflow orchestration system that demonstrates the power of modern Rust development.</p>
+<p>The demo follows a carefully crafted progression from simple concepts to advanced architectures. Each section builds on the previous one, culminating in a sophisticated pipeline orchestration system that demonstrates the power of modern Rust development.</p>
 <p><strong>Let's start with the first example: Hello World!</strong></p>
 <hr />
 <blockquote>
 <p>💡 <strong>Tip</strong>: Keep the terminal window visible alongside this presentation to see the live execution results as the examples progress.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h1>
-<p>Before diving into the demos, let's understand how The DAGwood project is architected. This chapter provides a comprehensive overview of the system design, key components, and architectural decisions that make DAGwood a robust workflow orchestration platform.</p>
+<p>Before diving into the demos, let's understand how The DAGwood project is architected. This chapter provides a comprehensive overview of the system design, key components, and architectural decisions that make DAGwood a robust pipeline orchestration platform.</p>
 <h2 id="system-architecture"><a class="header" href="#system-architecture">System Architecture</a></h2>
 <h3 id="high-level-architecture"><a class="header" href="#high-level-architecture">High-Level Architecture</a></h3>
 <pre><code class="language-mermaid">graph TB
@@ -312,10 +312,10 @@
 </code></pre>
 <h3 id="core-components"><a class="header" href="#core-components">Core Components</a></h3>
 <h4 id="1-configuration-system"><a class="header" href="#1-configuration-system">1. Configuration System</a></h4>
-<p>The configuration system serves as the entry point for defining workflows through YAML files.</p>
+<p>The configuration system serves as the entry point for defining pipelines through YAML files.</p>
 <p><strong>Key Features:</strong></p>
 <ul>
-<li><strong>YAML-based</strong>: Human-readable workflow definitions with strategy selection, failure handling, and processor specifications</li>
+<li><strong>YAML-based</strong>: Human-readable pipeline definitions with strategy selection, failure handling, and processor specifications</li>
 <li><strong>Validation</strong>: Comprehensive validation with cycle detection and reference resolution</li>
 <li><strong>Flexible Options</strong>: Processor-specific configuration support with backend selection</li>
 <li><strong>Dependency Management</strong>: Automatic dependency graph construction and validation</li>
@@ -331,15 +331,9 @@
 <li><strong>Concurrency Management</strong>: Configures parallelism limits and resource constraints</li>
 <li><strong>Validation Integration</strong>: Ensures all processors and dependencies are valid before execution</li>
 </ul>
-<p><strong>Design Patterns Used:</strong></p>
-<ul>
-<li><strong>Factory Pattern</strong>: Dynamic processor creation based on configuration type</li>
-<li><strong>Strategy Pattern</strong>: Pluggable execution strategies</li>
-<li><strong>Builder Pattern</strong>: Fluent configuration construction from YAML</li>
-</ul>
 <p>The Runtime Builder acts as the central orchestrator, transforming declarative YAML into a fully configured, executable DAG system.</p>
 <h4 id="3-dag-execution-engine"><a class="header" href="#3-dag-execution-engine">3. DAG Execution Engine</a></h4>
-<p>The execution engine coordinates workflow execution across different strategies through a common trait interface.</p>
+<p>The execution engine coordinates pipeline execution across different strategies through a common trait interface.</p>
 <p><strong>Key Responsibilities:</strong></p>
 <ul>
 <li><strong>Dependency Resolution</strong>: Topological ordering and cycle detection for safe execution</li>
@@ -347,6 +341,33 @@
 <li><strong>Error Handling</strong>: Comprehensive failure strategies (FailFast, ContinueOnError, BestEffort)</li>
 <li><strong>Metadata Tracking</strong>: Complete audit trail and context preservation throughout execution</li>
 </ul>
+<h4 id="4-processors"><a class="header" href="#4-processors">4. Processors</a></h4>
+<p>Processors are the fundamental units of computation in DAGwood, implementing the actual data transformation and analysis logic.</p>
+<p><strong>Key Responsibilities:</strong></p>
+<ul>
+<li><strong>Data Processing</strong>: Transform or analyze input data according to processor-specific logic</li>
+<li><strong>Metadata Generation</strong>: Produce structured metadata about processing results and context</li>
+<li><strong>Error Handling</strong>: Report failures with detailed error information for debugging</li>
+<li><strong>Intent Declaration</strong>: Specify whether the processor transforms data or only analyzes it</li>
+</ul>
+<p><strong>Processor Types:</strong></p>
+<ul>
+<li><strong>Transform Processors</strong>: Modify the canonical payload (e.g., text case conversion, formatting)</li>
+<li><strong>Analyze Processors</strong>: Extract information without modifying data (e.g., word counting, analysis)-</li>
+</ul>
+<p><strong>Processor Implementations:</strong></p>
+<ul>
+<li><strong>Local Processors</strong>: Built-in implementations for common text processing tasks</li>
+<li><strong>WASM Processors</strong>: Sandboxed modules for secure, multi-language processing</li>
+</ul>
+<p><strong>Backend Integration:</strong></p>
+<ul>
+<li><strong>Local Backend</strong>: Direct Rust implementations with zero-overhead execution, compiled into binary</li>
+<li><strong>WASM Backend</strong>: Secure sandboxed execution with wasmtime runtime</li>
+</ul>
+<blockquote>
+<p><strong>Note</strong>: The current built-in processors assume a text payload, but the execution engine makes no assumptions about the payload type.</p>
+</blockquote>
 <h2 id="execution-strategies"><a class="header" href="#execution-strategies">Execution Strategies</a></h2>
 <h3 id="work-queue-strategy"><a class="header" href="#work-queue-strategy">Work Queue Strategy</a></h3>
 <p>The Work Queue strategy maximizes parallelism through dependency counting and priority-based scheduling.</p>
@@ -1587,7 +1608,7 @@ struct ProcessorMetrics {
 <p>🦀 <strong>Rust Philosophy</strong>: "Fast, reliable, productive—pick three." Rust delivers on all fronts by leveraging compile-time analysis to eliminate runtime overhead while maintaining safety and expressiveness. This makes it ideal for systems like DAGwood where correctness and performance are both critical.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="dag-execution-strategies"><a class="header" href="#dag-execution-strategies">DAG Execution Strategies</a></h1>
-<p>The DAGwood project implements multiple execution strategies, each optimized for different types of workflows and performance characteristics. This chapter explores the algorithms, trade-offs, and use cases for each approach.</p>
+<p>The DAGwood project implements multiple execution strategies, each optimized for different types of pipelines and performance characteristics. This chapter explores the algorithms, trade-offs, and use cases for each approach.</p>
 <h2 id="strategy-overview"><a class="header" href="#strategy-overview">Strategy Overview</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>Strategy</th><th>Algorithm</th><th>Best For</th><th>Complexity</th><th>Parallelism</th></tr></thead><tbody>
 <tr><td><strong>Work Queue</strong></td><td>Dependency Counting</td><td>Irregular DAGs</td><td>O(V + E)</td><td>Maximum</td></tr>
@@ -1924,7 +1945,7 @@ impl HybridExecutor {
 <p><strong>Example use cases</strong>:</p>
 <ul>
 <li>Data processing pipelines with conditional branches</li>
-<li>Machine learning workflows with dynamic dependencies</li>
+<li>Machine learning pipelines with dynamic dependencies</li>
 <li>Build systems with complex dependency graphs</li>
 </ul>
 <h3 id="when-to-use-level-by-level"><a class="header" href="#when-to-use-level-by-level">When to Use Level-by-Level</a></h3>
@@ -1938,7 +1959,7 @@ impl HybridExecutor {
 <p><strong>Example use cases</strong>:</p>
 <ul>
 <li>Neural network inference pipelines</li>
-<li>ETL workflows with clear stages</li>
+<li>ETL pipelines with clear stages</li>
 <li>Batch processing systems</li>
 <li>Testing and validation pipelines</li>
 </ul>
@@ -2011,7 +2032,7 @@ executor_options:
 </code></pre>
 <hr />
 <blockquote>
-<p>📊 <strong>Strategy Philosophy</strong>: Different DAG structures benefit from different execution strategies. The DAGwood project's pluggable architecture allows you to choose the optimal approach for your specific use case, or even mix strategies within a single workflow for maximum efficiency.</p>
+<p>📊 <strong>Strategy Philosophy</strong>: Different DAG structures benefit from different execution strategies. The DAGwood project's pluggable architecture allows you to choose the optimal approach for your specific use case, or even mix strategies within a single pipeline for maximum efficiency.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="wasm-component-architecture"><a class="header" href="#wasm-component-architecture">WASM Component Architecture</a></h1>
 <p>WebAssembly (WASM) integration in The DAGwood project represents a cutting-edge approach to secure, sandboxed processor execution. This chapter explores the architecture, security model, and implementation details of the WASM backend.</p>
@@ -2522,7 +2543,7 @@ impl ProcessorFactory for WasmProcessorFactory {
 <p><strong>Human Contributions:</strong></p>
 <ul>
 <li><strong>Architectural vision</strong>: Overall system design and goals</li>
-<li><strong>Domain expertise</strong>: Workflow orchestration requirements</li>
+<li><strong>Domain expertise</strong>: Pipeline orchestration requirements</li>
 <li><strong>Quality standards</strong>: Code review and testing standards</li>
 <li><strong>Learning objectives</strong>: Rust concepts and DAG algorithms to explore</li>
 </ul>
@@ -2540,7 +2561,7 @@ impl ProcessorFactory for WasmProcessorFactory {
 <li><strong>Broader exploration</strong>: Investigation of multiple approaches</li>
 <li><strong>Reduced friction</strong>: Less time on boilerplate, more on architecture</li>
 </ul>
-<h2 id="development-workflow-patterns"><a class="header" href="#development-workflow-patterns">Development Workflow Patterns</a></h2>
+<h2 id="development-pipeline-patterns"><a class="header" href="#development-pipeline-patterns">Development Pipeline Patterns</a></h2>
 <h3 id="1-iterative-refinement-pattern"><a class="header" href="#1-iterative-refinement-pattern">1. Iterative Refinement Pattern</a></h3>
 <p>The most successful AI-assisted development follows an iterative approach:</p>
 <p><strong>Development Iteration Cycle:</strong></p>
@@ -2681,18 +2702,18 @@ impl ProcessorFactory for WasmProcessorFactory {
 <li><strong>Simplicity first</strong>: Request simple solutions before exploring complex alternatives</li>
 </ul>
 <h3 id="impact-on-the-dagwood-project"><a class="header" href="#impact-on-the-dagwood-project">Impact on The DAGwood Project</a></h3>
-<p>AI assistance enabled rapid development of a sophisticated workflow orchestration system while maintaining high code quality and comprehensive documentation. The collaborative approach accelerated learning of advanced Rust concepts and facilitated exploration of multiple architectural approaches.</p>
+<p>AI assistance enabled rapid development of a sophisticated pipeline orchestration system while maintaining high code quality and comprehensive documentation. The collaborative approach accelerated learning of advanced Rust concepts and facilitated exploration of multiple architectural approaches.</p>
 <hr />
 <blockquote>
 <p>🤖 <strong>AI Development Insight</strong>: The DAGwood project demonstrates that AI tools are most effective when used as collaborative partners rather than code generators. The key is maintaining human oversight while leveraging AI's ability to accelerate learning and implementation.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="roadmap--future-plans"><a class="header" href="#roadmap--future-plans">Roadmap &amp; Future Plans</a></h1>
-<p>The DAGwood project has achieved significant milestones in workflow orchestration, Rust mastery, and WASM integration. This chapter outlines current progress and exciting future directions.</p>
+<p>The DAGwood project has achieved significant milestones in pipeline orchestration, Rust mastery, and WASM integration. This chapter outlines current progress and exciting future directions.</p>
 <h2 id="current-status"><a class="header" href="#current-status">Current Status</a></h2>
 <h3 id="-completed-milestones"><a class="header" href="#-completed-milestones">✅ Completed Milestones</a></h3>
 <h4 id="phase-1-foundation-complete"><a class="header" href="#phase-1-foundation-complete">Phase 1: Foundation (Complete)</a></h4>
 <ul>
-<li><strong>Configuration System</strong>: YAML-based workflow definitions with validation</li>
+<li><strong>Configuration System</strong>: YAML-based pipeline definitions with validation</li>
 <li><strong>Dependency Graph Validation</strong>: Cycle detection and reference resolution</li>
 <li><strong>Error Handling</strong>: Comprehensive error types and graceful failure strategies</li>
 <li><strong>Protobuf Integration</strong>: Structured data exchange between components</li>
@@ -2802,10 +2823,10 @@ impl ProcessorFactory for WasmProcessorFactory {
 </ol>
 <hr />
 <blockquote>
-<p>🚀 <strong>Future Vision</strong>: The DAGwood project aims to become the definitive platform for workflow orchestration, combining the safety and performance of Rust with cutting-edge technologies like WASM sandboxing and AI-powered optimization. Join the effort to build the future of distributed computing!</p>
+<p>🚀 <strong>Future Vision</strong>: The DAGwood project aims to become the definitive platform for pipeline orchestration, combining the safety and performance of Rust with cutting-edge technologies like WASM sandboxing and AI-powered optimization. Join the effort to build the future of distributed computing!</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started-guide"><a class="header" href="#getting-started-guide">Getting Started Guide</a></h1>
-<p>Ready to dive into The DAGwood project? This guide will help you set up your development environment, run your first workflows, and start contributing to this exciting Rust-based workflow orchestration system.</p>
+<p>Ready to dive into The DAGwood project? This guide will help you set up your development environment, run your first pipelines, and start contributing to this exciting Rust-based pipeline orchestration system.</p>
 <h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
 <h3 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h3>
 <p>Ensure you have the following installed:</p>
@@ -2836,9 +2857,9 @@ cargo test
 # Run the interactive demo
 cargo run --release -- --demo-mode
 </code></pre>
-<h2 id="your-first-workflow"><a class="header" href="#your-first-workflow">Your First Workflow</a></h2>
+<h2 id="your-first-pipeline"><a class="header" href="#your-first-pipeline">Your First Pipeline</a></h2>
 <h3 id="1-create-a-simple-configuration"><a class="header" href="#1-create-a-simple-configuration">1. Create a Simple Configuration</a></h3>
-<p>Create a file called <code>my-first-workflow.yaml</code>:</p>
+<p>Create a file called <code>my-first-pipeline.yaml</code>:</p>
 <pre><code class="language-yaml">strategy: work_queue
 failure_strategy: fail_fast
 
@@ -2860,16 +2881,16 @@ processors:
       prefix: "🎉 "
       suffix: " 🚀"
 </code></pre>
-<h3 id="2-run-your-workflow"><a class="header" href="#2-run-your-workflow">2. Run Your Workflow</a></h3>
-<pre><code class="language-bash">cargo run --release -- my-first-workflow.yaml "hello dagwood"
+<h3 id="2-run-your-pipeline"><a class="header" href="#2-run-your-pipeline">2. Run Your Pipeline</a></h3>
+<pre><code class="language-bash">cargo run --release -- my-first-pipeline.yaml "hello dagwood"
 </code></pre>
 <p>Expected output:</p>
 <pre><code>🚀 DAGwood Execution Strategy Demo
 ═══════════════════════════════════
 Input: "hello dagwood"
-Config files: ["my-first-workflow.yaml"]
+Config files: ["my-first-pipeline.yaml"]
 
-📋 Configuration: my-first-workflow.yaml
+📋 Configuration: my-first-pipeline.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 2
 🛡️  Failure Strategy: FailFast
@@ -2886,10 +2907,10 @@ Config files: ["my-first-workflow.yaml"]
    Input:  "hello dagwood"
    Output: "🎉 HELLO DAGWOOD 🚀"
 </code></pre>
-<p>Congratulations! You've just run your first DAGwood workflow! 🎉</p>
+<p>Congratulations! You've just run your first DAGwood pipeline! 🎉</p>
 <h2 id="understanding-the-components"><a class="header" href="#understanding-the-components">Understanding the Components</a></h2>
 <h3 id="configuration-structure"><a class="header" href="#configuration-structure">Configuration Structure</a></h3>
-<p>Every DAGwood workflow is defined by a YAML configuration:</p>
+<p>Every DAGwood pipeline is defined by a YAML configuration:</p>
 <pre><code class="language-yaml"># Execution strategy selection
 strategy: work_queue  # Options: work_queue, level, reactive
 
@@ -2937,7 +2958,7 @@ processors:
 - impl: word_frequency_analyzer   # Returns JSON with word counts
 </code></pre>
 <h3 id="execution-strategies-1"><a class="header" href="#execution-strategies-1">Execution Strategies</a></h3>
-<p>Choose the right strategy for your workflow:</p>
+<p>Choose the right strategy for your pipeline:</p>
 <h4 id="work-queue-default"><a class="header" href="#work-queue-default">Work Queue (Default)</a></h4>
 <pre><code class="language-yaml">strategy: work_queue
 </code></pre>
@@ -2958,7 +2979,7 @@ processors:
 <pre><code class="language-yaml">strategy: reactive
 </code></pre>
 <ul>
-<li><strong>Best for</strong>: Real-time workflows, I/O-bound processors</li>
+<li><strong>Best for</strong>: Real-time pipelines, I/O-bound processors</li>
 <li><strong>Algorithm</strong>: Event-driven execution with immediate response</li>
 <li><strong>Parallelism</strong>: Maximum responsiveness - processors react instantly to dependency completion</li>
 </ul>
@@ -3089,9 +3110,9 @@ cp target/wasm32-unknown-unknown/release/my_module.wasm ../my_module.wasm
     options:
       intent: transform
 </code></pre>
-<h2 id="advanced-workflows"><a class="header" href="#advanced-workflows">Advanced Workflows</a></h2>
+<h2 id="advanced-pipelines"><a class="header" href="#advanced-pipelines">Advanced Pipelines</a></h2>
 <h3 id="diamond-dependency-pattern"><a class="header" href="#diamond-dependency-pattern">Diamond Dependency Pattern</a></h3>
-<p>Create workflows with parallel processing:</p>
+<p>Create pipelines with parallel processing:</p>
 <pre><code class="language-yaml">processors:
   # Entry point
   - id: input_processor
@@ -3121,7 +3142,7 @@ cp target/wasm32-unknown-unknown/release/my_module.wasm ../my_module.wasm
       prefix: "Analysis: "
       suffix: " [Complete]"
 </code></pre>
-<h3 id="multi-backend-workflows"><a class="header" href="#multi-backend-workflows">Multi-Backend Workflows</a></h3>
+<h3 id="multi-backend-pipelines"><a class="header" href="#multi-backend-pipelines">Multi-Backend Pipelines</a></h3>
 <p>Combine local and WASM processors:</p>
 <pre><code class="language-yaml">processors:
   - id: local_prep

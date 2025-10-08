@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Before diving into the demos, let's understand how The DAGwood project is architected. This chapter provides a comprehensive overview of the system design, key components, and architectural decisions that make DAGwood a robust workflow orchestration platform.
+Before diving into the demos, let's understand how The DAGwood project is architected. This chapter provides a comprehensive overview of the system design, key components, and architectural decisions that make DAGwood a robust pipeline orchestration platform.
 
 ## System Architecture
 
@@ -60,10 +60,10 @@ graph TB
 
 #### 1. Configuration System
 
-The configuration system serves as the entry point for defining workflows through YAML files.
+The configuration system serves as the entry point for defining pipelines through YAML files.
 
 **Key Features:**
-- **YAML-based**: Human-readable workflow definitions with strategy selection, failure handling, and processor specifications
+- **YAML-based**: Human-readable pipeline definitions with strategy selection, failure handling, and processor specifications
 - **Validation**: Comprehensive validation with cycle detection and reference resolution
 - **Flexible Options**: Processor-specific configuration support with backend selection
 - **Dependency Management**: Automatic dependency graph construction and validation
@@ -80,22 +80,41 @@ The Runtime Builder orchestrates the creation of all execution components from c
 - **Concurrency Management**: Configures parallelism limits and resource constraints
 - **Validation Integration**: Ensures all processors and dependencies are valid before execution
 
-**Design Patterns Used:**
-- **Factory Pattern**: Dynamic processor creation based on configuration type
-- **Strategy Pattern**: Pluggable execution strategies 
-- **Builder Pattern**: Fluent configuration construction from YAML
-
 The Runtime Builder acts as the central orchestrator, transforming declarative YAML into a fully configured, executable DAG system.
 
 #### 3. DAG Execution Engine
 
-The execution engine coordinates workflow execution across different strategies through a common trait interface.
+The execution engine coordinates pipeline execution across different strategies through a common trait interface.
 
 **Key Responsibilities:**
 - **Dependency Resolution**: Topological ordering and cycle detection for safe execution
 - **Concurrency Management**: Parallel execution with configurable limits and resource control
 - **Error Handling**: Comprehensive failure strategies (FailFast, ContinueOnError, BestEffort)
 - **Metadata Tracking**: Complete audit trail and context preservation throughout execution
+
+#### 4. Processors
+
+Processors are the fundamental units of computation in DAGwood, implementing the actual data transformation and analysis logic.
+
+**Key Responsibilities:**
+- **Data Processing**: Transform or analyze input data according to processor-specific logic
+- **Metadata Generation**: Produce structured metadata about processing results and context
+- **Error Handling**: Report failures with detailed error information for debugging
+- **Intent Declaration**: Specify whether the processor transforms data or only analyzes it
+
+**Processor Types:**
+- **Transform Processors**: Modify the canonical payload (e.g., text case conversion, formatting)
+- **Analyze Processors**: Extract information without modifying data (e.g., word counting, analysis)- 
+
+**Processor Implementations:**
+- **Local Processors**: Built-in implementations for common text processing tasks
+- **WASM Processors**: Sandboxed modules for secure, multi-language processing
+
+**Backend Integration:**
+- **Local Backend**: Direct Rust implementations with zero-overhead execution, compiled into binary
+- **WASM Backend**: Secure sandboxed execution with wasmtime runtime
+
+> **Note**: The current built-in processors assume a text payload, but the execution engine makes no assumptions about the payload type.
 
 ## Execution Strategies
 

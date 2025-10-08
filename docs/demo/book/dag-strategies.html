@@ -182,7 +182,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="dag-execution-strategies"><a class="header" href="#dag-execution-strategies">DAG Execution Strategies</a></h1>
-<p>The DAGwood project implements multiple execution strategies, each optimized for different types of workflows and performance characteristics. This chapter explores the algorithms, trade-offs, and use cases for each approach.</p>
+<p>The DAGwood project implements multiple execution strategies, each optimized for different types of pipelines and performance characteristics. This chapter explores the algorithms, trade-offs, and use cases for each approach.</p>
 <h2 id="strategy-overview"><a class="header" href="#strategy-overview">Strategy Overview</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>Strategy</th><th>Algorithm</th><th>Best For</th><th>Complexity</th><th>Parallelism</th></tr></thead><tbody>
 <tr><td><strong>Work Queue</strong></td><td>Dependency Counting</td><td>Irregular DAGs</td><td>O(V + E)</td><td>Maximum</td></tr>
@@ -519,7 +519,7 @@ impl HybridExecutor {
 <p><strong>Example use cases</strong>:</p>
 <ul>
 <li>Data processing pipelines with conditional branches</li>
-<li>Machine learning workflows with dynamic dependencies</li>
+<li>Machine learning pipelines with dynamic dependencies</li>
 <li>Build systems with complex dependency graphs</li>
 </ul>
 <h3 id="when-to-use-level-by-level"><a class="header" href="#when-to-use-level-by-level">When to Use Level-by-Level</a></h3>
@@ -533,7 +533,7 @@ impl HybridExecutor {
 <p><strong>Example use cases</strong>:</p>
 <ul>
 <li>Neural network inference pipelines</li>
-<li>ETL workflows with clear stages</li>
+<li>ETL pipelines with clear stages</li>
 <li>Batch processing systems</li>
 <li>Testing and validation pipelines</li>
 </ul>
@@ -606,7 +606,7 @@ executor_options:
 </code></pre>
 <hr />
 <blockquote>
-<p>📊 <strong>Strategy Philosophy</strong>: Different DAG structures benefit from different execution strategies. The DAGwood project's pluggable architecture allows you to choose the optimal approach for your specific use case, or even mix strategies within a single workflow for maximum efficiency.</p>
+<p>📊 <strong>Strategy Philosophy</strong>: Different DAG structures benefit from different execution strategies. The DAGwood project's pluggable architecture allows you to choose the optimal approach for your specific use case, or even mix strategies within a single pipeline for maximum efficiency.</p>
 </blockquote>
 
                     </main>

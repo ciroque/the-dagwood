@@ -1,6 +1,6 @@
 # DAG Execution Strategies
 
-The DAGwood project implements multiple execution strategies, each optimized for different types of workflows and performance characteristics. This chapter explores the algorithms, trade-offs, and use cases for each approach.
+The DAGwood project implements multiple execution strategies, each optimized for different types of pipelines and performance characteristics. This chapter explores the algorithms, trade-offs, and use cases for each approach.
 
 ## Strategy Overview
 
@@ -351,7 +351,7 @@ impl HybridExecutor {
 
 **Example use cases**:
 - Data processing pipelines with conditional branches
-- Machine learning workflows with dynamic dependencies
+- Machine learning pipelines with dynamic dependencies
 - Build systems with complex dependency graphs
 
 ### When to Use Level-by-Level
@@ -364,7 +364,7 @@ impl HybridExecutor {
 
 **Example use cases**:
 - Neural network inference pipelines
-- ETL workflows with clear stages
+- ETL pipelines with clear stages
 - Batch processing systems
 - Testing and validation pipelines
 
@@ -444,4 +444,4 @@ executor_options:
 
 ---
 
-> 📊 **Strategy Philosophy**: Different DAG structures benefit from different execution strategies. The DAGwood project's pluggable architecture allows you to choose the optimal approach for your specific use case, or even mix strategies within a single workflow for maximum efficiency.
+> 📊 **Strategy Philosophy**: Different DAG structures benefit from different execution strategies. The DAGwood project's pluggable architecture allows you to choose the optimal approach for your specific use case, or even mix strategies within a single pipeline for maximum efficiency.

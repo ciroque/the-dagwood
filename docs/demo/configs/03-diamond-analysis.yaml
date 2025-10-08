@@ -10,29 +10,29 @@ executor_options:
 processors:
   # Entry point: prepare the text
   - id: prepare_text
-    backend: local
-    impl: change_text_case_lower
+    type: local
+    processor: change_text_case_lower
     depends_on: []
     options: {}
 
   # Parallel analysis processors (both depend on prepare_text)
   - id: count_tokens
-    backend: local
-    impl: token_counter
+    type: local
+    processor: token_counter
     depends_on: [prepare_text]
     options:
       count_type: "words"
 
   - id: analyze_frequency
-    backend: local
-    impl: word_frequency_analyzer
+    type: local
+    processor: word_frequency_analyzer
     depends_on: [prepare_text]
     options: {}
 
   # Convergence point: combine results (depends on both analysis processors)
   - id: final_summary
-    backend: local
-    impl: prefix_suffix_adder
+    type: local
+    processor: prefix_suffix_adder
     depends_on: [count_tokens, analyze_frequency]
     options:
       prefix: "Analysis Complete: "

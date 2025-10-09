@@ -10,9 +10,9 @@ processors:
     options:
       case_type: upper
 
-  - id: wasm_hello_world
+  - id: wasm_hello_wasm
     type: wasm
-    module: wasm_components/hello_world.wasm
+    module: wasm_components/hello.wasm
     depends_on:
       - input_processor
     options:
@@ -22,4 +22,4 @@ processors:
     type: local
     processor: reverse_text
     depends_on:
-      - wasm_hello_world
+      - wasm_hello_wasm

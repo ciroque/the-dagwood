@@ -1,0 +1,21 @@
+# WIT Dependencies for hello_wasm
+# This component implements the DAGwood processor interface v1.0.0
+
+[dependencies]
+dagwood-processor = { path = "wit/dagwood-processor.wit" }
+
+[metadata]
+component-name = "hello_wasm"
+wit-version = "v1.0.0"
+generated-date = "2025-10-09T16:05:00Z"
+description = "Hello World WASM component demonstrating WIT bindings"
+
+[compatibility]
+dagwood-runtime = ">= 0.1.0"
+wit-bindgen = ">= 0.30"
+
+[features]
+# Component-specific features
+text-processing = true
+structured-errors = true
+memory-management = true

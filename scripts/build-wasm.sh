@@ -74,7 +74,7 @@ if [[ $# -eq 0 ]]; then
     
     for dir in "$WASM_COMPONENTS_DIR"/*; do
         if [[ -d "$dir" && -f "$dir/Cargo.toml" ]]; then
-            local component_name=$(basename "$dir")
+            component_name=$(basename "$dir")
             build_component "$component_name"
         fi
     done

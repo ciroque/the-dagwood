@@ -2,6 +2,35 @@
 
 This directory contains the WebAssembly Interface Types (WIT) specification for DAGwood processor components.
 
+## 🚀 Quick Start
+
+### For Component Authors
+```bash
+# Create a new component with WIT dependencies
+./scripts/setup-wit-deps.sh my_processor v1.0.0
+
+# Or manually copy the latest WIT interface
+cp wit/latest.wit your-component/wit/dagwood-processor.wit
+```
+
+### For DAGwood Users
+The WIT interface is automatically handled by the DAGwood runtime. Components using WIT bindings provide better error messages and type safety compared to C-style exports.
+
+## 📁 Directory Structure
+
+```
+wit/
+├── README.md              # This file
+├── wit-deps.toml          # Global WIT dependencies
+├── latest.wit             # Symlink to latest stable version
+├── versions/              # Versioned WIT releases
+│   ├── VERSIONS.md        # Version history and compatibility
+│   └── v1.0.0/           # Specific version directory
+│       └── dagwood-processor.wit
+└── examples/              # Example implementations
+    └── migration-example.rs
+```
+
 ## Overview
 
 The `dagwood-processor.wit` file defines a formal contract for implementing WASM processors that can be executed within the DAGwood workflow orchestration system. This WIT specification enables:

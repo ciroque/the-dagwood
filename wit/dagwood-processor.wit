@@ -1,0 +1,170 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
+/// DAGwood WASM Component Interface
+/// 
+/// This WIT file defines the WebAssembly Interface Types (WIT) specification
+/// for DAGwood WASM components. These are low-level WASM modules that export
+/// specific functions for data processing within the DAGwood pipeline system.
+/// 
+/// ## Architecture Overview
+/// 
+/// ```
+/// DAGwood Runtime
+///       ↓
+/// WasmProcessor (Rust) ← implements Processor trait
+///       ↓
+/// WASM Component ← exports process(), allocate(), deallocate()
+/// ```
+/// 
+/// The WASM component is a pure WASM module with no knowledge of DAGwood's
+/// Processor trait. The WasmProcessor in the DAGwood runtime handles the
+/// bridge between the Rust ecosystem and the WASM component.
+/// 
+/// ## Current Interface (C-style exports)
+/// 
+/// WASM components currently export three C-style functions:
+/// - `process(input_ptr, input_len, output_len_ptr) -> output_ptr`
+/// - `allocate(size) -> ptr`
+/// - `deallocate(ptr, size)`
+/// 
+/// ## This WIT Specification
+/// 
+/// This WIT file provides a formal specification of the current interface:
+/// - Documents the existing contract for implementors
+/// - Enables tooling and binding generation
+/// - Provides foundation for Component Model migration
+/// - Maintains exact compatibility with current C-style exports
+/// 
+/// ## Security Model
+/// 
+/// - **Complete Sandboxing**: No access to host filesystem, network, or system calls
+/// - **Memory Isolation**: Components operate within bounded WASM linear memory
+/// - **Resource Limits**: Execution time and memory consumption are bounded
+/// - **Input Validation**: All inputs are validated before processing
+
+package dagwood:component@1.0.0;
+
+/// Low-level WASM component interface for data processing
+/// 
+/// This interface defines the contract for WASM components that process
+/// data within DAGwood pipelines. Components are simple, stateless
+/// processors that transform input data to output data.
+interface processor {
+    /// Memory allocation errors
+    variant allocation-error {
+        /// Out of memory - cannot allocate requested size
+        out-of-memory,
+        /// Invalid size - zero or excessively large allocation request
+        invalid-size(u64),
+        /// Memory corruption - internal allocator state is corrupted
+        memory-corruption,
+    }
+    
+    /// Data processing errors
+    variant processing-error {
+        /// Invalid input data (malformed UTF-8, wrong format, etc.)
+        invalid-input(string),
+        /// Processing logic failed (algorithm error, computation failure)
+        processing-failed(string),
+        /// Input too large for component to handle
+        input-too-large(u64),
+    }
+    
+    /// Main data processing function
+    /// 
+    /// Processes input data and returns a pointer to output data.
+    /// This is a low-level interface that works directly with WASM linear memory.
+    /// 
+    /// ## Current C-style equivalent:
+    /// ```c
+    /// uint8_t* process(const uint8_t* input_ptr, size_t input_len, size_t* output_len);
+    /// ```
+    /// 
+    /// ## Parameters:
+    /// - `input-ptr`: Pointer to input data in WASM linear memory
+    /// - `input-len`: Length of input data in bytes
+    /// - `output-len-ptr`: Pointer to where output length should be written
+    /// 
+    /// ## Returns:
+    /// - Pointer to allocated output data in WASM linear memory
+    /// - Returns 0 (null) on error
+    /// - Caller must call deallocate() to free the returned memory
+    /// 
+    /// ## Memory Management:
+    /// 1. Host calls allocate() to get memory for input data
+    /// 2. Host writes input data to allocated memory
+    /// 3. Host calls allocate() to get memory for output length parameter
+    /// 4. Host calls process() with pointers to input and output length
+    /// 5. Component writes output length to output_len_ptr
+    /// 6. Component returns pointer to allocated output data
+    /// 7. Host reads output data and calls deallocate() for cleanup
+    process: func(input-ptr: u32, input-len: u64, output-len-ptr: u32) -> result<u32, processing-error>;
+    
+    /// Allocate memory in WASM linear memory
+    /// 
+    /// Allocates a block of memory of the specified size and returns
+    /// a pointer to the allocated memory. Used by the host to allocate
+    /// memory for input data before calling process().
+    /// 
+    /// ## Current C-style equivalent:
+    /// ```c
+    /// void* allocate(size_t size);
+    /// ```
+    /// 
+    /// ## Usage Pattern:
+    /// 1. Host calls allocate(input_size) to get memory for input
+    /// 2. Host writes input data to allocated memory
+    /// 3. Host calls process() with pointer to allocated memory
+    /// 4. Host calls deallocate() to free memory after processing
+    /// 
+    /// ## Memory Safety:
+    /// - Returns allocation-error on failure instead of null pointer
+    /// - Allocated memory is uninitialized
+    /// - Caller must call deallocate() to prevent memory leaks
+    allocate: func(size: u64) -> result<u32, allocation-error>;
+    
+    /// Deallocate memory in WASM linear memory
+    /// 
+    /// Frees a block of memory that was previously allocated by allocate().
+    /// The pointer and size must exactly match a previous allocation.
+    /// 
+    /// ## Current C-style equivalent:
+    /// ```c
+    /// void deallocate(void* ptr, size_t size);
+    /// ```
+    /// 
+    /// ## Memory Safety:
+    /// - Pointer must be from a previous allocate() call
+    /// - Size must exactly match the allocated size
+    /// - Double-free and use-after-free are undefined behavior
+    /// - Freeing null pointer (0) is safe and ignored
+    deallocate: func(ptr: u32, size: u64) -> result<(), allocation-error>;
+}
+
+/// World definition for DAGwood WASM components
+/// 
+/// This world defines the complete interface that DAGwood WASM components
+/// must implement. It includes only the processor interface with no imports,
+/// ensuring complete sandboxing and security isolation.
+world dagwood-component {
+    /// Export the processor interface
+    /// 
+    /// WASM components must export all functions in the processor interface:
+    /// - process: Main data processing logic
+    /// - allocate: Memory allocation for host-component communication
+    /// - deallocate: Memory deallocation for cleanup
+    export processor;
+    
+    /// No imports allowed for security
+    /// 
+    /// DAGwood WASM components deliberately import nothing to ensure
+    /// complete sandboxing. This prevents access to:
+    /// - Filesystem operations (WASI filesystem)
+    /// - Network operations (WASI sockets)
+    /// - System calls (WASI system interface)
+    /// - Random number generation (WASI random)
+    /// - Time/clock access (WASI clocks)
+    /// 
+    /// Components must be completely self-contained and deterministic.
+}

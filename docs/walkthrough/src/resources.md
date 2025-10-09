@@ -23,7 +23,7 @@ This chapter provides comprehensive resources for deepening your understanding o
 - **Metadata Utilities**: `src/utils/metadata.rs` - Metadata handling and merging
 
 #### Configuration Examples
-- **Demo Configurations**: `docs/demo/configs/` - Progressive complexity examples
+- **Demo Configurations**: `docs/walkthrough/configs/` - Progressive complexity examples
 - **Strategy Comparisons**: `configs/strategy-*.yaml` - Different execution strategies
 - **WASM Integration**: `configs/wasm-*.yaml` - WASM processor examples
 

@@ -29,7 +29,7 @@ cargo build --release
 
 ### Interactive Presentation
 The demo consists of:
-- **mdBook presentation**: Located in `docs/demo/`
+- **mdBook presentation**: Located in `docs/walkthrough/`
 - **Progressive configurations**: 5 demo configs showing increasing complexity
 - **Guided execution**: Modified `src/main.rs` with presentation prompts
 - **Live examples**: Real DAG execution with WASM integration
@@ -45,7 +45,7 @@ The demo consists of:
 
 ### 1. Build the Presentation
 ```bash
-cd docs/demo
+cd docs/walkthrough
 mdbook build
 mdbook serve --open
 ```
@@ -76,7 +76,7 @@ The demo runner will:
 
 ### mdBook Issues
 - **Port conflict**: Use `mdbook serve --port 3001` for different port
-- **Build errors**: Ensure you're in `docs/demo/` directory
+- **Build errors**: Ensure you're in `docs/walkthrough/` directory
 
 ### Demo Execution Issues
 - **Compilation errors**: Run `cargo clean && cargo build --release`

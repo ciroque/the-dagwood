@@ -147,7 +147,7 @@
                         <a href="https://github.com/ciroque/the-dagwood" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/demo/src/05-complex-workflow.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/walkthrough/src/05-complex-workflow.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -193,7 +193,7 @@
 </ul>
 <h2 id="the-demo"><a class="header" href="#the-demo">The Demo</a></h2>
 <h3 id="command-line"><a class="header" href="#command-line">Command Line</a></h3>
-<pre><code class="language-bash">cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "hello world"
+<pre><code class="language-bash">cargo run --release -- docs/walkthrough/configs/05-complex-workflow.yaml "hello world"
 </code></pre>
 <h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
 <pre><code class="language-yaml"># Demo 5: Complex Workflow - Multi-type Pipeline
@@ -228,7 +228,7 @@ processors:
 
   - id: process_b_wasm
     type: wasm
-    module: wasm_modules/hello_world.wasm
+    module: wasm_components/hello_world.wasm
     depends_on: [input_b]
     options:
       intent: transform
@@ -318,9 +318,9 @@ fn compute_topological_levels(graph: &amp;DependencyGraph) -&gt; Result&lt;Vec&l
 <pre><code>🚀 DAGwood Execution Strategy Demo
 ═══════════════════════════════════
 Input: "hello world"
-Config files: ["docs/demo/configs/05-complex-workflow.yaml"]
+Config files: ["docs/walkthrough/configs/05-complex-workflow.yaml"]
 
-📋 Configuration: docs/demo/configs/05-complex-workflow.yaml
+📋 Configuration: docs/walkthrough/configs/05-complex-workflow.yaml
 🔧 Strategy: LevelByLevel
 ⚙️  Max Concurrency: 6
 🛡️  Failure Strategy: BestEffort
@@ -427,22 +427,6 @@ Config files: ["docs/demo/configs/05-complex-workflow.yaml"]
 
         </div>
 
-        <!-- Livereload script (if served using the cli tool) -->
-        <script>
-            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
-            const socket = new WebSocket(wsAddress);
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload();
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
 
 
 

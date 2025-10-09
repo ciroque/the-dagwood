@@ -15,7 +15,7 @@ This demonstration shows data flowing through a sequence of processors in a line
 ### Command Line
 
 ```bash
-cargo run --release -- docs/demo/configs/02-text-pipeline.yaml "hello world"
+cargo run --release -- docs/walkthrough/configs/02-text-pipeline.yaml "hello world"
 ```
 
 ### Configuration
@@ -66,9 +66,9 @@ When you run this demo, you'll see:
 🚀 DAGwood Execution Strategy Demo
 ═══════════════════════════════════
 Input: "hello world"
-Config files: ["docs/demo/configs/02-text-pipeline.yaml"]
+Config files: ["docs/walkthrough/configs/02-text-pipeline.yaml"]
 
-📋 Configuration: docs/demo/configs/02-text-pipeline.yaml
+📋 Configuration: docs/walkthrough/configs/02-text-pipeline.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 2
 🛡️  Failure Strategy: FailFast

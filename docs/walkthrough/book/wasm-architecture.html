@@ -147,7 +147,7 @@
                         <a href="https://github.com/ciroque/the-dagwood" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/demo/src/wasm-architecture.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/walkthrough/src/wasm-architecture.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -362,7 +362,7 @@ pub trait WasmModuleInterface {
 <p>Here's how a WASM module is implemented in Rust:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// wasm_modules/hello_world/src/lib.rs
+</span>// wasm_components/hello_world/src/lib.rs
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
@@ -417,7 +417,7 @@ crate-type = ["cdylib"]
 <span class="boring">}</span></code></pre></pre>
 <h3 id="compilation-process"><a class="header" href="#compilation-process">Compilation Process</a></h3>
 <pre><code class="language-bash"># Build WASM module from Rust
-cd wasm_modules/hello_world
+cd wasm_components/hello_world
 cargo build --target wasm32-unknown-unknown --release
 
 # Copy to expected location
@@ -712,22 +712,6 @@ impl ProcessorFactory for WasmProcessorFactory {
 
         </div>
 
-        <!-- Livereload script (if served using the cli tool) -->
-        <script>
-            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
-            const socket = new WebSocket(wsAddress);
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload();
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
 
 
 

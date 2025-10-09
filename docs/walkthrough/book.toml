@@ -13,7 +13,7 @@ additional-js = ["mermaid.min.js", "mermaid-init.js"]
 default-theme = "navy"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/ciroque/the-dagwood"
-edit-url-template = "https://github.com/ciroque/the-dagwood/edit/main/docs/demo/{path}"
+edit-url-template = "https://github.com/ciroque/the-dagwood/edit/main/docs/walkthrough/{path}"
 
 [output.html.code]
 copy-js = true

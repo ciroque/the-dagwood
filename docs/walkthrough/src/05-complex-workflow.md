@@ -15,7 +15,7 @@ This final demonstration showcases a sophisticated workflow that combines everyt
 ### Command Line
 
 ```bash
-cargo run --release -- docs/demo/configs/05-complex-workflow.yaml "hello world"
+cargo run --release -- docs/walkthrough/configs/05-complex-workflow.yaml "hello world"
 ```
 
 ### Configuration
@@ -153,9 +153,9 @@ When you run this demo, you'll see:
 🚀 DAGwood Execution Strategy Demo
 ═══════════════════════════════════
 Input: "hello world"
-Config files: ["docs/demo/configs/05-complex-workflow.yaml"]
+Config files: ["docs/walkthrough/configs/05-complex-workflow.yaml"]
 
-📋 Configuration: docs/demo/configs/05-complex-workflow.yaml
+📋 Configuration: docs/walkthrough/configs/05-complex-workflow.yaml
 🔧 Strategy: LevelByLevel
 ⚙️  Max Concurrency: 6
 🛡️  Failure Strategy: BestEffort

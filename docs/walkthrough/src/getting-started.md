@@ -496,7 +496,7 @@ fn process_text(text: &str) -> String {
 
 ### Explore the Codebase
 
-1. **Start with the demo**: `docs/demo/src/`
+1. **Start with the demo**: `docs/walkthrough/src/`
 2. **Examine processors**: `src/backends/local/processors/`
 3. **Study executors**: `src/engine/`
 4. **Understand WASM integration**: `src/backends/wasm/`

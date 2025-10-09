@@ -15,7 +15,7 @@ This demonstration shows the simplest possible DAG execution: a single processor
 ### Command Line
 
 ```bash
-cargo run --release -- docs/demo/configs/01-hello-world.yaml "hello world"
+cargo run --release -- docs/walkthrough/configs/01-hello-world.yaml "hello world"
 ```
 
 ### Configuration
@@ -53,9 +53,9 @@ When you run this demo, you'll see:
 🚀 DAGwood Execution Strategy Demo
 ═══════════════════════════════════
 Input: "hello world"
-Config files: ["docs/demo/configs/01-hello-world.yaml"]
+Config files: ["docs/walkthrough/configs/01-hello-world.yaml"]
 
-📋 Configuration: docs/demo/configs/01-hello-world.yaml
+📋 Configuration: docs/walkthrough/configs/01-hello-world.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 1
 🛡️  Failure Strategy: FailFast

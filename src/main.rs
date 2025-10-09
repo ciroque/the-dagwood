@@ -87,7 +87,7 @@ async fn main() {
 async fn run_guided_demo() {
     let demo_configs = vec![
         DemoConfig {
-            file: "docs/demo/configs/01-hello-world.yaml",
+            file: "docs/walkthrough/configs/01-hello-world.yaml",
             title: "Hello World: Single Processor",
             description: "The simplest possible DAG with one processor and no dependencies",
             learning_objectives: vec![
@@ -98,7 +98,7 @@ async fn run_guided_demo() {
             ],
         },
         DemoConfig {
-            file: "docs/demo/configs/02-text-pipeline.yaml",
+            file: "docs/walkthrough/configs/02-text-pipeline.yaml",
             title: "Text Pipeline: Linear Chain",
             description: "A sequence of processors showing data flow and chaining",
             learning_objectives: vec![
@@ -109,7 +109,7 @@ async fn run_guided_demo() {
             ],
         },
         DemoConfig {
-            file: "docs/demo/configs/03-diamond-analysis.yaml",
+            file: "docs/walkthrough/configs/03-diamond-analysis.yaml",
             title: "Diamond Analysis: Parallel Execution",
             description: "Classic diamond dependency pattern with parallel analysis processors",
             learning_objectives: vec![
@@ -120,7 +120,7 @@ async fn run_guided_demo() {
             ],
         },
         DemoConfig {
-            file: "docs/demo/configs/04-wasm-integration.yaml",
+            file: "docs/walkthrough/configs/04-wasm-integration.yaml",
             title: "WASM Integration: Sandboxed Processing",
             description: "WASM processor integration with security sandboxing",
             learning_objectives: vec![
@@ -131,7 +131,7 @@ async fn run_guided_demo() {
             ],
         },
         DemoConfig {
-            file: "docs/demo/configs/05-complex-workflow.yaml",
+            file: "docs/walkthrough/configs/05-complex-workflow.yaml",
             title: "Complex Workflow: Multi-Backend Pipeline",
             description: "Advanced DAG with multiple backends and execution strategies",
             learning_objectives: vec![
@@ -207,7 +207,7 @@ async fn run_guided_demo() {
     println!("• 🤖 AI-assisted development accelerating complex implementations");
     println!();
     println!("Next Steps:");
-    println!("• 📚 Explore the full mdBook presentation: cd docs/demo && mdbook serve");
+    println!("• 📚 Explore the full mdBook presentation: cd docs/walkthrough && mdbook serve");
     println!("• 🔍 Examine the source code and ADRs for architectural decisions");
     println!("• 🚀 Try building your own processors and DAG configurations");
     println!("• 🤝 Contribute to the project or adapt it for your use cases");

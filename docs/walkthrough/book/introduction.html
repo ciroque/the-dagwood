@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Text Pipeline: Linear Chain - The DAGwood Project Demo</title>
+        <title>Introduction - The DAGwood Project Demo</title>
 
 
         <!-- Custom HTML head -->
@@ -147,7 +147,7 @@
                         <a href="https://github.com/ciroque/the-dagwood" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/demo/src/02-text-pipeline.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/walkthrough/src/introduction.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -181,125 +181,93 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="text-pipeline-linear-chain"><a class="header" href="#text-pipeline-linear-chain">Text Pipeline: Linear Chain</a></h1>
+                        <h1 id="the-dagwood-project-demo"><a class="header" href="#the-dagwood-project-demo">The DAGwood Project Demo</a></h1>
+<p>Welcome to an interactive demonstration of <strong>The DAGwood Project</strong> - a modern pipeline orchestration system built in Rust that showcases cutting-edge DAG execution strategies and WASM component integration.</p>
+<h2 id="project-goals"><a class="header" href="#project-goals">Project Goals</a></h2>
+<h3 id="-1-learn-rust"><a class="header" href="#-1-learn-rust">🦀 <strong>1. Learn Rust</strong></a></h3>
+<ul>
+<li><strong>Ownership &amp; Borrowing</strong>: See how Rust's memory safety enables high-performance concurrent execution</li>
+<li><strong>Async/Await</strong>: Discover how tokio powers non-blocking DAG processors</li>
+<li><strong>Trait System</strong>: Explore how traits create pluggable execution strategies</li>
+<li><strong>Error Handling</strong>: Experience Rust's <code>Result&lt;T, E&gt;</code> pattern for robust pipeline orchestration</li>
+</ul>
+<h3 id="-2-learn-dag-execution-strategies"><a class="header" href="#-2-learn-dag-execution-strategies">🔄 <strong>2. Learn DAG Execution Strategies</strong></a></h3>
+<ul>
+<li><strong>Work Queue + Dependency Counting</strong>: Efficient topological execution with priority queues</li>
+<li><strong>Level-by-Level</strong>: Batch processing with clear dependency boundaries</li>
+<li><strong>Reactive/Event-Driven</strong>: Future implementation for real-time pipeline orchestration</li>
+<li><strong>Hybrid Scheduling</strong>: Advanced strategies combining multiple approaches</li>
+</ul>
+<h3 id="-3-learn-wasm-components"><a class="header" href="#-3-learn-wasm-components">🧩 <strong>3. Learn WASM Components</strong></a></h3>
+<ul>
+<li><strong>Security Sandboxing</strong>: True isolation using wasmtime runtime</li>
+<li><strong>Language Flexibility</strong>: Support for Rust, C, AssemblyScript, and more</li>
+<li><strong>Performance</strong>: Near-native execution with memory safety guarantees</li>
+<li><strong>Deterministic Execution</strong>: Reproducible results across environments</li>
+</ul>
+<h3 id="-4-use-generative-ai-tools"><a class="header" href="#-4-use-generative-ai-tools">🤖 <strong>4. Use Generative AI Tools</strong></a></h3>
+<ul>
+<li><strong>Accelerated Development</strong>: How AI assistance enabled rapid prototyping</li>
+<li><strong>Learning Enhancement</strong>: AI-guided exploration of complex Rust concepts</li>
+<li><strong>Code Quality</strong>: AI-assisted refactoring and optimization</li>
+<li><strong>Documentation</strong>: Comprehensive docs generated with AI collaboration</li>
+<li><strong>RUSTME</strong> files, For each subsystem in the project I had the AI generate a RUSTME file. These files highlight the key Rust concepts and patterns used in the code.</li>
+<li><strong>LLMs Used</strong>: For primary coding I used WindSurf with the Claude Sonnet 4 model. Additionally, Copilot performed PR reviews. For the Executors particularly, I used Grok to review the code.</li>
+</ul>
 <h2 id="what-youll-see"><a class="header" href="#what-youll-see">What You'll See</a></h2>
-<p>This demonstration shows data flowing through a sequence of processors in a linear chain. You'll see how DAGwood handles dependency resolution, data flow between processors, and sequential execution patterns.</p>
-<p><strong>Key Learning Points:</strong></p>
+<h3 id="system-architecture-overview"><a class="header" href="#system-architecture-overview">System Architecture Overview</a></h3>
+<p>Before diving into the demos, the <strong>Architecture Overview</strong> provides essential context:</p>
 <ul>
-<li>Data flow chaining between processors</li>
-<li>Dependency resolution and topological ordering</li>
-<li>Rust Result&lt;T, E&gt; error handling patterns</li>
-<li>Arc and Mutex for shared state management</li>
+<li><strong>High-level system design</strong> with component relationships</li>
+<li><strong>Design patterns</strong> used throughout (Factory, Strategy, Trait System)</li>
+<li><strong>Execution strategies</strong> comparison (Work Queue, Level-by-Level, Reactive)</li>
+<li><strong>Memory management</strong> and performance optimizations</li>
+<li><strong>Extensibility architecture</strong> for custom processors and backends</li>
 </ul>
-<h2 id="the-demo"><a class="header" href="#the-demo">The Demo</a></h2>
-<h3 id="command-line"><a class="header" href="#command-line">Command Line</a></h3>
-<pre><code class="language-bash">cargo run --release -- docs/demo/configs/02-text-pipeline.yaml "hello world"
-</code></pre>
-<h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
-<pre><code class="language-yaml"># Demo 2: Text Pipeline - Linear Chain
-# This demonstrates data flow through a sequence of processors
-
-strategy: work_queue
-failure_strategy: fail_fast
-
-executor_options:
-  max_concurrency: 2
-
-processors:
-  - id: uppercase
-    type: local
-    processor: change_text_case_upper
-    depends_on: []
-    options: {}
-
-  - id: reverse
-    type: local
-    processor: reverse_text
-    depends_on: [uppercase]
-    options: {}
-
-  - id: add_prefix
-    type: local
-    processor: prefix_suffix_adder
-    depends_on: [reverse]
-    options:
-      prefix: "&gt;&gt;&gt; "
-      suffix: " &lt;&lt;&lt;"
-</code></pre>
-<p><strong>Configuration Elements:</strong></p>
+<h3 id="progressive-complexity-journey"><a class="header" href="#progressive-complexity-journey">Progressive Complexity Journey</a></h3>
+<ol>
+<li><strong>Hello World</strong> → Single processor basics</li>
+<li><strong>Text Pipeline</strong> → Linear data flow and chaining</li>
+<li><strong>Diamond Analysis</strong> → Parallel execution and metadata collection</li>
+<li><strong>WASM Integration</strong> → Sandboxed processing with multiple languages</li>
+<li><strong>Complex Pipeline</strong> → Real-world multi-backend orchestration</li>
+</ol>
+<h3 id="live-demonstrations"><a class="header" href="#live-demonstrations">Live Demonstrations</a></h3>
 <ul>
-<li><strong>Strategy</strong>: <code>work_queue</code> (dependency counting algorithm)</li>
-<li><strong>Failure Strategy</strong>: <code>fail_fast</code> (stop on first error)</li>
-<li><strong>Concurrency</strong>: Set to 2 (though this chain executes sequentially)</li>
-<li><strong>Linear Chain</strong>: <code>uppercase → reverse → add_prefix</code></li>
+<li><strong>Interactive Execution</strong>: Real DAG processing with live output</li>
+<li><strong>Configuration Examples</strong>: YAML-driven pipeline definitions</li>
+<li><strong>Performance Comparison</strong>: Different execution strategies in action</li>
+<li><strong>Error Handling</strong>: Graceful failure and recovery mechanisms</li>
 </ul>
-<h3 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h3>
-<p>When you run this demo, you'll see:</p>
-<pre><code>🚀 DAGwood Execution Strategy Demo
-═══════════════════════════════════
-Input: "hello world"
-Config files: ["docs/demo/configs/02-text-pipeline.yaml"]
-
-📋 Configuration: docs/demo/configs/02-text-pipeline.yaml
-🔧 Strategy: WorkQueue
-⚙️  Max Concurrency: 2
-🛡️  Failure Strategy: FailFast
-
-📊 Execution Results:
-⏱️  Execution Time: ~3ms
-🔢 Processors Executed: 3
-
-🔄 Processor Chain:
-  1. uppercase → "HELLO WORLD"
-  2. reverse → "DLROW OLLEH"
-  3. add_prefix → "&gt;&gt;&gt; DLROW OLLEH &lt;&lt;&lt;"
-
-🎯 Final Transformation:
-   Input:  "hello world"
-   Output: "&gt;&gt;&gt; DLROW OLLEH &lt;&lt;&lt;"
-</code></pre>
-<h2 id="what-you-just-saw"><a class="header" href="#what-you-just-saw">What You Just Saw</a></h2>
-<p>This demo demonstrated:</p>
-<p><strong>Linear DAG Execution:</strong></p>
+<h3 id="technical-deep-dives"><a class="header" href="#technical-deep-dives">Technical Deep-Dives</a></h3>
 <ul>
-<li>Sequential processor execution despite concurrency=2</li>
-<li>Data flowing through the chain: input → uppercase → reverse → add_prefix</li>
-<li>Dependency counting algorithm managing execution order</li>
+<li><strong>Architecture Decisions</strong>: ADRs documenting key technical choices</li>
+<li><strong>Rust Best Practices</strong>: Idiomatic patterns and performance optimizations</li>
+<li><strong>WASM Integration</strong>: Cutting-edge sandboxing technology</li>
+<li><strong>Future Roadmap</strong>: Planned enhancements and research directions</li>
 </ul>
-<p><strong>Rust Concurrency Patterns:</strong></p>
+<h2 id="demo-format"><a class="header" href="#demo-format">Demo Format</a></h2>
+<p>This presentation uses <strong>mdBook</strong> - the same tool used by the official Rust documentation. You can:</p>
 <ul>
-<li>Async task spawning and coordination</li>
-<li>Shared state management with Arc&lt;Mutex<T>&gt;</li>
-<li>Memory-efficient Arc cloning for large payloads</li>
+<li><strong>Navigate</strong> using the sidebar or arrow keys</li>
+<li><strong>Search</strong> for specific topics using the search box</li>
+<li><strong>Copy code</strong> examples with the copy button</li>
+<li><strong>Follow along</strong> with the live terminal demonstrations</li>
 </ul>
-<p><strong>System Architecture:</strong></p>
-<ul>
-<li>Canonical payload architecture preventing race conditions</li>
-<li>Transform processor intent modifying data flow</li>
-<li>Dependency validation catching configuration errors</li>
-</ul>
-<h2 id="whats-next"><a class="header" href="#whats-next">What's Next?</a></h2>
-<p>In the next demo, the exploration moves to the <strong>diamond dependency pattern</strong> where multiple processors can run in parallel, introducing:</p>
-<ul>
-<li>True concurrent execution</li>
-<li>Metadata merging strategies</li>
-<li>Race condition prevention</li>
-<li>The canonical payload architecture in action</li>
-</ul>
+<h2 id="ready-to-begin"><a class="header" href="#ready-to-begin">Ready to Begin?</a></h2>
+<p>The demo follows a carefully crafted progression from simple concepts to advanced architectures. Each section builds on the previous one, culminating in a sophisticated pipeline orchestration system that demonstrates the power of modern Rust development.</p>
+<p><strong>Let's start with the first example: Hello World!</strong></p>
 <hr />
 <blockquote>
-<p>🔍 <strong>Architecture Insight</strong>: The linear chain might seem simple, but it demonstrates the foundation for complex DAG execution. Every workflow orchestration system must solve dependency resolution - Rust's ownership system makes this both memory-safe and performant!</p>
+<p>💡 <strong>Tip</strong>: Keep the terminal window visible alongside this presentation to see the live execution results as the examples progress.</p>
 </blockquote>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="01-hello-world.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                                <i class="fa fa-angle-left"></i>
-                            </a>
 
-                            <a rel="next prefetch" href="03-diamond-analysis.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="architecture.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -309,33 +277,14 @@ Config files: ["docs/demo/configs/02-text-pipeline.yaml"]
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="01-hello-world.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                        <i class="fa fa-angle-left"></i>
-                    </a>
 
-                    <a rel="next prefetch" href="03-diamond-analysis.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="architecture.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
 
         </div>
 
-        <!-- Livereload script (if served using the cli tool) -->
-        <script>
-            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
-            const socket = new WebSocket(wsAddress);
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload();
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
 
 
 

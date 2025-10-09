@@ -3,7 +3,8 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Introduction - The DAGwood Project Demo</title>
+        <title>Page not found - The DAGwood Project Demo</title>
+        <base href="/">
 
 
         <!-- Custom HTML head -->
@@ -147,9 +148,6 @@
                         <a href="https://github.com/ciroque/the-dagwood" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/demo/src/introduction.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
-                            <i id="git-edit-button" class="fa fa-edit"></i>
-                        </a>
 
                     </div>
                 </div>
@@ -181,95 +179,14 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="the-dagwood-project-demo"><a class="header" href="#the-dagwood-project-demo">The DAGwood Project Demo</a></h1>
-<p>Welcome to an interactive demonstration of <strong>The DAGwood Project</strong> - a modern pipeline orchestration system built in Rust that showcases cutting-edge DAG execution strategies and WASM component integration.</p>
-<h2 id="project-goals"><a class="header" href="#project-goals">Project Goals</a></h2>
-<h3 id="-1-learn-rust"><a class="header" href="#-1-learn-rust">🦀 <strong>1. Learn Rust</strong></a></h3>
-<ul>
-<li><strong>Ownership &amp; Borrowing</strong>: See how Rust's memory safety enables high-performance concurrent execution</li>
-<li><strong>Async/Await</strong>: Discover how tokio powers non-blocking DAG processors</li>
-<li><strong>Trait System</strong>: Explore how traits create pluggable execution strategies</li>
-<li><strong>Error Handling</strong>: Experience Rust's <code>Result&lt;T, E&gt;</code> pattern for robust pipeline orchestration</li>
-</ul>
-<h3 id="-2-learn-dag-execution-strategies"><a class="header" href="#-2-learn-dag-execution-strategies">🔄 <strong>2. Learn DAG Execution Strategies</strong></a></h3>
-<ul>
-<li><strong>Work Queue + Dependency Counting</strong>: Efficient topological execution with priority queues</li>
-<li><strong>Level-by-Level</strong>: Batch processing with clear dependency boundaries</li>
-<li><strong>Reactive/Event-Driven</strong>: Future implementation for real-time pipeline orchestration</li>
-<li><strong>Hybrid Scheduling</strong>: Advanced strategies combining multiple approaches</li>
-</ul>
-<h3 id="-3-learn-wasm-components"><a class="header" href="#-3-learn-wasm-components">🧩 <strong>3. Learn WASM Components</strong></a></h3>
-<ul>
-<li><strong>Security Sandboxing</strong>: True isolation using wasmtime runtime</li>
-<li><strong>Language Flexibility</strong>: Support for Rust, C, AssemblyScript, and more</li>
-<li><strong>Performance</strong>: Near-native execution with memory safety guarantees</li>
-<li><strong>Deterministic Execution</strong>: Reproducible results across environments</li>
-</ul>
-<h3 id="-4-use-generative-ai-tools"><a class="header" href="#-4-use-generative-ai-tools">🤖 <strong>4. Use Generative AI Tools</strong></a></h3>
-<ul>
-<li><strong>Accelerated Development</strong>: How AI assistance enabled rapid prototyping</li>
-<li><strong>Learning Enhancement</strong>: AI-guided exploration of complex Rust concepts</li>
-<li><strong>Code Quality</strong>: AI-assisted refactoring and optimization</li>
-<li><strong>Documentation</strong>: Comprehensive docs generated with AI collaboration</li>
-<li><strong>RUSTME</strong> files, For each subsystem in the project I had the AI generate a RUSTME file. These files highlight the key Rust concepts and patterns used in the code.</li>
-<li><strong>LLMs Used</strong>: For primary coding I used WindSurf with the Claude Sonnet 4 model. Additionally, Copilot performed PR reviews. For the Executors particularly, I used Grok to review the code.</li>
-</ul>
-<h2 id="what-youll-see"><a class="header" href="#what-youll-see">What You'll See</a></h2>
-<h3 id="system-architecture-overview"><a class="header" href="#system-architecture-overview">System Architecture Overview</a></h3>
-<p>Before diving into the demos, the <strong>Architecture Overview</strong> provides essential context:</p>
-<ul>
-<li><strong>High-level system design</strong> with component relationships</li>
-<li><strong>Design patterns</strong> used throughout (Factory, Strategy, Trait System)</li>
-<li><strong>Execution strategies</strong> comparison (Work Queue, Level-by-Level, Reactive)</li>
-<li><strong>Memory management</strong> and performance optimizations</li>
-<li><strong>Extensibility architecture</strong> for custom processors and backends</li>
-</ul>
-<h3 id="progressive-complexity-journey"><a class="header" href="#progressive-complexity-journey">Progressive Complexity Journey</a></h3>
-<ol>
-<li><strong>Hello World</strong> → Single processor basics</li>
-<li><strong>Text Pipeline</strong> → Linear data flow and chaining</li>
-<li><strong>Diamond Analysis</strong> → Parallel execution and metadata collection</li>
-<li><strong>WASM Integration</strong> → Sandboxed processing with multiple languages</li>
-<li><strong>Complex Pipeline</strong> → Real-world multi-backend orchestration</li>
-</ol>
-<h3 id="live-demonstrations"><a class="header" href="#live-demonstrations">Live Demonstrations</a></h3>
-<ul>
-<li><strong>Interactive Execution</strong>: Real DAG processing with live output</li>
-<li><strong>Configuration Examples</strong>: YAML-driven pipeline definitions</li>
-<li><strong>Performance Comparison</strong>: Different execution strategies in action</li>
-<li><strong>Error Handling</strong>: Graceful failure and recovery mechanisms</li>
-</ul>
-<h3 id="technical-deep-dives"><a class="header" href="#technical-deep-dives">Technical Deep-Dives</a></h3>
-<ul>
-<li><strong>Architecture Decisions</strong>: ADRs documenting key technical choices</li>
-<li><strong>Rust Best Practices</strong>: Idiomatic patterns and performance optimizations</li>
-<li><strong>WASM Integration</strong>: Cutting-edge sandboxing technology</li>
-<li><strong>Future Roadmap</strong>: Planned enhancements and research directions</li>
-</ul>
-<h2 id="demo-format"><a class="header" href="#demo-format">Demo Format</a></h2>
-<p>This presentation uses <strong>mdBook</strong> - the same tool used by the official Rust documentation. You can:</p>
-<ul>
-<li><strong>Navigate</strong> using the sidebar or arrow keys</li>
-<li><strong>Search</strong> for specific topics using the search box</li>
-<li><strong>Copy code</strong> examples with the copy button</li>
-<li><strong>Follow along</strong> with the live terminal demonstrations</li>
-</ul>
-<h2 id="ready-to-begin"><a class="header" href="#ready-to-begin">Ready to Begin?</a></h2>
-<p>The demo follows a carefully crafted progression from simple concepts to advanced architectures. Each section builds on the previous one, culminating in a sophisticated pipeline orchestration system that demonstrates the power of modern Rust development.</p>
-<p><strong>Let's start with the first example: Hello World!</strong></p>
-<hr />
-<blockquote>
-<p>💡 <strong>Tip</strong>: Keep the terminal window visible alongside this presentation to see the live execution results as the examples progress.</p>
-</blockquote>
+                        <h1 id="document-not-found-404"><a class="header" href="#document-not-found-404">Document not found (404)</a></h1>
+<p>This URL is invalid, sorry. Please use the navigation bar or search to continue.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
 
-                            <a rel="next prefetch" href="architecture.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -278,29 +195,10 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
 
-                    <a rel="next prefetch" href="architecture.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
             </nav>
 
         </div>
 
-        <!-- Livereload script (if served using the cli tool) -->
-        <script>
-            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
-            const socket = new WebSocket(wsAddress);
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload();
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
 
 
 

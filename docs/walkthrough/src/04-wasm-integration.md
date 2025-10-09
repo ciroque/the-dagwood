@@ -15,7 +15,7 @@ This demonstration introduces WebAssembly (WASM) processors, showcasing cutting-
 ### Command Line
 
 ```bash
-cargo run --release -- docs/demo/configs/04-wasm-integration.yaml "hello world"
+cargo run --release -- docs/walkthrough/configs/04-wasm-integration.yaml "hello world"
 ```
 
 ### Configuration
@@ -70,9 +70,9 @@ When you run this demo, you'll see:
 🚀 DAGwood Execution Strategy Demo
 ═══════════════════════════════════
 Input: "hello world"
-Config files: ["docs/demo/configs/04-wasm-integration.yaml"]
+Config files: ["docs/walkthrough/configs/04-wasm-integration.yaml"]
 
-📋 Configuration: docs/demo/configs/04-wasm-integration.yaml
+📋 Configuration: docs/walkthrough/configs/04-wasm-integration.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 2
 🛡️  Failure Strategy: FailFast

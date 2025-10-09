@@ -147,7 +147,7 @@
                         <a href="https://github.com/ciroque/the-dagwood" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/demo/src/resources.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                        <a href="https://github.com/ciroque/the-dagwood/edit/main/docs/walkthrough/src/resources.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -205,7 +205,7 @@
 </ul>
 <h4 id="configuration-examples"><a class="header" href="#configuration-examples">Configuration Examples</a></h4>
 <ul>
-<li><strong>Demo Configurations</strong>: <code>docs/demo/configs/</code> - Progressive complexity examples</li>
+<li><strong>Demo Configurations</strong>: <code>docs/walkthrough/configs/</code> - Progressive complexity examples</li>
 <li><strong>Strategy Comparisons</strong>: <code>configs/strategy-*.yaml</code> - Different execution strategies</li>
 <li><strong>WASM Integration</strong>: <code>configs/wasm-*.yaml</code> - WASM processor examples</li>
 </ul>
@@ -644,22 +644,6 @@ cargo doc --no-deps        # Documentation generation
 
         </div>
 
-        <!-- Livereload script (if served using the cli tool) -->
-        <script>
-            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
-            const socket = new WebSocket(wsAddress);
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload();
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
 
 
 

@@ -15,7 +15,7 @@ This demonstration showcases the classic diamond dependency pattern where multip
 ### Command Line
 
 ```bash
-cargo run --release -- docs/demo/configs/03-diamond-analysis.yaml "hello world"
+cargo run --release -- docs/walkthrough/configs/03-diamond-analysis.yaml "hello world"
 ```
 
 ### Configuration
@@ -76,9 +76,9 @@ When you run this demo, you'll see:
 🚀 DAGwood Execution Strategy Demo
 ═══════════════════════════════════
 Input: "hello world"
-Config files: ["docs/demo/configs/03-diamond-analysis.yaml"]
+Config files: ["docs/walkthrough/configs/03-diamond-analysis.yaml"]
 
-📋 Configuration: docs/demo/configs/03-diamond-analysis.yaml
+📋 Configuration: docs/walkthrough/configs/03-diamond-analysis.yaml
 🔧 Strategy: WorkQueue
 ⚙️  Max Concurrency: 4
 🛡️  Failure Strategy: FailFast

@@ -37,7 +37,7 @@ error while executing at wasm backtrace:
 #### Step 1: Isolate the Problem
 Used wasmtime CLI to test WASM modules directly:
 ```bash
-wasmtime --invoke allocate hello_world.wasm 51
+wasmtime --invoke allocate hello.wasm 51
 # Result: 1114120 (success)
 ```
 

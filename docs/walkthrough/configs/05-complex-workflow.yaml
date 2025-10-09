@@ -30,7 +30,7 @@ processors:
 
   - id: process_b_wasm
     type: wasm
-    module: wasm_components/hello_world.wasm
+    module: wasm_components/hello.wasm
     depends_on: [input_b]
     options:
       intent: transform

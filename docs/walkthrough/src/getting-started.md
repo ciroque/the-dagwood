@@ -383,7 +383,7 @@ processors:
 
   - id: wasm_processing
     backend: wasm
-    module: wasm_components/hello_world.wasm
+    module: wasm_components/hello.wasm
     depends_on: [local_prep]
     options:
       intent: transform

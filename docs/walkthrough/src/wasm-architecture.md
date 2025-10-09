@@ -257,10 +257,10 @@ cd wasm_components/hello_world
 cargo build --target wasm32-unknown-unknown --release
 
 # Copy to expected location
-cp target/wasm32-unknown-unknown/release/hello_world.wasm ../hello_world.wasm
+cp target/wasm32-unknown-unknown/release/hello.wasm ../hello.wasm
 
 # Optional: Optimize WASM module
-wasm-opt -Oz hello_world.wasm -o hello_world_optimized.wasm
+wasm-opt -Oz hello.wasm -o hello_world_optimized.wasm
 ```
 
 ## Multi-Language Support

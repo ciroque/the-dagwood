@@ -2,9 +2,7 @@
 
 Welcome to an interactive demonstration of **The DAGwood Project** - a modern pipeline orchestration system built in Rust that showcases cutting-edge DAG execution strategies and WASM component integration.
 
-## Demo Goals
-
-This 10-15 minute demonstration highlights four primary objectives:
+## Project Goals
 
 ### 🦀 **1. Learn Rust**
 - **Ownership & Borrowing**: See how Rust's memory safety enables high-performance concurrent execution

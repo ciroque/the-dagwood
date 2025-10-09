@@ -9,7 +9,7 @@ description = "Interactive demonstration of DAG execution strategies, Rust conce
 [preprocessor.links]
 
 [output.html]
-additional-js = ["mermaid.min.js", "mermaid-init.js"]
+additional-js = ["mermaid.min.js", "mermaid-init.js", "livereload.js"]
 default-theme = "navy"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/ciroque/the-dagwood"

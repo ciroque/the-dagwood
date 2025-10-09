@@ -275,7 +275,7 @@ processors:
 ### Create a WASM Module
 
 ```rust
-// wasm_modules/my_module/src/lib.rs
+// wasm_components/my_module/src/lib.rs
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
@@ -316,7 +316,7 @@ pub extern "C" fn deallocate(ptr: *mut u8, size: usize) {
 ### Build the WASM Module
 
 ```bash
-cd wasm_modules/my_module
+cd wasm_components/my_module
 cargo build --target wasm32-unknown-unknown --release
 cp target/wasm32-unknown-unknown/release/my_module.wasm ../my_module.wasm
 ```
@@ -327,7 +327,7 @@ cp target/wasm32-unknown-unknown/release/my_module.wasm ../my_module.wasm
 processors:
   - id: wasm_step
     backend: wasm
-    module: wasm_modules/my_module.wasm
+    module: wasm_components/my_module.wasm
     depends_on: []
     options:
       intent: transform
@@ -383,7 +383,7 @@ processors:
 
   - id: wasm_processing
     backend: wasm
-    module: wasm_modules/hello_world.wasm
+    module: wasm_components/hello_world.wasm
     depends_on: [local_prep]
     options:
       intent: transform
@@ -414,10 +414,10 @@ cargo check
 #### WASM Module Issues
 ```bash
 # Verify WASM module exists
-ls -la wasm_modules/
+ls -la wasm_components/
 
 # Rebuild WASM module
-cd wasm_modules/hello_world
+cd wasm_components/hello_world
 cargo build --target wasm32-unknown-unknown --release
 ```
 

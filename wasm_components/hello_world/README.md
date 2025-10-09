@@ -68,7 +68,7 @@ Example DAGwood configuration:
 processors:
   - id: wasm_hello_world
     type: wasm
-    module: wasm_modules/hello_world.wasm
+    module: wasm_components/hello_world.wasm
     options:
       intent: transform
 ```

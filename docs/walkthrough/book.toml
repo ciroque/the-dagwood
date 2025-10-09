@@ -1,0 +1,39 @@
+[book]
+authors = ["The DAGwood Team"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The DAGwood Project Demo"
+description = "Interactive demonstration of DAG execution strategies, Rust concepts, and WASM integration"
+
+[preprocessor.links]
+
+[output.html]
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/ciroque/the-dagwood"
+edit-url-template = "https://github.com/ciroque/the-dagwood/edit/main/docs/walkthrough/{path}"
+
+[output.html.code]
+copy-js = true
+line-numbers = true
+
+[output.html.search]
+enable = true
+limit-results = 30
+teaser-word-count = 30
+use-boolean-and = true
+boost-title = 2
+boost-hierarchy = 1
+boost-paragraph = 1
+expand = true
+heading-split-level = 3
+
+[output.html.print]
+enable = true
+page-break = true
+
+[output.html.fold]
+enable = false
+level = 0

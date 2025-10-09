@@ -1,0 +1,33 @@
+# Demo 4: WASM Integration - Sandboxed Processing
+# This demonstrates WASM processor integration with security sandboxing
+
+strategy: work_queue
+failure_strategy: fail_fast
+
+executor_options:
+  max_concurrency: 2
+
+processors:
+  # Local processor prepares input
+  - id: prepare_input
+    type: local
+    processor: change_text_case_lower
+    depends_on: []
+    options: {}
+
+  # WASM processor provides sandboxed execution
+  - id: wasm_hello_world
+    type: wasm
+    module: wasm_components/hello_world.wasm
+    depends_on: [prepare_input]
+    options:
+      intent: transform
+
+  # Local processor adds final formatting
+  - id: final_format
+    type: local
+    processor: prefix_suffix_adder
+    depends_on: [wasm_hello_world]
+    options:
+      prefix: "🦀 Rust + WASM: "
+      suffix: " ✨"

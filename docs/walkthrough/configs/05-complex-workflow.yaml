@@ -1,0 +1,59 @@
+# Demo 5: Complex Workflow - Multi-type Pipeline
+# This demonstrates advanced DAG with multiple types and execution strategies
+
+strategy: level  # Use level-by-level execution for comparison
+failure_strategy: best_effort
+
+executor_options:
+  max_concurrency: 6
+
+processors:
+  # Entry points: multiple input processors
+  - id: input_a
+    type: local
+    processor: change_text_case_upper
+    depends_on: []
+    options: {}
+
+  - id: input_b
+    type: local
+    processor: change_text_case_lower
+    depends_on: []
+    options: {}
+
+  # Processing layer: mix of local and WASM
+  - id: process_a
+    type: local
+    processor: reverse_text
+    depends_on: [input_a]
+    options: {}
+
+  - id: process_b_wasm
+    type: wasm
+    module: wasm_components/hello_world.wasm
+    depends_on: [input_b]
+    options:
+      intent: transform
+
+  # Analysis layer: parallel analysis of both paths
+  - id: analyze_a
+    type: local
+    processor: token_counter
+    depends_on: [process_a]
+    options:
+      count_type: "characters"
+
+  - id: analyze_b
+    type: local
+    processor: word_frequency_analyzer
+    depends_on: [process_b_wasm]
+    options: {}
+
+  # Convergence: combine all results
+  - id: final_merge
+    type: local
+    processor: prefix_suffix_adder
+    depends_on: [analyze_a, analyze_b]
+    options:
+      prefix: "🔄 Multi-type Result: "
+      suffix: " [COMPLETE]"

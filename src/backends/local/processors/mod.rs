@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 pub mod change_text_case;
 pub mod reverse_text;
 pub mod token_counter;

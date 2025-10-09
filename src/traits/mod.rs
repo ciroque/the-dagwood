@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 pub mod executor;
 pub mod processor;
 

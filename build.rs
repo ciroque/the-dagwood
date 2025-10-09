@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let proto_root = "proto";
 

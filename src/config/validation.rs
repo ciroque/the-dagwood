@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 //! Configuration validation for DAG integrity and correctness.
 //!
 //! This module provides comprehensive validation for DAG configurations, ensuring that

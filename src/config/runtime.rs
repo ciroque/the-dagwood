@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 use crate::config::{Config, ProcessorMap};
 use crate::engine::factory::ExecutorFactory;
 use crate::errors::FailureStrategy;

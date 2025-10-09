@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 use std::collections::HashMap;
 
 /// A type-safe wrapper for DAG dependency relationships with graph algorithms.

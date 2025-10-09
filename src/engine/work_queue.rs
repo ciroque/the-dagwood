@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 //! Work Queue DAG executor with dependency counting and canonical payload architecture.
 //!
 //! This module implements a sophisticated work queue-based execution strategy that combines

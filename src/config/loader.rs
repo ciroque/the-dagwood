@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;

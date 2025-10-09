@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 //! WASM Processor Implementation
 //!
 //! This module provides a WebAssembly (WASM) processor backend for The DAGwood project.

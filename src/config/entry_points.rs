@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 /// A type-safe wrapper for DAG entry points - processors with no dependencies.
 ///
 /// Entry points are processors that can be executed immediately when a DAG starts,

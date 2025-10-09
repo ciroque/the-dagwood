@@ -30,6 +30,7 @@ This 10-15 minute demonstration highlights four primary objectives:
 - **Code Quality**: AI-assisted refactoring and optimization
 - **Documentation**: Comprehensive docs generated with AI collaboration
 - **RUSTME** files, For each subsystem in the project I had the AI generate a RUSTME file. These files highlight the key Rust concepts and patterns used in the code.
+- **LLMs Used**: For primary coding I used WindSurf with the Claude Sonnet 4 model. Additionally, Copilot performed PR reviews. For the Executors particularly, I used Grok to review the code.
 
 ## What You'll See
 

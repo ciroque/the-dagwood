@@ -81,7 +81,7 @@ The demo runner will:
 ### Demo Execution Issues
 - **Compilation errors**: Run `cargo clean && cargo build --release`
 - **WASM module missing**: Ensure `wasm_modules/hello.wasm` exists
-- **Config not found**: Verify you're running from project root directory
+- **Config not found**: Verify you're running from the project root directory
 
 ### Performance Tips
 - **Pre-compile**: Run `cargo build --release` before presentation

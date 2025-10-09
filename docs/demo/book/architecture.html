@@ -187,7 +187,7 @@
 <h3 id="high-level-architecture"><a class="header" href="#high-level-architecture">High-Level Architecture</a></h3>
 <pre><code class="language-mermaid">graph TB
     subgraph "User Interface Layer"
-        CLI[CLI Interface]
+        CLI[Demo Runner]
         Config[YAML Configuration]
     end
     
@@ -283,11 +283,7 @@
 <li><strong>Local Processors</strong>: Built-in implementations for common text processing tasks</li>
 <li><strong>WASM Processors</strong>: Sandboxed modules for secure, multi-language processing</li>
 <li><strong>RPC Processors</strong>: (Not Yet Implemented) Remote execution through gRPC / HTTP</li>
-</ul>
-<p><strong>Backend Integration:</strong></p>
-<ul>
-<li><strong>Local Backend</strong>: Direct Rust implementations with zero-overhead execution, compiled into binary</li>
-<li><strong>WASM Backend</strong>: Secure sandboxed execution with wasmtime runtime</li>
+<li><strong>Dynamic Processors</strong>: (Not Yet Implemented) Custom implementations through dynamic loading</li>
 </ul>
 <blockquote>
 <p><strong>Note</strong>: The current built-in processors assume a text payload, but the execution engine makes no assumptions about the payload type.</p>

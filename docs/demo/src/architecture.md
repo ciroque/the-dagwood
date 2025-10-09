@@ -9,7 +9,7 @@ Before diving into the demos, let's understand how The DAGwood project is archit
 ```mermaid
 graph TB
     subgraph "User Interface Layer"
-        CLI[CLI Interface]
+        CLI[Demo Runner]
         Config[YAML Configuration]
     end
     
@@ -110,10 +110,7 @@ Processors are the fundamental units of computation in DAGwood, implementing the
 - **Local Processors**: Built-in implementations for common text processing tasks
 - **WASM Processors**: Sandboxed modules for secure, multi-language processing
 - **RPC Processors**: (Not Yet Implemented) Remote execution through gRPC / HTTP 
-
-**Backend Integration:**
-- **Local Backend**: Direct Rust implementations with zero-overhead execution, compiled into binary
-- **WASM Backend**: Secure sandboxed execution with wasmtime runtime
+- **Dynamic Processors**: (Not Yet Implemented) Custom implementations through dynamic loading
 
 > **Note**: The current built-in processors assume a text payload, but the execution engine makes no assumptions about the payload type.
 

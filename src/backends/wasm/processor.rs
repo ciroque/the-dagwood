@@ -158,13 +158,6 @@ enum WitProcessingError {
     InputTooLarge(u64),
 }
 
-#[derive(Debug, Clone)]
-enum WitAllocationError {
-    OutOfMemory,
-    InvalidSize(u64),
-    MemoryCorruption,
-}
-
 // 10MB maximum input size.
 //
 // This limit is set to prevent excessive memory/resource usage and potential denial-of-service

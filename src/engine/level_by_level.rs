@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 use async_trait::async_trait;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;

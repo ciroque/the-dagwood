@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 use crate::backends::wasm::{WasmProcessor, WasmError, WasmResult};
 use crate::config::ProcessorConfig;
 use crate::traits::processor::{Processor, ProcessorIntent};

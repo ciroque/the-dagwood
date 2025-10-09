@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 //! Priority-based work queue for efficient DAG processor scheduling.
 //!
 //! This module provides a sophisticated priority queue implementation optimized for DAG execution

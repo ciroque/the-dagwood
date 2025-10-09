@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 //! Reactive/Event-Driven DAG executor with async channel-based processor communication.
 //!
 //! This module implements a sophisticated event-driven execution strategy that uses async channels

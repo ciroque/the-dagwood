@@ -11,18 +11,18 @@ echo "🔨 Building hello_wasm component..."
 
 # Ensure we have the WASM target
 echo "📦 Checking WASM target..."
-if ! rustup target list --installed | grep -q "wasm32-wasip1"; then
-    echo "📥 Installing wasm32-wasip1 target..."
-    rustup target add wasm32-wasip1
+if ! rustup target list --installed | grep -q "wasm32-unknown-unknown"; then
+    echo "📥 Installing wasm32-unknown-unknown target..."
+    rustup target add wasm32-unknown-unknown
 fi
 
 # Build the WASM module
 echo "🚀 Building WASM module..."
-cargo build --target wasm32-wasip1 --release
+cargo build --target wasm32-unknown-unknown --release
 
 # Copy to expected location
 echo "📋 Copying artifact to wasm_components/hello.wasm..."
-cp target/wasm32-wasip1/release/hello_wasm.wasm ../hello.wasm
+cp target/wasm32-unknown-unknown/release/hello_wasm.wasm ../hello.wasm
 
 # Show file size
 WASM_SIZE=$(stat -c%s "../hello.wasm")

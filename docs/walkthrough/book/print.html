@@ -210,7 +210,7 @@
 <li><strong>Code Quality</strong>: AI-assisted refactoring and optimization</li>
 <li><strong>Documentation</strong>: Comprehensive docs generated with AI collaboration</li>
 <li><strong>RUSTME</strong> files, For each subsystem in the project I had the AI generate a RUSTME file. These files highlight the key Rust concepts and patterns used in the code.</li>
-<li><strong>LLMs Used</strong>: For primary coding I used WindSurf with the Claude Sonnet 4 model. Additionally, Copilot performed PR reviews. For the Executors particularly, I used Grok to review the code.</li>
+<li><strong>LLMs Used</strong>: For primary coding I used WindSurf with the Claude Sonnet 4 model. Additionally, Copilot performed PR reviews. For the Executors, I used Grok to review the code.</li>
 </ul>
 <h2 id="what-youll-see"><a class="header" href="#what-youll-see">What You'll See</a></h2>
 <h3 id="system-architecture-overview"><a class="header" href="#system-architecture-overview">System Architecture Overview</a></h3>
@@ -3746,6 +3746,22 @@ cargo doc --no-deps        # Documentation generation
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

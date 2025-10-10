@@ -3,16 +3,16 @@
 
 use std::sync::Arc;
 
-use crate::traits::Processor;
-use crate::config::ProcessorConfig;
 use super::processors::*;
+use crate::config::ProcessorConfig;
+use crate::traits::Processor;
 
 /// Factory for creating local (in-process) processor instances
 pub struct LocalProcessorFactory;
 
 impl LocalProcessorFactory {
     /// Create a processor instance from configuration
-    /// 
+    ///
     /// The `processor` field in the config determines which processor to create:
     /// - "change_text_case_upper" -> ChangeTextCaseProcessor (uppercase)
     /// - "change_text_case_lower" -> ChangeTextCaseProcessor (lowercase)
@@ -23,7 +23,9 @@ impl LocalProcessorFactory {
     /// - "word_frequency_analyzer" -> WordFrequencyAnalyzerProcessor
     /// - "prefix_suffix_adder" -> PrefixSuffixAdderProcessor (requires additional config)
     pub fn create_processor(config: &ProcessorConfig) -> Result<Arc<dyn Processor>, String> {
-        let impl_name = config.processor.as_ref()
+        let impl_name = config
+            .processor
+            .as_ref()
             .ok_or_else(|| format!("Local processor '{}' missing 'processor' field", config.id))?;
 
         match impl_name.as_str() {
@@ -32,35 +34,40 @@ impl LocalProcessorFactory {
             "change_text_case_lower" => Ok(Arc::new(ChangeTextCaseProcessor::lower())),
             "change_text_case_proper" => Ok(Arc::new(ChangeTextCaseProcessor::proper())),
             "change_text_case_title" => Ok(Arc::new(ChangeTextCaseProcessor::title())),
-            
+
             // Text manipulation processors
             "reverse_text" => Ok(Arc::new(ReverseTextProcessor::new())),
-            
+
             // Analysis processors
             "token_counter" => Ok(Arc::new(TokenCounterProcessor::new())),
             "word_frequency_analyzer" => Ok(Arc::new(WordFrequencyAnalyzerProcessor::new())),
-            
+
             // Configurable processors - these would need additional config parsing
             "prefix_suffix_adder" => {
                 // Parse prefix and suffix from options
-                let prefix = config.options.get("prefix")
+                let prefix = config
+                    .options
+                    .get("prefix")
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| "[".to_string());
-                let suffix = config.options.get("suffix")
+                let suffix = config
+                    .options
+                    .get("suffix")
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| "]".to_string());
-                
-                Ok(Arc::new(PrefixSuffixAdderProcessor::with_prefix_and_suffix(
-                    prefix, 
-                    suffix
-                )))
-            },
-            
-            
+
+                Ok(Arc::new(
+                    PrefixSuffixAdderProcessor::with_prefix_and_suffix(prefix, suffix),
+                ))
+            }
+
             // Add more processors here as they're implemented
-            _ => Err(format!("Unknown local processor implementation: '{}'", impl_name)),
+            _ => Err(format!(
+                "Unknown local processor implementation: '{}'",
+                impl_name
+            )),
         }
     }
 
@@ -68,7 +75,7 @@ impl LocalProcessorFactory {
     pub fn list_available_implementations() -> Vec<&'static str> {
         vec![
             "change_text_case_upper",
-            "change_text_case_lower", 
+            "change_text_case_lower",
             "change_text_case_proper",
             "change_text_case_title",
             "reverse_text",
@@ -87,7 +94,7 @@ impl LocalProcessorFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{ProcessorConfig, BackendType};
+    use crate::config::{BackendType, ProcessorConfig};
     use crate::proto::processor_v1::ProcessorRequest;
     use std::collections::HashMap;
 
@@ -109,7 +116,11 @@ mod tests {
             ("change_text_case_upper", "hello", "HELLO"),
             ("change_text_case_lower", "HELLO", "hello"),
             ("change_text_case_proper", "hello world", "Hello World"),
-            ("change_text_case_title", "the quick brown fox", "The Quick Brown Fox"),
+            (
+                "change_text_case_title",
+                "the quick brown fox",
+                "The Quick Brown Fox",
+            ),
         ];
 
         for (impl_name, input, expected) in test_cases {
@@ -122,8 +133,11 @@ mod tests {
             };
 
             let response = processor.process(request).await;
-            
-            if let Some(crate::proto::processor_v1::processor_response::Outcome::NextPayload(payload)) = response.outcome {
+
+            if let Some(crate::proto::processor_v1::processor_response::Outcome::NextPayload(
+                payload,
+            )) = response.outcome
+            {
                 let result = String::from_utf8(payload).unwrap();
                 assert_eq!(result, expected, "Failed for implementation: {}", impl_name);
             } else {
@@ -142,8 +156,10 @@ mod tests {
         };
 
         let response = processor.process(request).await;
-        
-        if let Some(crate::proto::processor_v1::processor_response::Outcome::NextPayload(payload)) = response.outcome {
+
+        if let Some(crate::proto::processor_v1::processor_response::Outcome::NextPayload(payload)) =
+            response.outcome
+        {
             let result = String::from_utf8(payload).unwrap();
             assert_eq!(result, "olleh");
         } else {
@@ -161,8 +177,10 @@ mod tests {
         };
 
         let response = processor.process(request).await;
-        
-        if let Some(crate::proto::processor_v1::processor_response::Outcome::NextPayload(payload)) = response.outcome {
+
+        if let Some(crate::proto::processor_v1::processor_response::Outcome::NextPayload(payload)) =
+            response.outcome
+        {
             let result = String::from_utf8(payload).unwrap();
             // Should be JSON with char_count, word_count, line_count
             assert!(result.contains(""));
@@ -175,7 +193,7 @@ mod tests {
     fn test_create_processor_missing_impl() {
         let mut config = create_test_config("test", "");
         config.processor = None;
-        
+
         let result = LocalProcessorFactory::create_processor(&config);
         assert!(result.is_err());
         let error_msg = result.err().unwrap();
@@ -185,7 +203,7 @@ mod tests {
     #[test]
     fn test_create_processor_unknown_impl() {
         let config = create_test_config("test", "unknown_processor");
-        
+
         let result = LocalProcessorFactory::create_processor(&config);
         assert!(result.is_err());
         let error_msg = result.err().unwrap();
@@ -203,8 +221,14 @@ mod tests {
 
     #[test]
     fn test_is_implementation_available() {
-        assert!(LocalProcessorFactory::is_implementation_available("change_text_case_upper"));
-        assert!(LocalProcessorFactory::is_implementation_available("reverse_text"));
-        assert!(!LocalProcessorFactory::is_implementation_available("nonexistent_processor"));
+        assert!(LocalProcessorFactory::is_implementation_available(
+            "change_text_case_upper"
+        ));
+        assert!(LocalProcessorFactory::is_implementation_available(
+            "reverse_text"
+        ));
+        assert!(!LocalProcessorFactory::is_implementation_available(
+            "nonexistent_processor"
+        ));
     }
 }

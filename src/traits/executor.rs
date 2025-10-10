@@ -1,9 +1,9 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
-use async_trait::async_trait;
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, PipelineMetadata};
 use crate::errors::{ExecutionError, FailureStrategy};
+use crate::proto::processor_v1::{PipelineMetadata, ProcessorRequest, ProcessorResponse};
+use async_trait::async_trait;
 use std::collections::HashMap;
 
 use crate::config::{DependencyGraph, EntryPoints, ProcessorMap};
@@ -43,7 +43,16 @@ pub trait DagExecutor: Send + Sync {
         input: ProcessorRequest,
     ) -> Result<HashMap<String, ProcessorResponse>, ExecutionError> {
         let pipeline_metadata = PipelineMetadata::new();
-        let (results, _metadata) = self.execute_with_strategy(processors, graph, entrypoints, input, pipeline_metadata, FailureStrategy::default()).await?;
+        let (results, _metadata) = self
+            .execute_with_strategy(
+                processors,
+                graph,
+                entrypoints,
+                input,
+                pipeline_metadata,
+                FailureStrategy::default(),
+            )
+            .await?;
         Ok(results)
     }
 }

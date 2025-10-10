@@ -1,9 +1,9 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
+use crate::traits::Processor;
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::traits::Processor;
 
 /// A type-safe registry mapping processor IDs to their implementations.
 ///
@@ -26,16 +26,16 @@ use crate::traits::Processor;
 /// use the_dagwood::config::ProcessorMap;
 /// use the_dagwood::backends::stub::StubProcessor;
 /// use the_dagwood::traits::Processor;
-/// 
+///
 /// let mut processor_map = ProcessorMap::new();
-/// 
+///
 /// // Add processors to the registry
 /// let stub1: Arc<dyn Processor> = Arc::new(StubProcessor::new("stub1".to_string()));
 /// let stub2: Arc<dyn Processor> = Arc::new(StubProcessor::new("stub2".to_string()));
-/// 
+///
 /// processor_map.insert("input_processor".to_string(), stub1);
 /// processor_map.insert("output_processor".to_string(), stub2);
-/// 
+///
 /// assert!(processor_map.contains_key("input_processor"));
 /// assert_eq!(processor_map.keys().count(), 2);
 /// ```
@@ -47,11 +47,11 @@ use crate::traits::Processor;
 /// use the_dagwood::config::ProcessorMap;
 /// use the_dagwood::backends::stub::StubProcessor;
 /// use the_dagwood::traits::Processor;
-/// 
+///
 /// let mut map = HashMap::new();
 /// let processor: Arc<dyn Processor> = Arc::new(StubProcessor::new("test".to_string()));
 /// map.insert("test_processor".to_string(), processor);
-/// 
+///
 /// let processor_map = ProcessorMap::from(map);
 /// assert!(processor_map.contains_key("test_processor"));
 /// ```
@@ -62,11 +62,11 @@ use crate::traits::Processor;
 /// use the_dagwood::config::ProcessorMap;
 /// use the_dagwood::backends::stub::StubProcessor;
 /// use the_dagwood::traits::Processor;
-/// 
+///
 /// let mut processor_map = ProcessorMap::new();
 /// let processor: Arc<dyn Processor> = Arc::new(StubProcessor::new("worker".to_string()));
 /// processor_map.insert("data_processor".to_string(), processor);
-/// 
+///
 /// // Retrieve processor for execution
 /// if let Some(processor_ref) = processor_map.get("data_processor") {
 ///     // processor_ref is &Arc<dyn Processor> - ready for async execution
@@ -178,7 +178,7 @@ impl From<ProcessorMap> for HashMap<String, Arc<dyn Processor>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Config, ProcessorConfig, BackendType, Strategy, ExecutorOptions};
+    use crate::config::{BackendType, Config, ExecutorOptions, ProcessorConfig, Strategy};
     use crate::errors::FailureStrategy;
     use std::collections::HashMap;
 
@@ -380,7 +380,7 @@ mod tests {
 
         for test_case in test_cases {
             let processor_map = ProcessorMap::from_config(&test_case.config);
-            
+
             // Check processor count
             assert_eq!(
                 processor_map.len(),
@@ -446,7 +446,7 @@ mod tests {
 
             let processor_map = ProcessorMap::from_config(&config);
             assert_eq!(processor_map.len(), 1);
-            
+
             let processor_id = format!("processor_{}", i);
             let processor = processor_map.get(&processor_id).unwrap();
             // All non-local processors or invalid local processors should be stub

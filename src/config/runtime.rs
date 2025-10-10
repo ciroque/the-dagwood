@@ -17,7 +17,7 @@ use crate::traits::DagExecutor;
 /// ## Building runtime from configuration
 /// ```
 /// use the_dagwood::config::{RuntimeBuilder, load_config};
-/// 
+///
 /// # // This is a mock example since we can't load actual files in doctests
 /// # let config = the_dagwood::config::Config {
 /// #     strategy: the_dagwood::config::Strategy::WorkQueue,
@@ -25,9 +25,9 @@ use crate::traits::DagExecutor;
 /// #     executor_options: the_dagwood::config::ExecutorOptions::default(),
 /// #     processors: vec![],
 /// # };
-/// 
+///
 /// let (processors, executor, failure_strategy) = RuntimeBuilder::from_config(&config);
-/// 
+///
 /// // Runtime is ready for DAG execution
 /// assert_eq!(failure_strategy, the_dagwood::errors::FailureStrategy::FailFast);
 /// ```

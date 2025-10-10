@@ -6,43 +6,43 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::config::{DependencyGraph, EntryPoints, ProcessorMap};
+use crate::errors::{ExecutionError, FailureStrategy};
+use crate::proto::processor_v1::processor_response::Outcome;
+use crate::proto::processor_v1::{PipelineMetadata, ProcessorRequest, ProcessorResponse};
 use crate::traits::executor::DagExecutor;
 use crate::traits::processor::ProcessorIntent;
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, PipelineMetadata};
-use crate::proto::processor_v1::processor_response::Outcome;
-use crate::errors::{ExecutionError, FailureStrategy};
-use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
 
 /// Level-by-Level executor that processes DAGs in topological levels with canonical payload tracking.
-/// 
+///
 /// This executor implements a sophisticated level-based execution strategy that computes topological
 /// levels using an optimized Kahn's algorithm and executes all processors at each level concurrently
 /// before moving to the next level. It ensures deterministic execution through canonical payload
 /// architecture and efficient dependency resolution.
-/// 
+///
 /// ## Execution Strategy
-/// 
+///
 /// The executor processes DAGs in distinct phases:
 /// 1. **Topological Level Computation**: Uses optimized Kahn's algorithm with reverse dependencies
 ///    mapping for O(1) dependent lookups, reducing complexity from O(n²) to O(n)
 /// 2. **Level-by-Level Execution**: Executes all processors at each level concurrently
 /// 3. **Canonical Payload Management**: Maintains deterministic payload updates using ProcessorIntent
 /// 4. **Metadata Merging**: Combines metadata from all dependencies using collision-resistant nesting
-/// 
+///
 /// ## Canonical Payload Architecture
-/// 
+///
 /// Similar to WorkQueue executor, this implements canonical payload tracking to ensure deterministic
 /// execution and proper architectural separation between Transform and Analyze processors:
-/// 
+///
 /// - **Transform processors**: Can modify the canonical payload when they complete
 /// - **Analyze processors**: Receive the canonical payload but only contribute metadata
 /// - **Downstream processors**: Always receive the current canonical payload plus merged metadata
-/// 
+///
 /// This eliminates race conditions within each level and enforces the architectural principle
 /// that only Transform processors should modify payloads.
-/// 
+///
 /// ## Performance Optimizations
-/// 
+///
 /// - **Reverse Dependencies Map**: Pre-computed mapping for O(1) dependent lookups
 /// - **Arc<ProcessorRequest>**: Efficient payload sharing without expensive cloning
 /// - **Concurrent Level Execution**: All processors at the same level execute in parallel
@@ -69,22 +69,22 @@ impl LevelByLevelExecutor {
     }
 
     /// Compute topological levels using optimized Kahn's algorithm with reverse dependencies mapping.
-    /// 
+    ///
     /// This method implements a sophisticated topological sorting algorithm that:
     /// 1. Pre-computes a reverse dependencies map for O(1) dependent lookups
     /// 2. Uses Kahn's algorithm to determine execution levels
     /// 3. Ensures all processors at the same level can execute concurrently
-    /// 
+    ///
     /// ## Algorithm Complexity
     /// - **Time**: O(V + E) where V = processors, E = dependencies
     /// - **Space**: O(V + E) for reverse dependencies map and level storage
     /// - **Optimization**: Reduced from O(n²) to O(n) through reverse dependencies pre-computation
-    /// 
+    ///
     /// ## Return Value
     /// Returns a vector where each element is a vector of processor IDs at that level.
     /// - Level 0: Entry points (processors with no dependencies)
     /// - Level N: Processors whose dependencies are all in levels 0..N-1
-    /// 
+    ///
     /// ## Error Conditions
     /// - Returns ExecutionError::InternalError if cycles are detected (should be caught in validation)
     /// - Returns ExecutionError::InternalError if no valid entry points are found
@@ -101,13 +101,13 @@ impl LevelByLevelExecutor {
         // The graph stores forward dependencies (processor -> [dependents]), but for in-degree calculation,
         // we need to know, for each processor, which processors it depends on.
         let reverse_deps = graph.build_reverse_dependencies();
-        
+
         // Initialize in-degree count for all processors using the correct dependency format
         let mut in_degree = HashMap::new();
         for (processor_id, dependencies) in &reverse_deps {
             in_degree.insert(processor_id.clone(), dependencies.len());
         }
-        
+
         // Use the graph directly for forward dependencies (processor -> [dependents])
         // The graph already stores this format correctly
 
@@ -176,7 +176,7 @@ impl LevelByLevelExecutor {
         for entry_id in &entrypoints.0 {
             total_processors.insert(entry_id.clone());
         }
-        
+
         if processed.len() != total_processors.len() {
             return Err(ExecutionError::InternalError {
                 message: "Internal consistency error: dependency graph contains cycles (should have been caught during config validation)".into(),
@@ -187,21 +187,21 @@ impl LevelByLevelExecutor {
     }
 
     /// Execute all processors in a single level in parallel with concurrency control.
-    /// 
+    ///
     /// This method spawns concurrent async tasks for all processors in the given level,
     /// respecting the configured concurrency limit using a semaphore. It implements
     /// canonical payload tracking and comprehensive error handling.
-    /// 
+    ///
     /// ## Concurrency Control
     /// - Uses tokio::sync::Semaphore to limit concurrent executions
     /// - All processors in the level execute concurrently (up to the limit)
     /// - Level completion waits for all processors to finish
-    /// 
+    ///
     /// ## Canonical Payload Management
     /// - Transform processors can update the canonical payload
     /// - Analyze processors only contribute metadata
     /// - Uses ProcessorIntent to determine payload update eligibility
-    /// 
+    ///
     /// ## Error Handling
     /// - Respects failure strategy (FailFast, ContinueOnError, BestEffort)
     /// - Handles both processor execution errors and task join errors
@@ -221,7 +221,10 @@ impl LevelByLevelExecutor {
         let mut tasks = Vec::new();
 
         for processor_id in level_processors {
-            let processor = processors.0.get(processor_id).ok_or_else(|| ExecutionError::ProcessorNotFound(processor_id.clone()))?;
+            let processor = processors
+                .0
+                .get(processor_id)
+                .ok_or_else(|| ExecutionError::ProcessorNotFound(processor_id.clone()))?;
 
             let processor_clone = processor.clone();
             let processor_id_clone = processor_id.clone();
@@ -234,10 +237,16 @@ impl LevelByLevelExecutor {
 
             let task = tokio::spawn(async move {
                 // Acquire semaphore permit with proper error handling
-                let _permit = semaphore_clone.acquire().await
-                    .map_err(|e| ExecutionError::InternalError {
-                        message: format!("Failed to acquire semaphore permit for processor '{}': {}", processor_id_clone, e)
-                    })?;
+                let _permit =
+                    semaphore_clone
+                        .acquire()
+                        .await
+                        .map_err(|e| ExecutionError::InternalError {
+                            message: format!(
+                                "Failed to acquire semaphore permit for processor '{}': {}",
+                                processor_id_clone, e
+                            ),
+                        })?;
 
                 // Build input for this processor
                 let processor_input = Self::build_processor_input(
@@ -246,7 +255,8 @@ impl LevelByLevelExecutor {
                     &results_clone,
                     &canonical_payload_clone,
                     &input_arc,
-                ).await?;
+                )
+                .await?;
 
                 // Execute the processor
                 let processor_response = processor_clone.process(processor_input).await;
@@ -257,7 +267,7 @@ impl LevelByLevelExecutor {
                     // Use the processor's declared intent to determine if it should update canonical payload
                     if let Some(Outcome::NextPayload(ref payload)) = processor_response.outcome {
                         let processor_intent = processor_clone.declared_intent();
-                        
+
                         // Only Transform processors should update the canonical payload
                         if processor_intent == ProcessorIntent::Transform {
                             let mut canonical_guard = canonical_payload_clone.lock().await;
@@ -270,11 +280,12 @@ impl LevelByLevelExecutor {
                     let mut results_guard = results_clone.lock().await;
                     results_guard.insert(processor_id_clone.clone(), processor_response.clone());
                     drop(results_guard);
-                    
+
                     // Collect metadata from processor response
                     let mut pipeline_meta = pipeline_metadata_clone.lock().await;
-                    pipeline_meta.merge_processor_response(&processor_id_clone, &processor_response);
-                    
+                    pipeline_meta
+                        .merge_processor_response(&processor_id_clone, &processor_response);
+
                     Ok(())
                 } else {
                     Err(ExecutionError::ProcessorFailed {
@@ -312,23 +323,23 @@ impl LevelByLevelExecutor {
     }
 
     /// Build input for a processor based on its dependencies with canonical payload and metadata merging.
-    /// 
+    ///
     /// This method constructs the appropriate ProcessorRequest for a given processor by:
     /// 1. Determining if it's an entry point (no dependencies) or has dependencies
     /// 2. Using canonical payload for processors with dependencies
     /// 3. Merging metadata from all dependencies using collision-resistant nesting
     /// 4. Preserving original input metadata as base metadata
-    /// 
+    ///
     /// ## Entry Points
     /// - Processors with no dependencies receive the original input directly
     /// - Requires cloning since processor trait expects owned ProcessorRequest
-    /// 
+    ///
     /// ## Processors with Dependencies
     /// - Receive current canonical payload (shared via Arc for efficiency)
     /// - Get merged metadata from all their dependencies
     /// - Base metadata from original input is preserved under BASE_METADATA_KEY
     /// - Each dependency's metadata is nested under the dependency's processor ID
-    /// 
+    ///
     /// ## Metadata Structure
     /// ```text
     /// {
@@ -389,7 +400,7 @@ impl DagExecutor for LevelByLevelExecutor {
         let results = Arc::new(Mutex::new(HashMap::new()));
         let canonical_payload = Arc::new(Mutex::new(input.payload.clone()));
         let pipeline_metadata_mutex = Arc::new(Mutex::new(pipeline_metadata));
-        
+
         // Wrap input in Arc to avoid cloning for each processor
         let input_arc = Arc::new(input);
 
@@ -404,18 +415,20 @@ impl DagExecutor for LevelByLevelExecutor {
                 &reverse_deps,
                 &input_arc,
                 failure_strategy,
-            ).await?;
+            )
+            .await?;
         }
 
         // Return final results by taking ownership of the Arc contents
         let final_results = Arc::try_unwrap(results)
             .map_err(|_| ExecutionError::InternalError {
-                message: "Failed to unwrap results Arc - multiple references still exist".into()
+                message: "Failed to unwrap results Arc - multiple references still exist".into(),
             })?
             .into_inner();
         let final_pipeline_metadata = Arc::try_unwrap(pipeline_metadata_mutex)
             .map_err(|_| ExecutionError::InternalError {
-                message: "Failed to unwrap pipeline metadata Arc - multiple references still exist".into()
+                message: "Failed to unwrap pipeline metadata Arc - multiple references still exist"
+                    .into(),
             })?
             .into_inner();
         Ok((final_results, final_pipeline_metadata))
@@ -435,20 +448,22 @@ mod tests {
     #[tokio::test]
     async fn test_single_processor() {
         let executor = LevelByLevelExecutor::new(2);
-        
+
         let mut processors_map = HashMap::new();
         processors_map.insert("proc1".to_string(), create_test_processor("proc1"));
         let processors = ProcessorMap(processors_map);
-        
+
         let graph = DependencyGraph(HashMap::new());
         let entrypoints = EntryPoints(vec!["proc1".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
         };
 
-        let result = executor.execute(processors, graph, entrypoints, input).await;
+        let result = executor
+            .execute(processors, graph, entrypoints, input)
+            .await;
         assert!(result.is_ok());
-        
+
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
         assert!(results.contains_key("proc1"));
@@ -457,28 +472,30 @@ mod tests {
     #[tokio::test]
     async fn test_linear_chain() {
         let executor = LevelByLevelExecutor::new(2);
-        
+
         let mut processors_map = HashMap::new();
         processors_map.insert("proc1".to_string(), create_test_processor("proc1"));
         processors_map.insert("proc2".to_string(), create_test_processor("proc2"));
         processors_map.insert("proc3".to_string(), create_test_processor("proc3"));
         let processors = ProcessorMap(processors_map);
-        
+
         // Build forward dependency graph: proc1 -> proc2 -> proc3
         let mut graph_map = HashMap::new();
         graph_map.insert("proc1".to_string(), vec!["proc2".to_string()]);
         graph_map.insert("proc2".to_string(), vec!["proc3".to_string()]);
         graph_map.insert("proc3".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
-        
+
         let entrypoints = EntryPoints(vec!["proc1".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
         };
 
-        let result = executor.execute(processors, graph, entrypoints, input).await;
+        let result = executor
+            .execute(processors, graph, entrypoints, input)
+            .await;
         assert!(result.is_ok());
-        
+
         let results = result.unwrap();
         assert_eq!(results.len(), 3);
         assert!(results.contains_key("proc1"));
@@ -489,14 +506,14 @@ mod tests {
     #[tokio::test]
     async fn test_diamond_dependency() {
         let executor = LevelByLevelExecutor::new(4);
-        
+
         let mut processors_map = HashMap::new();
         processors_map.insert("A".to_string(), create_test_processor("A"));
         processors_map.insert("B".to_string(), create_test_processor("B"));
         processors_map.insert("C".to_string(), create_test_processor("C"));
         processors_map.insert("D".to_string(), create_test_processor("D"));
         let processors = ProcessorMap(processors_map);
-        
+
         // Build forward dependency graph: A -> [B, C] -> D
         let mut graph_map = HashMap::new();
         graph_map.insert("A".to_string(), vec!["B".to_string(), "C".to_string()]);
@@ -504,15 +521,17 @@ mod tests {
         graph_map.insert("C".to_string(), vec!["D".to_string()]);
         graph_map.insert("D".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
-        
+
         let entrypoints = EntryPoints(vec!["A".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
         };
 
-        let result = executor.execute(processors, graph, entrypoints, input).await;
+        let result = executor
+            .execute(processors, graph, entrypoints, input)
+            .await;
         assert!(result.is_ok());
-        
+
         let results = result.unwrap();
         assert_eq!(results.len(), 4);
         assert!(results.contains_key("A"));
@@ -524,28 +543,30 @@ mod tests {
     #[tokio::test]
     async fn test_multiple_entrypoints() {
         let executor = LevelByLevelExecutor::new(4);
-        
+
         let mut processors_map = HashMap::new();
         processors_map.insert("entry1".to_string(), create_test_processor("entry1"));
         processors_map.insert("entry2".to_string(), create_test_processor("entry2"));
         processors_map.insert("merge".to_string(), create_test_processor("merge"));
         let processors = ProcessorMap(processors_map);
-        
+
         // Build forward dependency graph: [entry1, entry2] -> merge
         let mut graph_map = HashMap::new();
         graph_map.insert("entry1".to_string(), vec!["merge".to_string()]);
         graph_map.insert("entry2".to_string(), vec!["merge".to_string()]);
         graph_map.insert("merge".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
-        
+
         let entrypoints = EntryPoints(vec!["entry1".to_string(), "entry2".to_string()]);
         let input = ProcessorRequest {
             payload: b"test input".to_vec(),
         };
 
-        let result = executor.execute(processors, graph, entrypoints, input).await;
+        let result = executor
+            .execute(processors, graph, entrypoints, input)
+            .await;
         assert!(result.is_ok());
-        
+
         let results = result.unwrap();
         assert_eq!(results.len(), 3);
         assert!(results.contains_key("entry1"));
@@ -556,7 +577,7 @@ mod tests {
     #[tokio::test]
     async fn test_topological_levels_computation() {
         let executor = LevelByLevelExecutor::new(2);
-        
+
         // Diamond dependency: A -> [B, C] -> D (forward dependencies)
         let mut graph_map = HashMap::new();
         graph_map.insert("A".to_string(), vec!["B".to_string(), "C".to_string()]);
@@ -564,11 +585,13 @@ mod tests {
         graph_map.insert("C".to_string(), vec!["D".to_string()]);
         graph_map.insert("D".to_string(), vec![]);
         let graph = DependencyGraph(graph_map);
-        
+
         let entrypoints = EntryPoints(vec!["A".to_string()]);
-        
-        let levels = executor.compute_topological_levels(&graph, &entrypoints).unwrap();
-        
+
+        let levels = executor
+            .compute_topological_levels(&graph, &entrypoints)
+            .unwrap();
+
         assert_eq!(levels.len(), 3);
         assert_eq!(levels[0], vec!["A"]);
         assert!(levels[1].contains(&"B".to_string()));
@@ -580,7 +603,7 @@ mod tests {
     #[tokio::test]
     async fn test_cycle_detection() {
         let executor = LevelByLevelExecutor::new(2);
-        
+
         // Create a cycle with a valid entry point: Entry -> A -> B -> C -> A (forward dependencies)
         let mut graph_map = HashMap::new();
         graph_map.insert("Entry".to_string(), vec!["A".to_string()]);
@@ -588,9 +611,9 @@ mod tests {
         graph_map.insert("B".to_string(), vec!["C".to_string()]);
         graph_map.insert("C".to_string(), vec!["A".to_string()]); // Creates cycle
         let graph = DependencyGraph(graph_map);
-        
+
         let entrypoints = EntryPoints(vec!["Entry".to_string()]);
-        
+
         let result = executor.compute_topological_levels(&graph, &entrypoints);
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -603,15 +626,15 @@ mod tests {
     #[tokio::test]
     async fn test_no_valid_entrypoints() {
         let executor = LevelByLevelExecutor::new(2);
-        
+
         // All processors have dependencies
         let mut graph_map = HashMap::new();
         graph_map.insert("A".to_string(), vec!["B".to_string()]);
         graph_map.insert("B".to_string(), vec!["A".to_string()]);
         let graph = DependencyGraph(graph_map);
-        
+
         let entrypoints = EntryPoints(vec!["A".to_string()]);
-        
+
         let result = executor.compute_topological_levels(&graph, &entrypoints);
         assert!(result.is_err());
         let error = result.unwrap_err();

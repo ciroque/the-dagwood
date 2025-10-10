@@ -4,9 +4,11 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail, PipelineMetadata, ProcessorMetadata};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::traits::{Processor, processor::ProcessorIntent};
+use crate::proto::processor_v1::{
+    ErrorDetail, PipelineMetadata, ProcessorMetadata, ProcessorRequest, ProcessorResponse,
+};
+use crate::traits::{processor::ProcessorIntent, Processor};
 
 /// Token Counter processor - counts characters and words
 pub struct TokenCounterProcessor;
@@ -42,12 +44,15 @@ impl Processor for TokenCounterProcessor {
         own_metadata.insert("char_count".to_string(), char_count.to_string());
         own_metadata.insert("word_count".to_string(), word_count.to_string());
         own_metadata.insert("line_count".to_string(), line_count.to_string());
-        
+
         // Create pipeline metadata with our processor's results
         let mut pipeline_metadata = PipelineMetadata::new();
-        pipeline_metadata.metadata.insert(self.name().to_string(), ProcessorMetadata {
-            metadata: own_metadata,
-        });
+        pipeline_metadata.metadata.insert(
+            self.name().to_string(),
+            ProcessorMetadata {
+                metadata: own_metadata,
+            },
+        );
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(vec![])), // Analyze processors: return empty payload (executor ignores it)

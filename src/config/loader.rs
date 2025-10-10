@@ -1,11 +1,11 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
+use crate::errors::FailureStrategy;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use crate::errors::FailureStrategy;
 
 /// Main configuration structure for the DAG execution engine.
 ///
@@ -117,11 +117,11 @@ pub struct ProcessorConfig {
     pub id: String,
     #[serde(rename = "type")]
     pub backend: BackendType,
-    pub processor: Option<String>,   // for local
-    pub endpoint: Option<String>,    // for rpc
-    pub module: Option<String>,      // for wasm
+    pub processor: Option<String>, // for local
+    pub endpoint: Option<String>,  // for rpc
+    pub module: Option<String>,    // for wasm
     #[serde(default)]
-    pub depends_on: Vec<String>,     // defaults empty
+    pub depends_on: Vec<String>, // defaults empty
     #[serde(default)]
     pub options: HashMap<String, serde_yaml::Value>, // processor-specific options
 }
@@ -148,9 +148,8 @@ pub enum BackendType {
     Wasm,
 }
 
-
 /// Load a config from a YAML file
-/// TODO(steve): use thiserror and custom enums 
+/// TODO(steve): use thiserror and custom enums
 pub fn load_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::error::Error>> {
     let content = fs::read_to_string(path)?;
     let cfg: Config = serde_yaml::from_str(&content)?;
@@ -158,27 +157,27 @@ pub fn load_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::error
 }
 
 /// Load and validate a config from a YAML file
-/// 
+///
 /// This function loads the configuration and validates the dependency graph
 /// to ensure it's acyclic and all references are resolved.
-pub fn load_and_validate_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::error::Error>> {
+pub fn load_and_validate_config<P: AsRef<Path>>(
+    path: P,
+) -> Result<Config, Box<dyn std::error::Error>> {
     let cfg = load_config(path)?;
-    
+
     // Validate the dependency graph
     if let Err(validation_errors) = crate::config::validate_dependency_graph(&cfg) {
         // Convert validation errors into a single error message
-        let error_messages: Vec<String> = validation_errors
-            .iter()
-            .map(|e| e.to_string())
-            .collect();
-        let combined_error = format!("Configuration validation failed:\n{}", error_messages.join("\n"));
+        let error_messages: Vec<String> = validation_errors.iter().map(|e| e.to_string()).collect();
+        let combined_error = format!(
+            "Configuration validation failed:\n{}",
+            error_messages.join("\n")
+        );
         return Err(combined_error.into());
     }
-    
+
     Ok(cfg)
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -222,16 +221,16 @@ processors:
     module: processor.wasm
     depends_on: [auth]
 "#;
-        
+
         // Create a temporary file
         let temp_dir = std::env::temp_dir();
         let temp_file = temp_dir.join("test_config.yaml");
         std::fs::write(&temp_file, yaml).unwrap();
-        
+
         // Test that validation passes
         let result = load_and_validate_config(&temp_file);
         assert!(result.is_ok());
-        
+
         // Clean up
         std::fs::remove_file(&temp_file).unwrap();
     }
@@ -250,18 +249,18 @@ processors:
     impl_: ProcessorB
     depends_on: [a]
 "#;
-        
+
         // Create a temporary file
         let temp_dir = std::env::temp_dir();
         let temp_file = temp_dir.join("test_cyclic_config.yaml");
         std::fs::write(&temp_file, yaml).unwrap();
-        
+
         // Test that validation fails
         let result = load_and_validate_config(&temp_file);
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("Cyclic dependency detected"));
-        
+
         // Clean up
         std::fs::remove_file(&temp_file).unwrap();
     }
@@ -276,22 +275,21 @@ processors:
     impl_: Processor
     depends_on: [nonexistent]
 "#;
-        
+
         // Create a temporary file
         let temp_dir = std::env::temp_dir();
         let temp_file = temp_dir.join("test_unresolved_config.yaml");
         std::fs::write(&temp_file, yaml).unwrap();
-        
+
         // Test that validation fails
         let result = load_and_validate_config(&temp_file);
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("depends on 'nonexistent' which does not exist"));
-        
+
         // Clean up
         std::fs::remove_file(&temp_file).unwrap();
     }
-
 
     #[test]
     fn test_parse_processor_with_options() {
@@ -309,7 +307,7 @@ processors:
 
         let cfg: Config = serde_yaml::from_str(yaml).unwrap();
         let processor = &cfg.processors[0];
-        
+
         assert_eq!(processor.options.len(), 3);
         assert!(processor.options.contains_key("mode"));
         assert!(processor.options.contains_key("timeout"));

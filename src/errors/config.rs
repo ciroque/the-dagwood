@@ -51,10 +51,19 @@ impl fmt::Display for ValidationError {
             ValidationError::DuplicateProcessorId { processor_id } => {
                 write!(f, "Duplicate processor ID: '{}'", processor_id)
             }
-            ValidationError::DiamondPatternWarning { convergence_processor, parallel_paths } => {
-                write!(f, "Diamond dependency pattern detected at '{}': ", convergence_processor)?;
+            ValidationError::DiamondPatternWarning {
+                convergence_processor,
+                parallel_paths,
+            } => {
+                write!(
+                    f,
+                    "Diamond dependency pattern detected at '{}': ",
+                    convergence_processor
+                )?;
                 for (i, path) in parallel_paths.iter().enumerate() {
-                    if i > 0 { write!(f, " and ")?; }
+                    if i > 0 {
+                        write!(f, " and ")?;
+                    }
                     write!(f, "[{}]", path.join(" -> "))?;
                 }
                 write!(f, " -> {}. ", convergence_processor)?;

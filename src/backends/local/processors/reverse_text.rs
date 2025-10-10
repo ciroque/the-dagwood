@@ -3,9 +3,9 @@
 
 use async_trait::async_trait;
 
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::traits::{Processor, processor::ProcessorIntent};
+use crate::proto::processor_v1::{ErrorDetail, ProcessorRequest, ProcessorResponse};
+use crate::traits::{processor::ProcessorIntent, Processor};
 
 /// Reverse Text processor - reverses the input string
 pub struct ReverseTextProcessor;

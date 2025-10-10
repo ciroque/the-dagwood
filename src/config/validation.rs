@@ -41,7 +41,7 @@
 //! use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions};
 //! use the_dagwood::errors::FailureStrategy;
 //! use std::collections::HashMap;
-//! 
+//!
 //! // Create a sample configuration
 //! let config = Config {
 //!     strategy: Strategy::WorkQueue,
@@ -59,7 +59,7 @@
 //!         }
 //!     ],
 //! };
-//! 
+//!
 //! // Validate the configuration
 //! match validate_dependency_graph(&config) {
 //!     Ok(()) => println!("Configuration is valid"),
@@ -76,7 +76,7 @@
 //! use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions};
 //! use the_dagwood::errors::{ValidationError, FailureStrategy};
 //! use std::collections::HashMap;
-//! 
+//!
 //! // Create a configuration with validation errors
 //! let config = Config {
 //!     strategy: Strategy::WorkQueue,
@@ -94,7 +94,7 @@
 //!         }
 //!     ],
 //! };
-//! 
+//!
 //! if let Err(errors) = validate_dependency_graph(&config) {
 //!     for error in errors {
 //!         match error {
@@ -102,14 +102,14 @@
 //!                 eprintln!("Cycle detected: {}", cycle.join(" -> "));
 //!             }
 //!             ValidationError::UnresolvedDependency { processor_id, missing_dependency } => {
-//!                 eprintln!("Processor '{}' depends on missing processor '{}'", 
+//!                 eprintln!("Processor '{}' depends on missing processor '{}'",
 //!                          processor_id, missing_dependency);
 //!             }
 //!             ValidationError::DuplicateProcessorId { processor_id } => {
 //!                 eprintln!("Duplicate processor ID: '{}'", processor_id);
 //!             }
 //!             ValidationError::DiamondPatternWarning { convergence_processor, parallel_paths } => {
-//!                 eprintln!("Warning: Diamond pattern at '{}' may cause non-deterministic behavior", 
+//!                 eprintln!("Warning: Diamond pattern at '{}' may cause non-deterministic behavior",
 //!                          convergence_processor);
 //!             }
 //!         }
@@ -117,9 +117,9 @@
 //! }
 //! ```
 
-use std::collections::{HashMap, HashSet};
 use crate::config::Config;
 use crate::errors::ValidationError;
+use std::collections::{HashMap, HashSet};
 
 /// Validates a configuration's dependency graph for structural integrity and executability.
 ///
@@ -148,7 +148,7 @@ use crate::errors::ValidationError;
 /// use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions};
 /// use the_dagwood::errors::FailureStrategy;
 /// use std::collections::HashMap;
-/// 
+///
 /// // Create a valid configuration
 /// let config = Config {
 ///     strategy: Strategy::WorkQueue,
@@ -175,7 +175,7 @@ use crate::errors::ValidationError;
 ///         }
 ///     ],
 /// };
-/// 
+///
 /// // Validate before execution
 /// match validate_dependency_graph(&config) {
 ///     Ok(()) => {
@@ -199,24 +199,24 @@ use crate::errors::ValidationError;
 /// is skipped if there are reference errors, since cycle detection requires a valid graph.
 pub fn validate_dependency_graph(config: &Config) -> Result<(), Vec<ValidationError>> {
     let mut errors = Vec::new();
-    
+
     // Check for duplicate processor IDs
     if let Err(duplicate_errors) = validate_unique_processor_ids(config) {
         errors.extend(duplicate_errors);
     }
-    
+
     // Check for unresolved dependencies
     if let Err(unresolved_errors) = validate_dependency_references(config) {
         errors.extend(unresolved_errors);
     }
-    
+
     // Check for cycles (only if no unresolved dependencies, as cycles detection needs valid graph)
     if errors.is_empty() {
         if let Err(cycle_errors) = validate_acyclic_graph(config) {
             errors.extend(cycle_errors);
         }
     }
-    
+
     // Check for diamond patterns (warnings only, don't prevent execution)
     // Note: Diamond patterns are structural warnings, not execution-blocking errors
     if errors.is_empty() {
@@ -228,7 +228,7 @@ pub fn validate_dependency_graph(config: &Config) -> Result<(), Vec<ValidationEr
             }
         }
     }
-    
+
     if errors.is_empty() {
         Ok(())
     } else {
@@ -267,7 +267,7 @@ pub fn validate_dependency_graph(config: &Config) -> Result<(), Vec<ValidationEr
 fn validate_unique_processor_ids(config: &Config) -> Result<(), Vec<ValidationError>> {
     let mut seen_ids = HashSet::new();
     let mut errors = Vec::new();
-    
+
     for processor in &config.processors {
         if !seen_ids.insert(&processor.id) {
             errors.push(ValidationError::DuplicateProcessorId {
@@ -275,7 +275,7 @@ fn validate_unique_processor_ids(config: &Config) -> Result<(), Vec<ValidationEr
             });
         }
     }
-    
+
     if errors.is_empty() {
         Ok(())
     } else {
@@ -318,7 +318,7 @@ fn validate_unique_processor_ids(config: &Config) -> Result<(), Vec<ValidationEr
 fn validate_dependency_references(config: &Config) -> Result<(), Vec<ValidationError>> {
     let processor_ids: HashSet<&String> = config.processors.iter().map(|p| &p.id).collect();
     let mut errors = Vec::new();
-    
+
     for processor in &config.processors {
         for dependency in &processor.depends_on {
             if !processor_ids.contains(dependency) {
@@ -329,7 +329,7 @@ fn validate_dependency_references(config: &Config) -> Result<(), Vec<ValidationE
             }
         }
     }
-    
+
     if errors.is_empty() {
         Ok(())
     } else {
@@ -393,12 +393,12 @@ fn validate_dependency_references(config: &Config) -> Result<(), Vec<ValidationE
 fn validate_acyclic_graph(config: &Config) -> Result<(), Vec<ValidationError>> {
     // Build adjacency list representation of the dependency graph
     let mut graph: HashMap<&String, Vec<&String>> = HashMap::new();
-    
+
     // Initialize all processors in the graph
     for processor in &config.processors {
         graph.insert(&processor.id, Vec::new());
     }
-    
+
     // Add edges (dependencies)
     for processor in &config.processors {
         for dependency in &processor.depends_on {
@@ -406,12 +406,12 @@ fn validate_acyclic_graph(config: &Config) -> Result<(), Vec<ValidationError>> {
             graph.get_mut(dependency).unwrap().push(&processor.id);
         }
     }
-    
+
     // Use DFS to detect cycles
     let mut visited = HashSet::new();
     let mut rec_stack = HashSet::new();
     let mut path = Vec::new();
-    
+
     for processor_id in graph.keys() {
         if !visited.contains(*processor_id) {
             if let Some(cycle) = dfs_cycle_detection(
@@ -425,7 +425,7 @@ fn validate_acyclic_graph(config: &Config) -> Result<(), Vec<ValidationError>> {
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -483,11 +483,12 @@ fn dfs_cycle_detection(
     visited.insert(node.to_string());
     rec_stack.insert(node.to_string());
     path.push(node.to_string());
-    
+
     if let Some(neighbors) = graph.get(&node.to_string()) {
         for &neighbor in neighbors {
             if !visited.contains(neighbor) {
-                if let Some(cycle) = dfs_cycle_detection(neighbor, graph, visited, rec_stack, path) {
+                if let Some(cycle) = dfs_cycle_detection(neighbor, graph, visited, rec_stack, path)
+                {
                     return Some(cycle);
                 }
             } else if rec_stack.contains(neighbor) {
@@ -499,7 +500,7 @@ fn dfs_cycle_detection(
             }
         }
     }
-    
+
     rec_stack.remove(node);
     path.pop();
     None
@@ -540,21 +541,21 @@ fn dfs_cycle_detection(
 fn validate_diamond_patterns(config: &Config) -> Result<(), Vec<ValidationError>> {
     // Build forward adjacency list (dependency -> [dependents])
     let mut graph: HashMap<&String, Vec<&String>> = HashMap::new();
-    
+
     // Initialize all processors in the graph
     for processor in &config.processors {
         graph.insert(&processor.id, Vec::new());
     }
-    
+
     // Add edges (dependencies -> dependents)
     for processor in &config.processors {
         for dependency in &processor.depends_on {
             graph.get_mut(dependency).unwrap().push(&processor.id);
         }
     }
-    
+
     let mut warnings = Vec::new();
-    
+
     // Check each processor for diamond patterns
     for processor in &config.processors {
         if processor.depends_on.len() >= 2 {
@@ -568,7 +569,7 @@ fn validate_diamond_patterns(config: &Config) -> Result<(), Vec<ValidationError>
             }
         }
     }
-    
+
     if warnings.is_empty() {
         Ok(())
     } else {
@@ -596,11 +597,11 @@ fn find_diamond_paths(
     graph: &HashMap<&String, Vec<&String>>,
 ) -> Vec<Vec<String>> {
     let mut parallel_paths = Vec::new();
-    
+
     // For simplicity, we'll detect the most common diamond pattern:
     // Multiple direct dependencies that don't depend on each other
     // More complex diamond detection would require full path analysis
-    
+
     for dep in dependencies {
         // Check if this dependency has any path to other dependencies
         let mut has_path_to_other_deps = false;
@@ -610,14 +611,14 @@ fn find_diamond_paths(
                 break;
             }
         }
-        
+
         // If this dependency doesn't connect to other dependencies,
         // it forms a parallel path in a potential diamond
         if !has_path_to_other_deps {
             parallel_paths.push(vec![dep.clone(), convergence_processor.to_string()]);
         }
     }
-    
+
     // Only return paths if we have multiple parallel paths (diamond pattern)
     if parallel_paths.len() >= 2 {
         parallel_paths
@@ -630,20 +631,16 @@ fn find_diamond_paths(
 ///
 /// Uses BFS to determine if `from` processor can reach `to` processor
 /// through the dependency graph.
-fn has_path_between(
-    from: &str,
-    to: &str,
-    graph: &HashMap<&String, Vec<&String>>,
-) -> bool {
+fn has_path_between(from: &str, to: &str, graph: &HashMap<&String, Vec<&String>>) -> bool {
     if from == to {
         return true;
     }
-    
+
     let mut visited = HashSet::new();
     let mut queue = std::collections::VecDeque::new();
     queue.push_back(from.to_string());
     visited.insert(from.to_string());
-    
+
     while let Some(current) = queue.pop_front() {
         if let Some(neighbors) = graph.get(&current) {
             for &neighbor in neighbors {
@@ -657,14 +654,14 @@ fn has_path_between(
             }
         }
     }
-    
+
     false
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Strategy, BackendType, ProcessorConfig};
+    use crate::config::{BackendType, ProcessorConfig, Strategy};
 
     fn create_test_processor(id: &str, depends_on: Vec<&str>) -> ProcessorConfig {
         ProcessorConfig {
@@ -686,7 +683,7 @@ mod tests {
             executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![],
         };
-        
+
         assert!(validate_dependency_graph(&config).is_ok());
     }
 
@@ -698,7 +695,7 @@ mod tests {
             executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![create_test_processor("a", vec![])],
         };
-        
+
         assert!(validate_dependency_graph(&config).is_ok());
     }
 
@@ -714,7 +711,7 @@ mod tests {
                 create_test_processor("c", vec!["b"]),
             ],
         };
-        
+
         assert!(validate_dependency_graph(&config).is_ok());
     }
 
@@ -731,7 +728,7 @@ mod tests {
                 create_test_processor("d", vec!["b", "c"]),
             ],
         };
-        
+
         assert!(validate_dependency_graph(&config).is_ok());
     }
 
@@ -746,7 +743,7 @@ mod tests {
                 create_test_processor("a", vec![]), // Duplicate
             ],
         };
-        
+
         let result = validate_dependency_graph(&config);
         assert!(result.is_err());
         let errors = result.unwrap_err();
@@ -768,7 +765,7 @@ mod tests {
                 create_test_processor("b", vec!["nonexistent"]),
             ],
         };
-        
+
         let result = validate_dependency_graph(&config);
         assert!(result.is_err());
         let errors = result.unwrap_err();
@@ -790,7 +787,7 @@ mod tests {
                 create_test_processor("b", vec!["a"]),
             ],
         };
-        
+
         let result = validate_dependency_graph(&config);
         assert!(result.is_err());
         let errors = result.unwrap_err();
@@ -809,7 +806,7 @@ mod tests {
             executor_options: crate::config::ExecutorOptions::default(),
             processors: vec![create_test_processor("a", vec!["a"])],
         };
-        
+
         let result = validate_dependency_graph(&config);
         assert!(result.is_err());
         let errors = result.unwrap_err();
@@ -833,7 +830,7 @@ mod tests {
                 create_test_processor("d", vec!["b"]), // Creates cycle b -> c -> d -> b
             ],
         };
-        
+
         let result = validate_dependency_graph(&config);
         assert!(result.is_err());
         let errors = result.unwrap_err();
@@ -856,7 +853,7 @@ mod tests {
                 create_test_processor("b", vec!["missing"]),
             ],
         };
-        
+
         let result = validate_dependency_graph(&config);
         assert!(result.is_err());
         let errors = result.unwrap_err();
@@ -876,11 +873,14 @@ mod tests {
                 create_test_processor("merge", vec!["left", "right"]), // Diamond convergence
             ],
         };
-        
+
         // Diamond patterns are now warnings, not errors - validation should succeed
         let result = validate_dependency_graph(&config);
-        assert!(result.is_ok(), "Diamond patterns should be warnings, not blocking errors");
-        
+        assert!(
+            result.is_ok(),
+            "Diamond patterns should be warnings, not blocking errors"
+        );
+
         // Test the diamond detection function directly to verify it detects the pattern
         let diamond_result = validate_diamond_patterns(&config);
         assert!(diamond_result.is_err());
@@ -890,8 +890,12 @@ mod tests {
             warnings[0],
             ValidationError::DiamondPatternWarning { .. }
         ));
-        
-        if let ValidationError::DiamondPatternWarning { convergence_processor, parallel_paths } = &warnings[0] {
+
+        if let ValidationError::DiamondPatternWarning {
+            convergence_processor,
+            parallel_paths,
+        } = &warnings[0]
+        {
             assert_eq!(convergence_processor, "merge");
             assert_eq!(parallel_paths.len(), 2);
         }
@@ -909,7 +913,7 @@ mod tests {
                 create_test_processor("c", vec!["b"]),
             ],
         };
-        
+
         let result = validate_dependency_graph(&config);
         assert!(result.is_ok()); // Linear chain should not trigger diamond warning
     }
@@ -927,7 +931,7 @@ mod tests {
                 create_test_processor("d", vec!["b"]), // Only depends on b, not both b and c
             ],
         };
-        
+
         let result = validate_dependency_graph(&config);
         assert!(result.is_ok()); // No convergence point, so no diamond
     }

@@ -4,9 +4,11 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail, PipelineMetadata, ProcessorMetadata};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::traits::{Processor, processor::ProcessorIntent};
+use crate::proto::processor_v1::{
+    ErrorDetail, PipelineMetadata, ProcessorMetadata, ProcessorRequest, ProcessorResponse,
+};
+use crate::traits::{processor::ProcessorIntent, Processor};
 
 /// Word Frequency Analyzer processor - creates a histogram of words
 pub struct WordFrequencyAnalyzerProcessor;
@@ -34,7 +36,7 @@ impl Processor for WordFrequencyAnalyzerProcessor {
         };
 
         let mut word_counts: HashMap<String, usize> = HashMap::new();
-        
+
         // Normalize and count words
         for word in input.split_whitespace() {
             let normalized_word = word
@@ -42,7 +44,7 @@ impl Processor for WordFrequencyAnalyzerProcessor {
                 .filter(|c| c.is_alphanumeric())
                 .collect::<String>()
                 .to_lowercase();
-            
+
             if !normalized_word.is_empty() {
                 *word_counts.entry(normalized_word).or_insert(0) += 1;
             }
@@ -50,21 +52,24 @@ impl Processor for WordFrequencyAnalyzerProcessor {
 
         // Analyze processors MUST NOT modify payload - put analysis results in metadata
         let mut analysis_metadata = HashMap::new();
-        
+
         // Add word frequency analysis to metadata
         for (word, count) in word_counts {
             analysis_metadata.insert(format!("word_freq_{}", word), count.to_string());
         }
-        
+
         // Add summary statistics to metadata
         let total_words: usize = analysis_metadata.len();
         analysis_metadata.insert("total_unique_words".to_string(), total_words.to_string());
-        
+
         // Create pipeline metadata with our processor's results
         let mut pipeline_metadata = PipelineMetadata::new();
-        pipeline_metadata.metadata.insert(self.name().to_string(), ProcessorMetadata {
-            metadata: analysis_metadata,
-        });
+        pipeline_metadata.metadata.insert(
+            self.name().to_string(),
+            ProcessorMetadata {
+                metadata: analysis_metadata,
+            },
+        );
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(vec![])), // Analyze processors: return empty payload (executor ignores it)

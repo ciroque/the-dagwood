@@ -35,6 +35,9 @@ pub enum WasmError {
 
     #[error("Engine creation error: {0}")]
     EngineError(String),
+
+    #[error("String conversion error: {0}")]
+    StringError(String),
 }
 
 pub type WasmResult<T> = Result<T, WasmError>;

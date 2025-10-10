@@ -3,6 +3,7 @@
 
 mod error;
 pub mod capability_manager;
+pub mod executor;
 pub mod factory;
 pub mod module_loader;
 pub mod processor;
@@ -11,6 +12,7 @@ pub mod processor;
 pub use error::{WasmError, WasmResult};
 
 pub use capability_manager::{CapabilityManager, CapabilityRequirements, WasiSetup};
+pub use executor::{WasmExecutor, ExecutionResult};
 pub use factory::WasmProcessorFactory;
 pub use module_loader::{WasmModuleLoader, LoadedModule, ComponentType, ModuleImport, ImportType};
 pub use processor::WasmProcessor;

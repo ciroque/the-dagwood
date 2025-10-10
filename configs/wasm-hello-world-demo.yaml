@@ -12,7 +12,7 @@ processors:
 
   - id: wasm_hello_wasm
     type: wasm
-    module: wasm_components/hello.wasm
+    module: wasm_components/rle_grain.wasm
     depends_on:
       - input_processor
     options:

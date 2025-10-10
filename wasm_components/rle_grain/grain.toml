@@ -1,0 +1,11 @@
+[package]
+name = "rle_grain"
+version = "0.1.0"
+description = "Run-length encoding WASM component implemented in Grain"
+
+[build]
+target = "wasm32"
+optimization = "release"
+
+[dependencies]
+# Grain standard library is included by default

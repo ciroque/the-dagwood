@@ -1,0 +1,2 @@
+[dependencies]
+dagwood = { path = "../../wit/versions/v1.0.0" }

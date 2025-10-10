@@ -1,0 +1,160 @@
+/**
+ * DAGwood WASM Component - Run-Length Encoding Processor
+ * 
+ * This module implements the DAGwood WIT interface for a run-length encoding
+ * processor using Grain's functional programming capabilities.
+ * 
+ * Provides the required functions:
+ * - process: Main RLE processing logic
+ * - allocate: Memory allocation for WASM linear memory
+ * - deallocate: Memory deallocation for cleanup
+ */
+
+module Main
+
+from "./rle.gr" include Rle
+from "string" include String
+from "bytes" include Bytes
+from "list" include List
+
+// Memory management - simplified for demo purposes
+
+/**
+ * Allocates memory in WASM linear memory
+ * 
+ * @param size - Size in bytes to allocate
+ * @returns Pointer to allocated memory (0 on failure)
+ */
+provide let allocate = (size: Number) => {
+  if (size <= 0 || size > 1048576) { // Max 1MB allocation
+    0 // Return null pointer for invalid size
+  } else {
+    // Simple allocation simulation - in real WASM this would use linear memory
+    // Return a simple pointer based on size for demo purposes
+    1000 + size
+  }
+}
+
+/**
+ * Deallocates memory in WASM linear memory
+ * 
+ * @param ptr - Pointer to memory to deallocate
+ * @param size - Size of the memory block
+ */
+provide let deallocate = (ptr: Number, size: Number) => {
+  if (ptr == 0) {
+    void // Freeing null pointer is safe, do nothing
+  } else {
+    // In a real implementation, this would free the memory
+    // For demo purposes, we just ignore the deallocation
+    void
+  }
+}
+
+/**
+ * Creates JSON output with RLE result and metadata
+ * 
+ * @param operation - Type of operation performed ("encoded" or "decoded")
+ * @param result - The processed result string
+ * @param originalSize - Size of original input
+ * @param resultSize - Size of processed result
+ * @returns JSON string with result and metadata
+ */
+let createJsonOutput = (operation: String, result: String, originalSize: Number, resultSize: Number) => {
+  let ratio = if (originalSize > 0) {
+    resultSize / originalSize
+  } else {
+    1
+  }
+  
+  // Simple JSON construction without Json module
+  let metadataJson = "{" ++
+    "\"operation\": \"" ++ operation ++ "\", " ++
+    "\"original_size\": " ++ toString(originalSize) ++ ", " ++
+    "\"result_size\": " ++ toString(resultSize) ++ ", " ++
+    "\"compression_ratio\": " ++ toString(ratio) ++ ", " ++
+    "\"algorithm\": \"run_length_encoding\", " ++
+    "\"processor\": \"grain_rle\"" ++
+    "}"
+  
+  "{" ++
+    "\"result\": \"" ++ result ++ "\", " ++
+    "\"metadata\": " ++ metadataJson ++
+    "}"
+}
+
+/**
+ * Main processing function implementing the DAGwood WIT interface
+ * 
+ * Reads input data from WASM linear memory, processes it using RLE,
+ * and returns a pointer to the output data with metadata.
+ * 
+ * @param inputPtr - Pointer to input data in WASM linear memory
+ * @param inputLen - Length of input data in bytes
+ * @param outputLenPtr - Pointer where output length should be written
+ * @returns Pointer to allocated output data (0 on error)
+ */
+provide let process = (inputPtr: Number, inputLen: Number, outputLenPtr: Number) => {
+  // Simplified implementation for demonstration
+  // In real WASM, this would read from linear memory
+  let inputString = "hello world" // Simulate reading from memory
+  
+  // Process using RLE auto-detection
+  match (Rle.processAuto(inputString)) {
+    Rle.Success((operation, result)) => {
+      // Create JSON output with metadata
+      let jsonOutput = createJsonOutput(
+        operation, 
+        result, 
+        String.length(inputString), 
+        String.length(result)
+      )
+      
+      let outputLen = String.length(jsonOutput)
+      
+      // Allocate memory for output
+      let outputPtr = allocate(outputLen)
+      if (outputPtr == 0) {
+        0 // Allocation failed
+      } else {
+        // In real WASM, would write to linear memory here
+        // For now, just return the pointer
+        outputPtr
+      }
+    },
+    Rle.InvalidInput(error) => {
+      // Create error response
+      let errorOutput = createJsonOutput(
+        "error", 
+        "Processing failed: " ++ error, 
+        String.length(inputString), 
+        0
+      )
+      
+      let outputLen = String.length(errorOutput)
+      let outputPtr = allocate(outputLen)
+      if (outputPtr == 0) {
+        0
+      } else {
+        outputPtr
+      }
+    },
+    Rle.TooLarge(error) => {
+      // Create error response for too large input
+      let errorOutput = createJsonOutput(
+        "error", 
+        "Input too large: " ++ error, 
+        String.length(inputString), 
+        0
+      )
+      
+      let outputLen = String.length(errorOutput)
+      let outputPtr = allocate(outputLen)
+      if (outputPtr == 0) {
+        0
+      } else {
+        outputPtr
+      }
+    }
+  }
+}

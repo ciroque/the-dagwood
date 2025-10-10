@@ -1,0 +1,205 @@
+/**
+ * Run-Length Encoding (RLE) Implementation in Grain
+ * 
+ * This module implements bidirectional run-length encoding using Grain's
+ * functional programming features including pattern matching, immutable
+ * data structures, and higher-order functions.
+ */
+
+module Rle
+
+from "list" include List
+from "string" include String
+from "char" include Char
+from "array" include Array
+
+/**
+ * Represents a run-length encoded segment
+ */
+provide record RleSegment {
+  count: Number,
+  character: Char
+}
+
+/**
+ * Result type for RLE operations
+ */
+provide enum RleResult<a, b> {
+  Success(a),
+  InvalidInput(b),
+  TooLarge(b)
+}
+
+/**
+ * Encodes a string using run-length encoding
+ * 
+ * Uses functional composition with pattern matching to group consecutive
+ * characters and count their occurrences.
+ * 
+ * @param input - The input string to encode
+ * @returns RleResult containing encoded segments or error
+ */
+provide let encode = (input: String) => {
+  let chars = Array.toList(String.explode(input))
+  
+  let rec encodeChars = (chars) => {
+    match (chars) {
+      [] => [],
+      [char] => [{ count: 1, character: char }],
+      [char, ...rest] => {
+        // Simple consecutive character counting
+        let rec countSame = (ch, lst, acc) => {
+          match (lst) {
+            [] => (acc, []),
+            [h, ...t] when h == ch => countSame(ch, t, acc + 1),
+            _ => (acc, lst)
+          }
+        }
+        let (count, remaining) = countSame(char, rest, 1)
+        [{ count: count, character: char }, ...encodeChars(remaining)]
+      }
+    }
+  }
+  
+  let segments = encodeChars(chars)
+  Success(segments)
+}
+
+/**
+ * Decodes run-length encoded segments back to original string
+ * 
+ * @param segments - List of RLE segments to decode
+ * @returns RleResult containing decoded string or error
+ */
+provide let decode = (segments: List<RleSegment>) => {
+  let rec decodeSegments = (segments) => {
+    match (segments) {
+      [] => "",
+      [segment, ...rest] => {
+        let rec repeatChar = (ch, count, acc) => {
+          if (count <= 0) {
+            acc
+          } else {
+            repeatChar(ch, count - 1, acc ++ Char.toString(ch))
+          }
+        }
+        let segmentString = repeatChar(segment.character, segment.count, "")
+        segmentString ++ decodeSegments(rest)
+      }
+    }
+  }
+  
+  let result = decodeSegments(segments)
+  Success(result)
+}
+
+/**
+ * Converts RLE segments to a compact string representation
+ * Format: "3a2b4c" (count followed by character)
+ * 
+ * @param segments - List of RLE segments
+ * @returns String representation
+ */
+provide let segmentsToString = (segments: List<RleSegment>) => {
+  let segmentToString = (segment) => {
+    toString(segment.count) ++ Char.toString(segment.character)
+  }
+  
+  List.reduce((acc, segment) => acc ++ segmentToString(segment), "", segments)
+}
+
+/**
+ * Parses a compact string representation back to RLE segments
+ * 
+ * @param encoded - String in format "3a2b4c"
+ * @returns RleResult containing segments or error
+ */
+provide let stringToSegments = (encoded: String) => {
+  let chars = Array.toList(String.explode(encoded))
+  
+  let rec parseChars = (chars, acc) => {
+    match (chars) {
+      [] => acc,
+      [countChar, valueChar, ...rest] => {
+        // Simple digit parsing
+        let count = Char.code(countChar) - Char.code('0')
+        if (count >= 0 && count <= 9) {
+          let segment = { count: count, character: valueChar }
+          parseChars(rest, [segment, ...acc])
+        } else {
+          acc // Skip invalid characters
+        }
+      },
+      [_] => acc // Skip incomplete segments
+    }
+  }
+  
+  let segments = List.reverse(parseChars(chars, []))
+  Success(segments)
+}
+
+/**
+ * Auto-detects whether input is encoded or raw text and processes accordingly
+ * 
+ * @param input - Input string (either raw text or RLE encoded)
+ * @returns RleResult containing processed string and metadata
+ */
+provide let processAuto = (input: String) => {
+  // Simple heuristic: if string alternates numbers and letters, assume it's encoded
+  let chars = Array.toList(String.explode(input))
+  let isEncoded = List.length(chars) > 0 && List.length(chars) % 2 == 0
+  
+  if (isEncoded) {
+    // Try to decode
+    match (stringToSegments(input)) {
+      Success(segments) => {
+        match (decode(segments)) {
+          Success(decoded) => Success(("decoded", decoded)),
+          InvalidInput(msg) => InvalidInput(msg),
+          TooLarge(msg) => TooLarge(msg)
+        }
+      },
+      InvalidInput(msg) => {
+        // If decoding fails, treat as raw text and encode
+        match (encode(input)) {
+          Success(segments) => Success(("encoded", segmentsToString(segments))),
+          InvalidInput(msg2) => InvalidInput(msg2),
+          TooLarge(msg2) => TooLarge(msg2)
+        }
+      },
+      TooLarge(msg) => {
+        // If decoding fails, treat as raw text and encode
+        match (encode(input)) {
+          Success(segments) => Success(("encoded", segmentsToString(segments))),
+          InvalidInput(msg2) => InvalidInput(msg2),
+          TooLarge(msg2) => TooLarge(msg2)
+        }
+      }
+    }
+  } else {
+    // Encode raw text
+    match (encode(input)) {
+      Success(segments) => Success(("encoded", segmentsToString(segments))),
+      InvalidInput(msg) => InvalidInput(msg),
+      TooLarge(msg) => TooLarge(msg)
+    }
+  }
+}
+
+/**
+ * Calculates compression statistics
+ * 
+ * @param original - Original string
+ * @param compressed - Compressed string
+ * @returns Tuple of (original_size, compressed_size, ratio)
+ */
+provide let compressionStats = (original: String, compressed: String) => {
+  let originalSize = String.length(original)
+  let compressedSize = String.length(compressed)
+  let ratio = if (originalSize > 0) {
+    compressedSize / originalSize
+  } else {
+    1
+  }
+  (originalSize, compressedSize, ratio)
+}

@@ -1,0 +1,43 @@
+strategy: work_queue
+failure_strategy: fail_fast
+executor_options:
+  max_concurrency: 2
+
+processors:
+  # Entry point processor that provides initial text input
+  - id: text_input
+    type: local
+    processor: change_text_case_upper
+    options:
+      case: upper
+    
+  # Grain RLE processor - showcases functional programming in WASM
+  - id: grain_rle_processor
+    type: wasm
+    module: wasm_components/rle_grain.wasm
+    depends_on: [text_input]
+    options:
+      intent: transform
+      
+  # Token counter to analyze the RLE output
+  - id: rle_analysis
+    type: local
+    processor: token_counter
+    depends_on: [grain_rle_processor]
+    options:
+      count_type: all
+      
+  # Word frequency analysis of the original text for comparison
+  - id: original_analysis
+    type: local
+    processor: word_frequency_analyzer
+    depends_on: [text_input]
+    
+  # Final processor that combines results with metadata
+  - id: comparison_summary
+    type: local
+    processor: prefix_suffix_adder
+    depends_on: [rle_analysis, original_analysis]
+    options:
+      prefix: "=== RLE PROCESSING SUMMARY ===\n"
+      suffix: "\n=== END SUMMARY ==="

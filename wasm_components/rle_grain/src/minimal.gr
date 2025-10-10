@@ -1,0 +1,38 @@
+/**
+ * Minimal DAGwood WASM Component - No Standard Library Imports
+ * 
+ * This attempts to create a WASI-free WASM module by avoiding all standard library imports.
+ */
+
+module Minimal
+
+/**
+ * Allocates memory in WASM linear memory
+ */
+provide let allocate = (size: Number) => {
+  if (size <= 0) {
+    0
+  } else {
+    1000 + size
+  }
+}
+
+/**
+ * Deallocates memory in WASM linear memory
+ */
+provide let deallocate = (ptr: Number, size: Number) => {
+  void
+}
+
+/**
+ * Main processing function - hardcoded demo
+ */
+provide let process = (inputPtr: Number, inputLen: Number, outputLenPtr: Number) => {
+  // Return a simple hardcoded pointer for demo
+  // In a real implementation, this would:
+  // 1. Read from WASM linear memory at inputPtr
+  // 2. Process the data
+  // 3. Write result to allocated memory
+  // 4. Return pointer to result
+  1500
+}

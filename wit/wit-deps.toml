@@ -2,7 +2,7 @@
 # This file defines the WIT interface dependencies for DAGwood components
 
 [dependencies]
-# Core DAGwood processor interface
+# Core DAGwood processing-node interface
 dagwood-processor = { path = "versions/v1.0.0/dagwood-processor.wit" }
 
 [metadata]

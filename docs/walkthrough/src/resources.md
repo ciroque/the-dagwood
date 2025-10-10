@@ -92,7 +92,7 @@ This chapter provides comprehensive resources for deepening your understanding o
 - **serde**: Serialization framework for data handling
 - **serde_yaml**: YAML parsing for configuration files
 - **thiserror**: Structured error handling with derive macros
-- **async-trait**: Async trait support for processor interfaces
+- **async-trait**: Async trait support for processing-node interfaces
 - **wasmtime**: WebAssembly runtime for sandboxed execution
 - **prost**: Protocol Buffers for efficient data serialization
 - **base64**: Base64 encoding for metadata namespacing

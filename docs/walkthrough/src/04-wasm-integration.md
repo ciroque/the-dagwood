@@ -98,7 +98,7 @@ This demo demonstrated:
 **Multi-Backend Integration:**
 - Seamless integration between Local and WASM backends
 - Mixed execution pipeline: Local → WASM → Local
-- Consistent processor interface across different backends
+- Consistent processing-node interface across different backends
 
 **WASM Security and Isolation:**
 - Complete sandboxing with wasmtime runtime

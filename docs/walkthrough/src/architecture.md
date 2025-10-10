@@ -304,7 +304,7 @@ The DAGwood project uses several key patterns to enable extensibility:
 #### Factory Pattern
 - **Processor Creation**: Dynamic instantiation based on configuration
 - **Backend Abstraction**: Pluggable processor backends (Local, WASM)
-- **Type Safety**: Compile-time guarantees for processor interfaces
+- **Type Safety**: Compile-time guarantees for processing-node interfaces
 
 #### Strategy Pattern  
 - **Execution Strategies**: Pluggable DAG execution algorithms

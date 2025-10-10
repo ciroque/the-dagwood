@@ -51,32 +51,27 @@ build_component() {
         local crate_name=$(grep '^name = ' Cargo.toml | sed 's/name = "\(.*\)"/\1/')
         cp "target/wasm32-unknown-unknown/release/${crate_name}.wasm" "../${component_name}.wasm"
         
-        echo "✅ Built: wasm_components/${component_name}.wasm"
     fi
 }
 
 # Function to list available components
 list_components() {
-    echo "📋 Available WASM components:"
-    for dir in "$WASM_COMPONENTS_DIR"/*; do
-        if [[ -d "$dir" && -f "$dir/Cargo.toml" ]]; then
-            local component_name=$(basename "$dir")
-            echo "  - $component_name"
-        fi
+    echo "📋 Available WASM components (with build.sh):"
+    find "$WASM_COMPONENTS_DIR" -maxdepth 2 -name 'build.sh' -exec dirname {} \; | while read -r dir; do
+        component_name=$(basename "$dir")
+        echo "  - $component_name"
     done
 }
 
 # Main logic
 if [[ $# -eq 0 ]]; then
-    # Build all components
     echo "🔄 Building all WASM components..."
     list_components
     
-    for dir in "$WASM_COMPONENTS_DIR"/*; do
-        if [[ -d "$dir" && -f "$dir/Cargo.toml" ]]; then
-            component_name=$(basename "$dir")
-            build_component "$component_name"
-        fi
+    # Find all directories containing build.sh files and build them
+    find "$WASM_COMPONENTS_DIR" -maxdepth 2 -name 'build.sh' -exec dirname {} \; | while read -r dir; do
+        component_name=$(basename "$dir")
+        build_component "$component_name"
     done
     
     echo ""

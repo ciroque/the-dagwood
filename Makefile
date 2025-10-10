@@ -70,6 +70,23 @@ licenses:
 	cargo deny check licenses || true
 
 # --------------------------------
+# 🌐 WASM Build Targets
+# --------------------------------
+
+wasm-build:
+	@echo "==> Building all WASM components..."
+	cd scripts && ./build-wasm.sh
+
+wasm-clean:
+	@echo "==> Cleaning WASM build artifacts..."
+	# Clean Rust build artifacts
+	find wasm_components -type f -name '*.wasm' -delete
+	# Clean build directories
+	find wasm_components -type d \( -name 'pkg' -o -name 'target' -o -name '.wasm' \) -exec rm -rf {} +
+	# Clean any remaining empty directories
+	find wasm_components -type d -empty -delete
+
+# --------------------------------
 # 🧩 Utility Targets
 # --------------------------------
 
@@ -93,7 +110,9 @@ help:
 	@echo "  audit         - Check for known vulnerabilities"
 	@echo "  outdated      - Check for outdated dependencies"
 	@echo "  licenses      - Check license compliance (cargo-deny)"
-	@echo "  ci            - Run full CI check suite"
+	@echo "  ci             - Run full CI check suite"
 	@echo "  clean         - Remove target artifacts"
-	@echo ""
-
+	@echo "  help           - Show this help message"
+	@echo "  wasm-build     - Build all WASM components"
+	@echo "  wasm-test      - Test WASM components"
+	@echo "  wasm-clean     - Clean WASM build artifacts"

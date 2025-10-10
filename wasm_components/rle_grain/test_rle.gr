@@ -16,7 +16,9 @@ let testStrings = [
   "aaabbbccc", 
   "abcdef",
   "aaaaaa",
-  "3a2b1c"
+  "aaaaaaaaaaaaaaaa", // 16 a's - tests multi-digit parsing
+  "3a2b1c",
+  "12a5b20c" // Multi-digit encoded string
 ]
 
 // Test encoding
@@ -49,7 +51,7 @@ let testEncoding = () => {
     print("")
   }
   
-  List.forEach(testString, testStrings)
+  List.forEach(testStrings, testString)
 }
 
 // Test auto-detection
@@ -72,7 +74,7 @@ let testAutoDetection = () => {
     print("")
   }
   
-  List.forEach(testAuto, testStrings)
+  List.forEach(testStrings, testAuto)
 }
 
 // Main test function

@@ -117,20 +117,52 @@ provide let segmentsToString = (segments: List<RleSegment>) => {
 provide let stringToSegments = (encoded: String) => {
   let chars = Array.toList(String.explode(encoded))
   
+  // Helper: Parse a sequence of digit chars from the front of a list, returning (digits, rest)
+  let rec takeDigits = (chars, digits) => {
+    match (chars) {
+      [] => (digits, []),
+      [c, ...rest] =>
+        if (Char.code(c) >= Char.code('0') && Char.code(c) <= Char.code('9')) {
+          takeDigits(rest, List.append(digits, [c]))
+        } else {
+          (digits, chars)
+        }
+    }
+  }
+  
+  // Helper: Convert list of digit characters to number
+  let digitsToNumber = (digits) => {
+    let rec helper = (digits, acc) => {
+      match (digits) {
+        [] => acc,
+        [d, ...rest] => {
+          let digitValue = Char.code(d) - Char.code('0')
+          helper(rest, acc * 10 + digitValue)
+        }
+      }
+    }
+    helper(digits, 0)
+  }
+  
   let rec parseChars = (chars, acc) => {
     match (chars) {
       [] => acc,
-      [countChar, valueChar, ...rest] => {
-        // Simple digit parsing
-        let count = Char.code(countChar) - Char.code('0')
-        if (count >= 0 && count <= 9) {
-          let segment = { count: count, character: valueChar }
-          parseChars(rest, [segment, ...acc])
-        } else {
-          acc // Skip invalid characters
+      _ => {
+        let (digitChars, rest1) = takeDigits(chars, [])
+        match ((digitChars, rest1)) {
+          ([], _) => acc, // No digits found, done
+          (_, []) => acc, // No character after digits, done
+          (_, [valueChar, ...rest2]) => {
+            let count = digitsToNumber(digitChars)
+            if (count > 0) {
+              let segment = { count: count, character: valueChar }
+              parseChars(rest2, [segment, ...acc])
+            } else {
+              acc // Invalid count, done
+            }
+          }
         }
-      },
-      [_] => acc // Skip incomplete segments
+      }
     }
   }
   

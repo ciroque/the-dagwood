@@ -53,7 +53,12 @@ build_component() {
         
     fi
 
-    echo "✅ Built: wasm_components/${component_name}.wasm"
+    if [[ -f "../${component_name}.wasm" ]]; then
+        echo "✅ Built: wasm_components/${component_name}.wasm"
+    else
+        echo "❌ Build failed: wasm_components/${component_name}.wasm not found"
+        return 1
+    fi
 }
 
 # Function to list available components

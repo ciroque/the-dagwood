@@ -147,15 +147,15 @@ set -e
 
 echo "🔨 Building WASM component..."
 
-if ! rustup target list --installed | grep -q "wasm32-wasip1"; then
-    echo "📥 Installing wasm32-wasip1 target..."
-    rustup target add wasm32-wasip1
+if ! rustup target list --installed | grep -q "wasm32-unknown-unknown"; then
+    echo "📥 Installing wasm32-unknown-unknown target..."
+    rustup target add wasm32-unknown-unknown
 fi
 
-cargo build --target wasm32-wasip1 --release
+cargo build --target wasm32-unknown-unknown --release
 
 CRATE_NAME=$(grep '^name = ' Cargo.toml | sed 's/name = "\(.*\)"/\1/')
-cp "target/wasm32-wasip1/release/${CRATE_NAME}.wasm" "../${CRATE_NAME}.wasm"
+cp "target/wasm32-unknown-unknown/release/${CRATE_NAME}.wasm" "../${CRATE_NAME}.wasm"
 
 WASM_SIZE=$(stat -c%s "../${CRATE_NAME}.wasm")
 echo "✅ Build complete! ${CRATE_NAME}.wasm size: ${WASM_SIZE} bytes"

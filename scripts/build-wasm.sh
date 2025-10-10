@@ -38,18 +38,18 @@ build_component() {
         echo "⚠️  No build.sh found, using default build process..."
         cd "$component_dir"
         
-        # Ensure WASM target is available
-        if ! rustup target list --installed | grep -q "wasm32-wasip1"; then
-            echo "📥 Installing wasm32-wasip1 target..."
-            rustup target add wasm32-wasip1
+        # Ensure WASM target is available (no WASI for complete sandboxing)
+        if ! rustup target list --installed | grep -q "wasm32-unknown-unknown"; then
+            echo "📥 Installing wasm32-unknown-unknown target..."
+            rustup target add wasm32-unknown-unknown
         fi
         
-        # Build the component
-        cargo build --target wasm32-wasip1 --release
+        # Build the component (no WASI imports for security)
+        cargo build --target wasm32-unknown-unknown --release
         
         # Copy to wasm_components directory with component name
         local crate_name=$(grep '^name = ' Cargo.toml | sed 's/name = "\(.*\)"/\1/')
-        cp "target/wasm32-wasip1/release/${crate_name}.wasm" "../${component_name}.wasm"
+        cp "target/wasm32-unknown-unknown/release/${crate_name}.wasm" "../${component_name}.wasm"
         
         echo "✅ Built: wasm_components/${component_name}.wasm"
     fi

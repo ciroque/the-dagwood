@@ -1,0 +1,92 @@
+/**
+ * Test script for Grain RLE functionality
+ * 
+ * This script demonstrates the run-length encoding capabilities
+ * implemented in Grain, showcasing functional programming patterns.
+ */
+
+module TestRle
+
+from "./src/rle.gr" include Rle
+from "string" include String
+
+// Test data
+let testStrings = [
+  "hello world",
+  "aaabbbccc", 
+  "abcdef",
+  "aaaaaa",
+  "aaaaaaaaaaaaaaaa", // 16 a's - tests multi-digit parsing
+  "3a2b1c",
+  "12a5b20c" // Multi-digit encoded string
+]
+
+// Test encoding
+let testEncoding = () => {
+  print("=== Testing RLE Encoding ===")
+  
+  let testString = (input) => {
+    print("Input: \"" ++ input ++ "\"")
+    match (Rle.encode(input)) {
+      Rle.Success(segments) => {
+        let encoded = Rle.segmentsToString(segments)
+        print("Encoded: \"" ++ encoded ++ "\"")
+        
+        // Test round-trip
+        match (Rle.decode(segments)) {
+          Rle.Success(decoded) => {
+            if (decoded == input) {
+              print("✅ Round-trip successful")
+            } else {
+              print("❌ Round-trip failed: \"" ++ decoded ++ "\"")
+            }
+          },
+          Rle.InvalidInput(err) => print("❌ Decode error: " ++ err),
+          Rle.TooLarge(err) => print("❌ Decode error: " ++ err)
+        }
+      },
+      Rle.InvalidInput(err) => print("❌ Encode error: " ++ err),
+      Rle.TooLarge(err) => print("❌ Encode error: " ++ err)
+    }
+    print("")
+  }
+  
+  List.forEach(testStrings, testString)
+}
+
+// Test auto-detection
+let testAutoDetection = () => {
+  print("=== Testing Auto-Detection ===")
+  
+  let testAuto = (input) => {
+    print("Input: \"" ++ input ++ "\"")
+    match (Rle.processAuto(input)) {
+      Rle.Success((operation, result)) => {
+        print("Operation: " ++ operation)
+        print("Result: \"" ++ result ++ "\"")
+        
+        let (originalSize, resultSize, ratio) = Rle.compressionStats(input, result)
+        print("Compression: " ++ toString(originalSize) ++ " -> " ++ toString(resultSize) ++ " (ratio: " ++ toString(ratio) ++ ")")
+      },
+      Rle.InvalidInput(err) => print("❌ Error: " ++ err),
+      Rle.TooLarge(err) => print("❌ Error: " ++ err)
+    }
+    print("")
+  }
+  
+  List.forEach(testStrings, testAuto)
+}
+
+// Main test function
+let runTests = () => {
+  print("🌾 Grain RLE Component Test Suite 🌾")
+  print("")
+  
+  testEncoding()
+  testAutoDetection()
+  
+  print("✅ All tests completed!")
+}
+
+// Run the tests
+runTests()

@@ -1,0 +1,280 @@
+/**
+ * Run-Length Encoding (RLE) Implementation in Grain
+ * 
+ * This module implements bidirectional run-length encoding using Grain's
+ * functional programming features including pattern matching, immutable
+ * data structures, and higher-order functions.
+ */
+
+module Rle
+
+from "list" include List
+from "string" include String
+from "char" include Char
+from "array" include Array
+from "bytes" include Bytes
+
+/**
+ * Represents a run-length encoded segment
+ */
+provide record RleSegment {
+  count: Number,
+  character: Char
+}
+
+/**
+ * Result type for RLE operations
+ */
+provide enum RleResult<a, b> {
+  Success(a),
+  InvalidInput(b),
+  TooLarge(b)
+}
+
+/**
+ * Encodes a string using run-length encoding
+ * 
+ * Uses functional composition with pattern matching to group consecutive
+ * characters and count their occurrences.
+ * 
+ * @param input - The input string to encode
+ * @returns RleResult containing encoded segments or error
+ */
+provide let encode = (input: String) => {
+  let chars = Array.toList(String.explode(input))
+  
+  let rec encodeChars = (chars) => {
+    match (chars) {
+      [] => [],
+      [char] => [{ count: 1, character: char }],
+      [char, ...rest] => {
+        // Simple consecutive character counting
+        let rec countSame = (ch, lst, acc) => {
+          match (lst) {
+            [] => (acc, []),
+            [h, ...t] when h == ch => countSame(ch, t, acc + 1),
+            _ => (acc, lst)
+          }
+        }
+        let (count, remaining) = countSame(char, rest, 1)
+        [{ count: count, character: char }, ...encodeChars(remaining)]
+      }
+    }
+  }
+  
+  let segments = encodeChars(chars)
+  Success(segments)
+}
+
+/**
+ * Decodes run-length encoded segments back to original string
+ * 
+ * @param segments - List of RLE segments to decode
+ * @returns RleResult containing decoded string or error
+ */
+provide let decode = (segments: List<RleSegment>) => {
+  let rec decodeSegments = (segments) => {
+    match (segments) {
+      [] => "",
+      [segment, ...rest] => {
+        let rec repeatChar = (ch, count, acc) => {
+          if (count <= 0) {
+            acc
+          } else {
+            repeatChar(ch, count - 1, acc ++ Char.toString(ch))
+          }
+        }
+        let segmentString = repeatChar(segment.character, segment.count, "")
+        segmentString ++ decodeSegments(rest)
+      }
+    }
+  }
+  
+  let result = decodeSegments(segments)
+  Success(result)
+}
+
+/**
+ * Converts RLE segments to a compact string representation
+ * Format: "3a2b4c" (count followed by character)
+ * 
+ * @param segments - List of RLE segments
+ * @returns String representation
+ */
+provide let segmentsToString = (segments: List<RleSegment>) => {
+  let segmentToString = (segment) => {
+    toString(segment.count) ++ Char.toString(segment.character)
+  }
+  
+  List.reduce((acc, segment) => acc ++ segmentToString(segment), "", segments)
+}
+
+/**
+ * Parses a compact string representation back to RLE segments
+ * 
+ * @param encoded - String in format "3a2b4c"
+ * @returns RleResult containing segments or error
+ */
+provide let stringToSegments = (encoded: String) => {
+  let chars = Array.toList(String.explode(encoded))
+  
+  // Helper: Parse a sequence of digit chars from the front of a list, returning (digits, rest)
+  let rec takeDigits = (chars, digits) => {
+    match (chars) {
+      [] => (digits, []),
+      [c, ...rest] =>
+        if (Char.code(c) >= Char.code('0') && Char.code(c) <= Char.code('9')) {
+          takeDigits(rest, List.append(digits, [c]))
+        } else {
+          (digits, chars)
+        }
+    }
+  }
+  
+  // Helper: Convert list of digit characters to number
+  let digitsToNumber = (digits) => {
+    let rec helper = (digits, acc) => {
+      match (digits) {
+        [] => acc,
+        [d, ...rest] => {
+          let digitValue = Char.code(d) - Char.code('0')
+          helper(rest, acc * 10 + digitValue)
+        }
+      }
+    }
+    helper(digits, 0)
+  }
+  
+  let rec parseChars = (chars, acc) => {
+    match (chars) {
+      [] => acc,
+      _ => {
+        let (digitChars, rest1) = takeDigits(chars, [])
+        match ((digitChars, rest1)) {
+          ([], _) => acc, // No digits found, done
+          (_, []) => acc, // No character after digits, done
+          (_, [valueChar, ...rest2]) => {
+            let count = digitsToNumber(digitChars)
+            if (count > 0) {
+              let segment = { count: count, character: valueChar }
+              parseChars(rest2, [segment, ...acc])
+            } else {
+              acc // Invalid count, done
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  let segments = List.reverse(parseChars(chars, []))
+  Success(segments)
+}
+
+/**
+ * Checks if a string looks like a valid RLE-encoded string.
+ * The pattern is: (one or more digits) + (one character), repeated.
+ */
+let looksLikeRleEncoded = (input: String) => {
+  let chars = Array.toList(String.explode(input))
+  let rec check = (lst) => {
+    match (lst) {
+      // End of string: valid
+      [] => true,
+      // Expect one or more digits
+      [hd, ...tl] => {
+        if (Char.code(hd) >= Char.code('0') && Char.code(hd) <= Char.code('9')) {
+          // Consume all consecutive digits
+          let rec consumeDigits = (l) => {
+            match (l) {
+              [] => [],
+              [h, ...t] => {
+                if (Char.code(h) >= Char.code('0') && Char.code(h) <= Char.code('9')) {
+                  consumeDigits(t)
+                } else {
+                  l
+                }
+              }
+            }
+          }
+          let rest = consumeDigits(tl)
+          // After digits, expect a single character
+          match (rest) {
+            [] => false,
+            [_, ...rest2] => check(rest2)
+          }
+        } else {
+          false
+        }
+      }
+    }
+  }
+  check(chars)
+}
+
+/**
+ * Auto-detects whether input is encoded or raw text and processes accordingly
+ * 
+ * @param input - Input string (either raw text or RLE encoded)
+ * @returns RleResult containing processed string and metadata
+ */
+provide let processAuto = (input: String) => {
+  // Improved heuristic: check if string matches RLE pattern
+  let isEncoded = looksLikeRleEncoded(input)
+  
+  if (isEncoded) {
+    // Try to decode
+    match (stringToSegments(input)) {
+      Success(segments) => {
+        match (decode(segments)) {
+          Success(decoded) => Success(("decoded", decoded)),
+          InvalidInput(msg) => InvalidInput(msg),
+          TooLarge(msg) => TooLarge(msg)
+        }
+      },
+      InvalidInput(msg) => {
+        // If decoding fails, treat as raw text and encode
+        match (encode(input)) {
+          Success(segments) => Success(("encoded", segmentsToString(segments))),
+          InvalidInput(msg2) => InvalidInput(msg2),
+          TooLarge(msg2) => TooLarge(msg2)
+        }
+      },
+      TooLarge(msg) => {
+        // If decoding fails, treat as raw text and encode
+        match (encode(input)) {
+          Success(segments) => Success(("encoded", segmentsToString(segments))),
+          InvalidInput(msg2) => InvalidInput(msg2),
+          TooLarge(msg2) => TooLarge(msg2)
+        }
+      }
+    }
+  } else {
+    // Encode raw text
+    match (encode(input)) {
+      Success(segments) => Success(("encoded", segmentsToString(segments))),
+      InvalidInput(msg) => InvalidInput(msg),
+      TooLarge(msg) => TooLarge(msg)
+    }
+  }
+}
+
+/**
+ * Calculates compression statistics
+ * 
+ * @param original - Original string
+ * @param compressed - Compressed string
+ * @returns Tuple of (original_size, compressed_size, ratio)
+ */
+provide let compressionStats = (original: String, compressed: String) => {
+  let originalSize = String.length(original)
+  let compressedSize = String.length(compressed)
+  let ratio = if (originalSize > 0) {
+    // Convert to floating-point for proper ratio calculation
+    // Multiply by 1.0 to force floating-point division
+    (compressedSize * 1.0) / (originalSize * 1.0)
+  } else {
+    1.0 // Return floating-point 1.0 for consistency
+  }
+  (originalSize, compressedSize, ratio)
+}

@@ -62,7 +62,7 @@ provide let deallocate = (ptr: Number, size: Number) => {
  */
 let createJsonOutput = (operation: String, result: String, originalSize: Number, resultSize: Number) => {
   let ratio = if (originalSize > 0) {
-    resultSize / originalSize
+    (resultSize * 1.0) / (originalSize * 1.0)
   } else {
     1
   }

@@ -59,11 +59,11 @@ check:
 
 audit:
 	@echo "==> Checking for vulnerable dependencies..."
-	cargo audit || true
+	cargo audit
 
 outdated:
 	@echo "==> Checking for outdated dependencies..."
-	cargo outdated || true
+	cargo outdated
 
 licenses:
 	@echo "==> Checking license compliance..."
@@ -82,7 +82,7 @@ wasm-clean:
 	# Clean Rust build artifacts
 	find wasm_components -type f -name '*.wasm' -delete
 	# Clean build artifact directories (pkg/, target/, .wasm/)
-	find wasm_components -type d \( -name 'pkg' -o -name 'target' \) -exec rm -rf {} + || true
+	find wasm_components -type d \( -name 'pkg' -o -name 'target' \) -exec rm -rf {} +
 	# Clean any remaining empty directories
 	find wasm_components -type d -empty -delete
 

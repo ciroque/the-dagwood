@@ -21,11 +21,11 @@ echo "🚀 Building WASM module..."
 cargo build --target wasm32-unknown-unknown --release
 
 # Copy to expected location
-echo "📋 Copying artifact to wasm_components/hello.wasm..."
-cp target/wasm32-unknown-unknown/release/hello_wasm.wasm ../hello.wasm
+echo "📋 Copying artifact to wasm_components/..."
+cp target/wasm32-unknown-unknown/release/hello_wasm.wasm ../
 
 # Show file size
-WASM_SIZE=$(stat -c%s "../hello.wasm")
+WASM_SIZE=$(stat -c%s "../hello_wasm.wasm")
 echo "✅ Build complete! hello.wasm size: ${WASM_SIZE} bytes"
 
 # Optional: Show WASM module info if wasm-objdump is available

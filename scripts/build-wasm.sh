@@ -33,7 +33,18 @@ build_component() {
     if [[ -f "$component_dir/build.sh" ]]; then
         echo "🚀 Running component build script..."
         cd "$component_dir"
-        ./build.sh
+        if ./build.sh; then
+            # Verify the build was successful
+            if [[ -f "../${component_name}.wasm" ]]; then
+                echo "✅ Built: wasm_components/${component_name}.wasm"
+            else
+                echo "❌ Build failed: wasm_components/${component_name}.wasm not found after build script"
+                return 1
+            fi
+        else
+            echo "❌ Build script failed with status $?"
+            return 1
+        fi
     else
         echo "⚠️  No build.sh found, using default build process..."
         cd "$component_dir"
@@ -45,19 +56,21 @@ build_component() {
         fi
         
         # Build the component (no WASI imports for security)
-        cargo build --target wasm32-unknown-unknown --release
-        
-        # Copy to wasm_components directory with component name
-        local crate_name=$(grep '^name = ' Cargo.toml | sed 's/name = "\(.*\)"/\1/')
-        cp "target/wasm32-unknown-unknown/release/${crate_name}.wasm" "../${component_name}.wasm"
-        
-    fi
-
-    if [[ -f "../${component_name}.wasm" ]]; then
-        echo "✅ Built: wasm_components/${component_name}.wasm"
-    else
-        echo "❌ Build failed: wasm_components/${component_name}.wasm not found"
-        return 1
+        if cargo build --target wasm32-unknown-unknown --release; then
+            # Copy to wasm_components directory with component name
+            local crate_name=$(grep '^name = ' Cargo.toml | sed 's/name = "\(.*\)"/\1/')
+            cp "target/wasm32-unknown-unknown/release/${crate_name}.wasm" "../${component_name}.wasm"
+            
+            if [[ -f "../${component_name}.wasm" ]]; then
+                echo "✅ Built: wasm_components/${component_name}.wasm"
+            else
+                echo "❌ Build failed: wasm_components/${component_name}.wasm not created"
+                return 1
+            fi
+        else
+            echo "❌ Cargo build failed with status $?"
+            return 1
+        fi
     fi
 }
 

@@ -59,7 +59,6 @@ build_component() {
         echo "❌ Build failed: wasm_components/${component_name}.wasm not found"
         return 1
     fi
-fi
 }
 
 # Function to list available components

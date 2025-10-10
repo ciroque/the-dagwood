@@ -30,7 +30,7 @@ lint:
 
 test:
 	@echo "==> Running all tests..."
-	cargo test --all --all-features -- --nocapture
+	cargo test --all --all-features -- --nocapture --quiet
 
 coverage:
 	@echo "==> Generating code coverage report (HTML)..."

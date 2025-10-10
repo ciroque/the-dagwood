@@ -14,7 +14,7 @@ wit_bindgen::generate!({
     path: "wit",
 });
 
-use exports::dagwood::component::processor::{
+use exports::dagwood::component::processing_node::{
     Guest, AllocationError, ProcessingError
 };
 

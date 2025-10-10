@@ -9,20 +9,20 @@ set -e  # Exit on any error
 
 echo "🔨 Building wasm appender component..."
 
-# Ensure we have the WASM target
-echo "📦 Checking WASM target..."
-if ! rustup target list --installed | grep -q "wasm32-unknown-unknown"; then
-    echo "📥 Installing wasm32-unknown-unknown target..."
-    rustup target add wasm32-unknown-unknown
+# Ensure we have the WASM Component target
+echo "📦 Checking WASM Component target..."
+if ! rustup target list --installed | grep -q "wasm32-wasip2"; then
+    echo "📥 Installing wasm32-wasip2 target..."
+    rustup target add wasm32-wasip2
 fi
 
-# Build the WASM module
-echo "🚀 Building WASM module..."
-cargo build --target wasm32-unknown-unknown --release
+# Build the WASM component
+echo "🚀 Building WASM component..."
+cargo build --target wasm32-wasip2 --release
 
 # Copy to expected location
 echo "📋 Copying artifact to wasm_components/..."
-cp target/wasm32-unknown-unknown/release/wasm_appender.wasm ../
+cp target/wasm32-wasip2/release/wasm_appender.wasm ../
 
 # Show file size
 WASM_SIZE=$(stat -c%s "../wasm_appender.wasm")

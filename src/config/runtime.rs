@@ -26,7 +26,7 @@ use crate::traits::DagExecutor;
 /// #     processors: vec![],
 /// # };
 ///
-/// let (processors, executor, failure_strategy) = RuntimeBuilder::from_config(&config);
+/// let (processors, executor, failure_strategy) = RuntimeBuilder::from_config(&config).unwrap();
 ///
 /// // Runtime is ready for DAG execution
 /// assert_eq!(failure_strategy, the_dagwood::errors::FailureStrategy::FailFast);
@@ -46,9 +46,9 @@ impl RuntimeBuilder {
     ///
     /// # Returns
     /// A tuple of (ProcessorMap, DagExecutor, FailureStrategy) ready for DAG execution
-    pub fn from_config(cfg: &Config) -> (ProcessorMap, Box<dyn DagExecutor>, FailureStrategy) {
-        let processors = ProcessorMap::from_config(cfg);
+    pub fn from_config(cfg: &Config) -> Result<(ProcessorMap, Box<dyn DagExecutor>, FailureStrategy), String> {
+        let processors = ProcessorMap::from_config(cfg)?;
         let executor = ExecutorFactory::from_config(cfg);
-        (processors, executor, cfg.failure_strategy)
+        Ok((processors, executor, cfg.failure_strategy))
     }
 }

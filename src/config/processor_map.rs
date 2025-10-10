@@ -84,19 +84,14 @@ impl ProcessorMap {
     }
 
     /// Create a ProcessorMap from configuration, resolving all processors
-    pub fn from_config(cfg: &crate::config::Config) -> Self {
+    pub fn from_config(cfg: &crate::config::Config) -> Result<Self, String> {
         let mut registry = HashMap::new();
 
         for p in &cfg.processors {
             let processor: Arc<dyn Processor> = match p.backend {
                 crate::config::BackendType::Local => {
-                    match crate::backends::local::LocalProcessorFactory::create_processor(p) {
-                        Ok(processor) => processor,
-                        Err(e) => {
-                            eprintln!("Warning: Failed to create local processor '{}': {}. Using stub instead.", p.id, e);
-                            Arc::new(crate::backends::stub::StubProcessor::new(p.id.clone()))
-                        }
-                    }
+                    crate::backends::local::LocalProcessorFactory::create_processor(p)
+                        .map_err(|e| format!("Failed to create local processor '{}': {}", p.id, e))?
                 }
                 crate::config::BackendType::Loadable => {
                     // TODO: dynamic library loading
@@ -107,20 +102,15 @@ impl ProcessorMap {
                     Arc::new(crate::backends::stub::StubProcessor::new(p.id.clone()))
                 }
                 crate::config::BackendType::Wasm => {
-                    match crate::backends::wasm::WasmProcessorFactory::create_processor(p) {
-                        Ok(processor) => processor,
-                        Err(e) => {
-                            eprintln!("Warning: Failed to create WASM processor '{}': {}. Using stub instead.", p.id, e);
-                            Arc::new(crate::backends::stub::StubProcessor::new(p.id.clone()))
-                        }
-                    }
+                    crate::backends::wasm::WasmProcessorFactory::create_processor(p)
+                        .map_err(|e| format!("Failed to create WASM processor '{}': {}", p.id, e))?
                 }
             };
 
             registry.insert(p.id.clone(), processor);
         }
 
-        Self(registry)
+        Ok(Self(registry))
     }
 
     /// Insert a processor into the map
@@ -379,7 +369,21 @@ mod tests {
         ];
 
         for test_case in test_cases {
-            let processor_map = ProcessorMap::from_config(&test_case.config);
+            let processor_map_result = ProcessorMap::from_config(&test_case.config);
+            
+            // If the test case contains WASM processors with non-existent files, expect failure
+            let has_invalid_wasm = test_case.config.processors.iter().any(|p| 
+                p.backend == BackendType::Wasm && 
+                p.module.as_ref().map_or(false, |m| m.ends_with(".wasm"))
+            );
+            
+            if has_invalid_wasm {
+                assert!(processor_map_result.is_err(), 
+                    "Test case '{}': Expected error for non-existent WASM file", test_case.name);
+                continue;
+            }
+            
+            let processor_map = processor_map_result.unwrap();
 
             // Check processor count
             assert_eq!(
@@ -435,7 +439,7 @@ mod tests {
                 executor_options: ExecutorOptions::default(),
                 processors: vec![ProcessorConfig {
                     id: format!("processor_{}", i),
-                    backend: backend_type,
+                    backend: backend_type.clone(),
                     processor: Some("test_impl".to_string()),
                     endpoint: Some("test_endpoint".to_string()),
                     module: Some("test_module".to_string()),
@@ -444,13 +448,25 @@ mod tests {
                 }],
             };
 
-            let processor_map = ProcessorMap::from_config(&config);
-            assert_eq!(processor_map.len(), 1);
-
-            let processor_id = format!("processor_{}", i);
-            let processor = processor_map.get(&processor_id).unwrap();
-            // All non-local processors or invalid local processors should be stub
-            assert_eq!(processor.name(), "stub");
+            let processor_map_result = ProcessorMap::from_config(&config);
+            
+            // Local and WASM processors with invalid configurations should fail
+            // Other backend types should succeed with stub processors
+            match backend_type {
+                BackendType::Local | BackendType::Wasm => {
+                    assert!(processor_map_result.is_err(), 
+                        "Expected error for invalid {} processor configuration", 
+                        format!("{:?}", backend_type));
+                }
+                _ => {
+                    let processor_map = processor_map_result.unwrap();
+                    assert_eq!(processor_map.len(), 1);
+                    let processor_id = format!("processor_{}", i);
+                    let processor = processor_map.get(&processor_id).unwrap();
+                    // Non-local processors should be stub
+                    assert_eq!(processor.name(), "stub");
+                }
+            }
         }
     }
 
@@ -483,7 +499,7 @@ mod tests {
             ],
         };
 
-        let processor_map = ProcessorMap::from_config(&config);
+        let processor_map = ProcessorMap::from_config(&config).unwrap();
         assert_eq!(processor_map.len(), 1);
         assert!(processor_map.contains_key("duplicate"));
         // The second processor (Grpc) should win, so it should be a stub

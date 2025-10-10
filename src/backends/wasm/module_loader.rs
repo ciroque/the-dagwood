@@ -19,6 +19,7 @@
 use crate::backends::wasm::error::{WasmError, WasmResult};
 use std::path::Path;
 use wasmtime::*;
+use wasmtime::component::Component;
 
 /// Maximum allowed WASM module size (16MB)
 const MAX_WASM_COMPONENT_SIZE: usize = 16 * 1024 * 1024;
@@ -32,10 +33,18 @@ pub enum ComponentType {
     WitComponent,
 }
 
+/// WASM artifact type - either a Module or Component
+pub enum WasmArtifact {
+    /// Core WASM module (C-style exports)
+    Module(Module),
+    /// WIT-based component
+    Component(Component),
+}
+
 /// Loaded and validated WASM module with metadata
 pub struct LoadedModule {
     pub engine: Engine,
-    pub module: Module,
+    pub artifact: WasmArtifact,
     pub component_type: ComponentType,
     pub imports: Vec<ModuleImport>,
     pub module_path: String,
@@ -79,19 +88,29 @@ impl WasmModuleLoader {
             )));
         }
 
-        // Compile and validate the module
-        let module = Module::new(&engine, &module_bytes)
-            .map_err(|e| WasmError::ModuleError(e.to_string()))?;
-
-        // Parse and validate imports
-        let imports = Self::parse_imports(&module)?;
-
-        // Detect component type based on exports
-        let component_type = Self::detect_component_type(&module);
+        // Try to load as Component first (WIT-based), then fallback to Module (C-style)
+        let (artifact, component_type, imports) = match Component::new(&engine, &module_bytes) {
+            Ok(component) => {
+                // Successfully loaded as WIT component
+                tracing::debug!("Loaded as WIT component: {}", module_path_str);
+                let imports = Self::parse_component_imports(&component)?;
+                (WasmArtifact::Component(component), ComponentType::WitComponent, imports)
+            }
+            Err(_component_err) => {
+                // Failed as component, try as core module
+                tracing::debug!("Failed as component, trying as core module: {}", module_path_str);
+                let module = Module::new(&engine, &module_bytes)
+                    .map_err(|e| WasmError::ModuleError(e.to_string()))?;
+                
+                let imports = Self::parse_module_imports(&module)?;
+                let component_type = Self::detect_component_type(&module);
+                (WasmArtifact::Module(module), component_type, imports)
+            }
+        };
 
         Ok(LoadedModule {
             engine,
-            module,
+            artifact,
             component_type,
             imports,
             module_path: module_path_str,
@@ -121,8 +140,8 @@ impl WasmModuleLoader {
         Engine::new(&config).map_err(|e| WasmError::EngineError(e.to_string()))
     }
 
-    /// Parse and validate module imports
-    fn parse_imports(module: &Module) -> WasmResult<Vec<ModuleImport>> {
+    /// Parse and validate core module imports
+    fn parse_module_imports(module: &Module) -> WasmResult<Vec<ModuleImport>> {
         let mut imports = Vec::new();
 
         for import in module.imports() {
@@ -145,6 +164,14 @@ impl WasmModuleLoader {
         }
 
         Ok(imports)
+    }
+
+    /// Parse and validate WIT component imports
+    fn parse_component_imports(_component: &Component) -> WasmResult<Vec<ModuleImport>> {
+        // For Phase 2.1: WIT components typically have no imports (sandboxed)
+        // Future enhancement: Parse component world imports if needed
+        tracing::debug!("WIT component imports parsing - currently returns empty (sandboxed)");
+        Ok(Vec::new())
     }
 
     /// Validate WASI imports against allowlist (Phase 1 logic)

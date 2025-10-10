@@ -20,6 +20,9 @@ use crate::backends::wasm::module_loader::{LoadedModule, ImportType};
 use std::collections::HashSet;
 use wasmtime::*;
 
+#[cfg(test)]
+use crate::backends::wasm::module_loader::{WasmArtifact};
+
 /// Capability requirements discovered from component analysis
 #[derive(Debug, Clone)]
 pub struct CapabilityRequirements {
@@ -195,7 +198,7 @@ mod tests {
 
         LoadedModule {
             engine,
-            module,
+            artifact: WasmArtifact::Module(module),
             component_type: ComponentType::CStyle,
             imports,
             module_path: "test.wasm".to_string(),

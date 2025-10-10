@@ -138,7 +138,7 @@ pub struct ProcessorConfig {
 /// * `Grpc` - Remote procedure call over gRPC protocol
 /// * `Http` - HTTP-based remote service
 /// * `Wasm` - WebAssembly module for sandboxed execution
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum BackendType {
     Local,

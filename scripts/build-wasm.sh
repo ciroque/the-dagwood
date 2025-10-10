@@ -52,6 +52,8 @@ build_component() {
         cp "target/wasm32-unknown-unknown/release/${crate_name}.wasm" "../${component_name}.wasm"
         
     fi
+
+    echo "✅ Built: wasm_components/${component_name}.wasm"
 }
 
 # Function to list available components

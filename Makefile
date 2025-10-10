@@ -82,7 +82,7 @@ wasm-clean:
 	# Clean Rust build artifacts
 	find wasm_components -type f -name '*.wasm' -delete
 	# Clean build directories
-	find wasm_components -type d \( -name 'pkg' -o -name 'target' -o -name '.wasm' \) -exec rm -rf {} +
+	find wasm_components -type d \( -name 'pkg' -o -name 'target' -o -name '.wasm' \) -exec rm -rf {} + || true
 	# Clean any remaining empty directories
 	find wasm_components -type d -empty -delete
 
@@ -114,5 +114,4 @@ help:
 	@echo "  clean         - Remove target artifacts"
 	@echo "  help           - Show this help message"
 	@echo "  wasm-build     - Build all WASM components"
-	@echo "  wasm-test      - Test WASM components"
 	@echo "  wasm-clean     - Clean WASM build artifacts"

@@ -33,7 +33,7 @@ base64 = "0.21"
 
 # WASM runtime for sandboxed execution
 wasmtime = { version = "25.0", features = ["cranelift", "async"] }
-# wasmtime-wasi is not needed as we're removing WASI dependencies
+wasmtime-wasi = "25.0"
 
 # Logging / tracing
 tracing = "0.1"

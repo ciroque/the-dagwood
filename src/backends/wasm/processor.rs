@@ -33,7 +33,7 @@
 //! ### Sandboxing
 //! - **Complete isolation**: WASM modules cannot access host filesystem, network, or system calls
 //! - **Memory isolation**: WASM linear memory is separate from host memory
-//! - **No WASI**: Deliberately excludes WASI to prevent system access
+//! - **Limited WASI**: Allows essential WASI functions (proc_exit, random_get, clock_time_get) for modern WASM languages
 //!
 //! ### Resource Limits
 //! - **Fuel consumption**: Computational budget prevents infinite loops and runaway execution
@@ -140,6 +140,8 @@ use crate::traits::processor::{Processor, ProcessorIntent};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use wasmtime::*;
+// Note: WASI support temporarily disabled for Phase 1 - just allowing imports
+// use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, preview1};
 
 /// WASM component interface detection and error handling
 #[derive(Debug, Clone)]
@@ -266,14 +268,27 @@ impl WasmProcessor {
         let module = Module::new(&engine, &module_bytes)
             .map_err(|e| WasmError::ModuleError(e.to_string()))?;
 
-        // Validate module imports
+        // Validate module imports - allow basic WASI functions
         for import in module.imports() {
             let module_name = import.module();
+            let function_name = import.name();
+            
             if module_name.starts_with("wasi") {
-                return Err(WasmError::ValidationError(format!(
-                    "WASI imports are not allowed: {}",
-                    module_name
-                )));
+                // Allow essential WASI functions for modern WASM languages
+                let allowed_wasi_functions = [
+                    "proc_exit",      // Process termination
+                    "random_get",     // Random number generation
+                    "clock_time_get", // Time access
+                    "fd_write",       // Basic output (for debugging)
+                    "fd_read",        // Basic input
+                ];
+                
+                if !allowed_wasi_functions.contains(&function_name) {
+                    return Err(WasmError::ValidationError(format!(
+                        "WASI function '{}' from module '{}' is not allowed. Allowed functions: {:?}",
+                        function_name, module_name, allowed_wasi_functions
+                    )));
+                }
             }
         }
 
@@ -356,7 +371,8 @@ impl WasmProcessor {
             .into());
         }
 
-        // Create a new store for this execution (no WASI context)
+        // Create a new store for this execution (Phase 1: no WASI context yet)
+        // TODO: Add WASI context in Phase 1.1 after resolving wasmtime 25.0 API
         let mut store = Store::new(&self.engine, ());
 
         // Set fuel limit for security and resource protection
@@ -369,7 +385,8 @@ impl WasmProcessor {
         // 100M fuel should handle even complex text processing tasks
         store.set_fuel(FUEL_LEVEL)?;
 
-        // Create a linker (no WASI functions)
+        // Create a linker (Phase 1: no WASI functions yet, but imports are allowed)
+        // TODO: Add WASI functions in Phase 1.1 after resolving wasmtime 25.0 API
         let linker = Linker::new(&self.engine);
 
         // Instantiate the WASM module

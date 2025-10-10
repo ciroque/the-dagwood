@@ -22,7 +22,7 @@ cargo build --target wasm32-unknown-unknown --release
 
 Copy the compiled WASM file to the expected location:
 ```bash
-cp target/wasm32-unknown-unknown/release/hello_wasm.wasm ../hello.wasm
+cp target/wasm32-unknown-unknown/release/wasm_appender.wasm ../
 ```
 
 Combined build and copy:
@@ -35,7 +35,7 @@ cargo build --target wasm32-unknown-unknown --release && cp target/wasm32-unknow
 ### Test the allocate function
 ```bash
 cd ..
-wasmtime --invoke allocate hello.wasm 51
+wasmtime --invoke allocate wasm_appender.wasm 51
 ```
 Expected output: A memory pointer (e.g., `1114120`)
 
@@ -47,7 +47,7 @@ Expected output: A memory pointer (e.g., `1114120`)
 
 ### Test the deallocate function
 ```bash
-wasmtime --invoke deallocate hello.wasm 1114120 51
+wasmtime --invoke deallocate wasm_appender.wasm 1114120 51
 ```
 Expected output: No output (void function)
 

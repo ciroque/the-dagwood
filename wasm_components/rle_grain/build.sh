@@ -43,10 +43,13 @@ if [ -f "target/rle_grain.wasm" ]; then
         wasm-objdump -x target/rle_grain.wasm | grep -A 20 "Export\[" || true
     fi
     
+    # Copy to wasm_components directory for DAGwood integration
+    cp target/rle_grain.wasm ../../wasm_components/rle_grain.wasm
+    
     echo ""
-    echo "🎯 Ready for DAGwood integration!"
-    echo "   Copy target/rle_grain.wasm to your DAGwood wasm_modules directory"
-    echo "   Configure processor with: module: wasm_modules/rle_grain.wasm"
+    echo "🎯 DAGwood integration ready!"
+    echo "📦 WASM module copied to: wasm_components/rle_grain.wasm"
+    echo "   Configure processor with: module: wasm_components/rle_grain.wasm"
     
 else
     echo "❌ Compilation failed!"

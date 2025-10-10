@@ -33,7 +33,18 @@ build_component() {
     if [[ -f "$component_dir/build.sh" ]]; then
         echo "🚀 Running component build script..."
         cd "$component_dir"
-        ./build.sh
+        if ./build.sh; then
+            # Verify the build was successful
+            if [[ -f "../${component_name}.wasm" ]]; then
+                echo "✅ Built: wasm_components/${component_name}.wasm"
+            else
+                echo "❌ Build failed: wasm_components/${component_name}.wasm not found after build script"
+                return 1
+            fi
+        else
+            echo "❌ Build script failed with status $?"
+            return 1
+        fi
     else
         echo "⚠️  No build.sh found, using default build process..."
         cd "$component_dir"
@@ -45,38 +56,42 @@ build_component() {
         fi
         
         # Build the component (no WASI imports for security)
-        cargo build --target wasm32-unknown-unknown --release
-        
-        # Copy to wasm_components directory with component name
-        local crate_name=$(grep '^name = ' Cargo.toml | sed 's/name = "\(.*\)"/\1/')
-        cp "target/wasm32-unknown-unknown/release/${crate_name}.wasm" "../${component_name}.wasm"
-        
-        echo "✅ Built: wasm_components/${component_name}.wasm"
+        if cargo build --target wasm32-unknown-unknown --release; then
+            # Copy to wasm_components directory with component name
+            local crate_name=$(grep '^name = ' Cargo.toml | sed 's/name = "\(.*\)"/\1/')
+            cp "target/wasm32-unknown-unknown/release/${crate_name}.wasm" "../${component_name}.wasm"
+            
+            if [[ -f "../${component_name}.wasm" ]]; then
+                echo "✅ Built: wasm_components/${component_name}.wasm"
+            else
+                echo "❌ Build failed: wasm_components/${component_name}.wasm not created"
+                return 1
+            fi
+        else
+            echo "❌ Cargo build failed with status $?"
+            return 1
+        fi
     fi
 }
 
 # Function to list available components
 list_components() {
-    echo "📋 Available WASM components:"
-    for dir in "$WASM_COMPONENTS_DIR"/*; do
-        if [[ -d "$dir" && -f "$dir/Cargo.toml" ]]; then
-            local component_name=$(basename "$dir")
-            echo "  - $component_name"
-        fi
+    echo "📋 Available WASM components (with build.sh):"
+    find "$WASM_COMPONENTS_DIR" -maxdepth 2 -name 'build.sh' -exec dirname {} \; | while read -r dir; do
+        component_name=$(basename "$dir")
+        echo "  - $component_name"
     done
 }
 
 # Main logic
 if [[ $# -eq 0 ]]; then
-    # Build all components
     echo "🔄 Building all WASM components..."
     list_components
     
-    for dir in "$WASM_COMPONENTS_DIR"/*; do
-        if [[ -d "$dir" && -f "$dir/Cargo.toml" ]]; then
-            component_name=$(basename "$dir")
-            build_component "$component_name"
-        fi
+    # Find all directories containing build.sh files and build them
+    find "$WASM_COMPONENTS_DIR" -maxdepth 2 -name 'build.sh' -exec dirname {} \; | while read -r dir; do
+        component_name=$(basename "$dir")
+        build_component "$component_name"
     done
     
     echo ""

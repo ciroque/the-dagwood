@@ -3,10 +3,12 @@
 
 mod error;
 pub mod factory;
+pub mod module_loader;
 pub mod processor;
 
 // Re-export the error types for public use
 pub use error::{WasmError, WasmResult};
 
 pub use factory::WasmProcessorFactory;
+pub use module_loader::{WasmModuleLoader, LoadedModule, ComponentType, ModuleImport, ImportType};
 pub use processor::WasmProcessor;

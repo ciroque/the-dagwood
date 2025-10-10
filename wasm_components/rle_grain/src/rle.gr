@@ -12,6 +12,7 @@ from "list" include List
 from "string" include String
 from "char" include Char
 from "array" include Array
+from "bytes" include Bytes
 
 /**
  * Represents a run-length encoded segment
@@ -171,15 +172,55 @@ provide let stringToSegments = (encoded: String) => {
 }
 
 /**
+ * Checks if a string looks like a valid RLE-encoded string.
+ * The pattern is: (one or more digits) + (one character), repeated.
+ */
+let looksLikeRleEncoded = (input: String) => {
+  let chars = Array.toList(String.explode(input))
+  let rec check = (lst) => {
+    match (lst) {
+      // End of string: valid
+      [] => true,
+      // Expect one or more digits
+      [hd, ...tl] => {
+        if (Char.code(hd) >= Char.code('0') && Char.code(hd) <= Char.code('9')) {
+          // Consume all consecutive digits
+          let rec consumeDigits = (l) => {
+            match (l) {
+              [] => [],
+              [h, ...t] => {
+                if (Char.code(h) >= Char.code('0') && Char.code(h) <= Char.code('9')) {
+                  consumeDigits(t)
+                } else {
+                  l
+                }
+              }
+            }
+          }
+          let rest = consumeDigits(tl)
+          // After digits, expect a single character
+          match (rest) {
+            [] => false,
+            [_, ...rest2] => check(rest2)
+          }
+        } else {
+          false
+        }
+      }
+    }
+  }
+  check(chars)
+}
+
+/**
  * Auto-detects whether input is encoded or raw text and processes accordingly
  * 
  * @param input - Input string (either raw text or RLE encoded)
  * @returns RleResult containing processed string and metadata
  */
 provide let processAuto = (input: String) => {
-  // Simple heuristic: if string alternates numbers and letters, assume it's encoded
-  let chars = Array.toList(String.explode(input))
-  let isEncoded = List.length(chars) > 0 && List.length(chars) % 2 == 0
+  // Improved heuristic: check if string matches RLE pattern
+  let isEncoded = looksLikeRleEncoded(input)
   
   if (isEncoded) {
     // Try to decode

@@ -64,7 +64,7 @@ let createJsonOutput = (operation: String, result: String, originalSize: Number,
   let ratio = if (originalSize > 0) {
     (resultSize * 1.0) / (originalSize * 1.0)
   } else {
-    1
+    1.0
   }
   
   // Simple JSON construction without Json module

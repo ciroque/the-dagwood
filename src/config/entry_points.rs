@@ -13,23 +13,23 @@
 /// ## Creating entry points from a vector
 /// ```
 /// use the_dagwood::config::EntryPoints;
-/// 
+///
 /// let entry_points = EntryPoints::from(vec![
 ///     "input_processor".to_string(),
 ///     "config_loader".to_string()
 /// ]);
-/// 
+///
 /// assert_eq!(entry_points.0.len(), 2);
 /// ```
 ///
 /// ## Building entry points incrementally
 /// ```
 /// use the_dagwood::config::EntryPoints;
-/// 
+///
 /// let mut entry_points = EntryPoints::new();
 /// entry_points.add("data_ingestion".to_string());
 /// entry_points.add("metadata_parser".to_string());
-/// 
+///
 /// let processor_names: Vec<&String> = entry_points.iter().collect();
 /// assert_eq!(processor_names.len(), 2);
 /// assert!(processor_names.contains(&&"data_ingestion".to_string()));
@@ -38,7 +38,7 @@
 /// ## Converting back to Vec<String>
 /// ```
 /// use the_dagwood::config::EntryPoints;
-/// 
+///
 /// let entry_points = EntryPoints::from(vec!["processor1".to_string()]);
 /// let vec_form: Vec<String> = entry_points.into();
 /// assert_eq!(vec_form, vec!["processor1".to_string()]);
@@ -69,7 +69,7 @@ impl From<Vec<String>> for EntryPoints {
     }
 }
 
-impl From<EntryPoints> for Vec<String>{
+impl From<EntryPoints> for Vec<String> {
     fn from(value: EntryPoints) -> Self {
         value.0
     }

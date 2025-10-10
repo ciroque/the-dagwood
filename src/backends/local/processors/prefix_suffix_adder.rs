@@ -4,9 +4,9 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail};
 use crate::proto::processor_v1::processor_response::Outcome;
-use crate::traits::{Processor, processor::ProcessorIntent};
+use crate::proto::processor_v1::{ErrorDetail, ProcessorRequest, ProcessorResponse};
+use crate::traits::{processor::ProcessorIntent, Processor};
 
 /// Configuration for the Prefix/Suffix Adder processor
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -64,13 +64,13 @@ impl Processor for PrefixSuffixAdderProcessor {
         };
 
         let mut result = String::new();
-        
+
         if let Some(prefix) = &self.config.prefix {
             result.push_str(prefix);
         }
-        
+
         result.push_str(&input);
-        
+
         if let Some(suffix) = &self.config.suffix {
             result.push_str(suffix);
         }

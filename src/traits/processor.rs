@@ -24,10 +24,10 @@ pub trait Processor: Send + Sync {
     fn name(&self) -> &'static str;
 
     /// Declare the processor's intent (Transform or Analyze)
-    /// 
+    ///
     /// Transform processors can modify payload and metadata.
     /// Analyze processors should return empty payloads and only add metadata (executor ignores their payloads).
-    /// 
+    ///
     /// Default implementation returns Transform for backward compatibility.
     fn declared_intent(&self) -> ProcessorIntent {
         ProcessorIntent::Transform

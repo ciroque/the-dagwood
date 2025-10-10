@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
-use crate::traits::{Processor, processor::ProcessorIntent};
+use crate::traits::{processor::ProcessorIntent, Processor};
 
 /// A stub processor implementation for testing and placeholder purposes
 pub struct StubProcessor {
@@ -23,7 +23,7 @@ impl Processor for StubProcessor {
         // For now, just return an empty success response
         crate::proto::processor_v1::ProcessorResponse {
             outcome: Some(
-                crate::proto::processor_v1::processor_response::Outcome::NextPayload(vec![])
+                crate::proto::processor_v1::processor_response::Outcome::NextPayload(vec![]),
             ),
             metadata: None,
         }
@@ -62,8 +62,8 @@ impl Processor for FailingProcessor {
                     crate::proto::processor_v1::ErrorDetail {
                         code: 500,
                         message: "Simulated processor failure".to_string(),
-                    }
-                )
+                    },
+                ),
             ),
             metadata: None,
         }

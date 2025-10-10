@@ -4,8 +4,8 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, ErrorDetail};
 use crate::proto::processor_v1::processor_response::Outcome;
+use crate::proto::processor_v1::{ErrorDetail, ProcessorRequest, ProcessorResponse};
 use crate::traits::processor::{Processor, ProcessorIntent};
 
 /// Case transformation types supported by the ChangeTextCase processor
@@ -17,7 +17,7 @@ pub enum CaseType {
     Proper,
     Title,
     #[serde(untagged)]
-    Custom(String),  // Fallback for extensibility
+    Custom(String), // Fallback for extensibility
 }
 
 impl CaseType {
@@ -31,7 +31,7 @@ impl CaseType {
             _ => CaseType::Custom(s.to_string()),
         }
     }
-    
+
     /// Get the string representation of the case type
     pub fn as_str(&self) -> &str {
         match self {
@@ -112,7 +112,10 @@ impl Processor for ChangeTextCaseProcessor {
                         let mut chars = word.chars();
                         match chars.next() {
                             None => String::new(),
-                            Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase(),
+                            Some(first) => {
+                                first.to_uppercase().collect::<String>()
+                                    + &chars.as_str().to_lowercase()
+                            }
                         }
                     })
                     .collect::<Vec<_>>()
@@ -126,11 +129,31 @@ impl Processor for ChangeTextCaseProcessor {
                     .map(|(i, word)| {
                         let lower_word = word.to_lowercase();
                         // Always capitalize first word, otherwise check if it's a small word
-                        if i == 0 || !matches!(lower_word.as_str(), "a" | "an" | "the" | "and" | "or" | "but" | "in" | "on" | "at" | "to" | "for" | "of" | "with" | "by") {
+                        if i == 0
+                            || !matches!(
+                                lower_word.as_str(),
+                                "a" | "an"
+                                    | "the"
+                                    | "and"
+                                    | "or"
+                                    | "but"
+                                    | "in"
+                                    | "on"
+                                    | "at"
+                                    | "to"
+                                    | "for"
+                                    | "of"
+                                    | "with"
+                                    | "by"
+                            )
+                        {
                             let mut chars = word.chars();
                             match chars.next() {
                                 None => String::new(),
-                                Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase(),
+                                Some(first) => {
+                                    first.to_uppercase().collect::<String>()
+                                        + &chars.as_str().to_lowercase()
+                                }
                             }
                         } else {
                             lower_word

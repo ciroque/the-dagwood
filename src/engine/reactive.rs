@@ -54,28 +54,28 @@
 //! use the_dagwood::traits::Processor;
 //! use the_dagwood::proto::processor_v1::{ProcessorRequest, PipelineMetadata};
 //! use the_dagwood::errors::FailureStrategy;
-//! 
+//!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let executor = ReactiveExecutor::new(4); // 4 concurrent processors max
-//! 
+//!
 //! // Build processor map
 //! let mut processor_map = HashMap::new();
 //! processor_map.insert("input".to_string(), Arc::new(StubProcessor::new("input".to_string())) as Arc<dyn Processor>);
 //! processor_map.insert("transform".to_string(), Arc::new(StubProcessor::new("transform".to_string())) as Arc<dyn Processor>);
 //! processor_map.insert("output".to_string(), Arc::new(StubProcessor::new("output".to_string())) as Arc<dyn Processor>);
-//! 
+//!
 //! // Build dependency graph: input -> transform -> output
 //! let mut dependency_graph = HashMap::new();
 //! dependency_graph.insert("input".to_string(), vec![]); // Entry point - no dependencies
 //! dependency_graph.insert("transform".to_string(), vec!["input".to_string()]); // Depends on input
 //! dependency_graph.insert("output".to_string(), vec!["transform".to_string()]); // Depends on transform
-//! 
+//!
 //! let entry_points = vec!["input".to_string()];
 //! let input = ProcessorRequest {
 //!     payload: b"reactive execution test".to_vec(),
 //! };
-//! 
+//!
 //! // Execute with event-driven approach
 //! let (results, _metadata) = executor.execute_with_strategy(
 //!     ProcessorMap(processor_map),
@@ -85,10 +85,10 @@
 //!     PipelineMetadata::new(),
 //!     FailureStrategy::FailFast,
 //! ).await?;
-//! 
+//!
 //! // Ensure all async operations complete
 //! tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-//! 
+//!
 //! // All processors executed reactively
 //! assert_eq!(results.len(), 3);
 //! # Ok(())
@@ -106,29 +106,29 @@
 //! use the_dagwood::traits::Processor;
 //! use the_dagwood::proto::processor_v1::{ProcessorRequest, PipelineMetadata};
 //! use the_dagwood::errors::FailureStrategy;
-//! 
+//!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let executor = ReactiveExecutor::new(4);
-//! 
+//!
 //! // Diamond pattern: source -> [left, right] -> sink
 //! let mut processor_map = HashMap::new();
 //! processor_map.insert("source".to_string(), Arc::new(StubProcessor::new("source".to_string())) as Arc<dyn Processor>);
 //! processor_map.insert("left".to_string(), Arc::new(StubProcessor::new("left".to_string())) as Arc<dyn Processor>);
 //! processor_map.insert("right".to_string(), Arc::new(StubProcessor::new("right".to_string())) as Arc<dyn Processor>);
 //! processor_map.insert("sink".to_string(), Arc::new(StubProcessor::new("sink".to_string())) as Arc<dyn Processor>);
-//! 
+//!
 //! let mut dependency_graph = HashMap::new();
 //! dependency_graph.insert("source".to_string(), vec!["left".to_string(), "right".to_string()]);
 //! dependency_graph.insert("left".to_string(), vec!["sink".to_string()]);
 //! dependency_graph.insert("right".to_string(), vec!["sink".to_string()]);
 //! dependency_graph.insert("sink".to_string(), vec![]);
-//! 
+//!
 //! let entry_points = vec!["source".to_string()];
 //! let input = ProcessorRequest {
 //!     payload: b"diamond pattern".to_vec(),
 //! };
-//! 
+//!
 //! // Left and right processors execute in parallel after source completes
 //! // Sink executes immediately when both left and right complete
 //! let (results, _metadata) = executor.execute_with_strategy(
@@ -139,10 +139,10 @@
 //!     PipelineMetadata::new(),
 //!     FailureStrategy::FailFast,
 //! ).await?;
-//! 
+//!
 //! // Ensure all async operations complete
 //! tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-//! 
+//!
 //! assert_eq!(results.len(), 4);
 //! # Ok(())
 //! # }
@@ -151,15 +151,15 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{mpsc, Mutex};
 use tokio_util::sync::CancellationToken;
 
+use crate::config::{DependencyGraph, EntryPoints, ProcessorMap};
+use crate::errors::{ExecutionError, FailureStrategy};
+use crate::proto::processor_v1::processor_response::Outcome;
+use crate::proto::processor_v1::{PipelineMetadata, ProcessorRequest, ProcessorResponse};
 use crate::traits::executor::DagExecutor;
 use crate::traits::processor::ProcessorIntent;
-use crate::config::{ProcessorMap, DependencyGraph, EntryPoints};
-use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse, PipelineMetadata};
-use crate::proto::processor_v1::processor_response::Outcome;
-use crate::errors::{ExecutionError, FailureStrategy};
 
 /// Reactive/Event-Driven executor that uses async channels for processor communication.
 ///
@@ -211,10 +211,10 @@ use crate::errors::{ExecutionError, FailureStrategy};
 /// ## Creating a reactive executor
 /// ```rust
 /// use the_dagwood::engine::reactive::ReactiveExecutor;
-/// 
+///
 /// // Create with specific concurrency limit
 /// let executor = ReactiveExecutor::new(8);
-/// 
+///
 /// // Create with default concurrency (CPU core count)
 /// let executor = ReactiveExecutor::default();
 /// ```
@@ -224,19 +224,19 @@ use crate::errors::{ExecutionError, FailureStrategy};
 /// use the_dagwood::engine::reactive::ReactiveExecutor;
 /// use the_dagwood::engine::work_queue::WorkQueueExecutor;
 /// use the_dagwood::engine::level_by_level::LevelByLevelExecutor;
-/// 
+///
 /// // Reactive: Best for I/O-bound, low-latency requirements
 /// let reactive = ReactiveExecutor::new(4);
-/// 
+///
 /// // WorkQueue: Best for CPU-bound, priority-based scheduling
 /// let work_queue = WorkQueueExecutor::new(4);
-/// 
+///
 /// // LevelByLevel: Best for predictable execution patterns, debugging
 /// let level_by_level = LevelByLevelExecutor::new(4);
 /// ```
 pub struct ReactiveExecutor {
     /// Maximum number of concurrent processor executions.
-    /// 
+    ///
     /// This limit is enforced using a tokio Semaphore to prevent resource exhaustion
     /// while still allowing natural parallelism within the constraint. Processors
     /// will wait for permits before executing, but the event-driven notification
@@ -253,9 +253,7 @@ enum ProcessorEvent {
         metadata: Option<PipelineMetadata>,
     },
     /// Initial trigger for entry point processors
-    Execute {
-        metadata: Option<PipelineMetadata>,
-    },
+    Execute { metadata: Option<PipelineMetadata> },
 }
 
 /// Internal state for tracking processor execution in the reactive network
@@ -289,10 +287,10 @@ impl ReactiveExecutor {
     ///
     /// ```rust
     /// use the_dagwood::engine::reactive::ReactiveExecutor;
-    /// 
+    ///
     /// // Create executor with specific concurrency
     /// let executor = ReactiveExecutor::new(8);
-    /// 
+    ///
     /// // Minimum concurrency is enforced
     /// let executor = ReactiveExecutor::new(0); // Actually creates with concurrency = 1
     /// ```
@@ -322,10 +320,10 @@ impl ReactiveExecutor {
     ///
     /// ```rust
     /// use the_dagwood::engine::reactive::ReactiveExecutor;
-    /// 
+    ///
     /// // Create with system-appropriate concurrency
     /// let executor = ReactiveExecutor::default();
-    /// 
+    ///
     /// // Equivalent to:
     /// let core_count = std::thread::available_parallelism()
     ///     .map(|n| n.get())
@@ -346,7 +344,13 @@ impl ReactiveExecutor {
     fn build_notification_network(
         &self,
         graph: &DependencyGraph,
-    ) -> Result<(HashMap<String, mpsc::UnboundedSender<ProcessorEvent>>, HashMap<String, ProcessorNode>), ExecutionError> {
+    ) -> Result<
+        (
+            HashMap<String, mpsc::UnboundedSender<ProcessorEvent>>,
+            HashMap<String, ProcessorNode>,
+        ),
+        ExecutionError,
+    > {
         // Get dependency counts for initial pending dependencies
         let dependency_counts = graph.build_dependency_counts();
 
@@ -358,20 +362,19 @@ impl ReactiveExecutor {
             let (sender, receiver) = mpsc::unbounded_channel();
 
             // Use the forward graph (graph.0) to get dependents for notification network
-            let dependents = graph.0.get(processor_id)
-                .cloned()
-                .unwrap_or_default();
+            let dependents = graph.0.get(processor_id).cloned().unwrap_or_default();
 
-            let pending_dependencies = dependency_counts.get(processor_id)
-                .copied()
-                .unwrap_or(0);
+            let pending_dependencies = dependency_counts.get(processor_id).copied().unwrap_or(0);
 
             senders.insert(processor_id.clone(), sender);
-            nodes.insert(processor_id.clone(), ProcessorNode {
-                receiver,
-                dependents,
-                pending_dependencies,
-            });
+            nodes.insert(
+                processor_id.clone(),
+                ProcessorNode {
+                    receiver,
+                    dependents,
+                    pending_dependencies,
+                },
+            );
         }
 
         Ok((senders, nodes))
@@ -395,11 +398,11 @@ impl ReactiveExecutor {
         _metadata: Option<PipelineMetadata>,
     ) -> Result<bool, ExecutionError> {
         // Entry point execution - no dependency results needed for entry points
-        
+
         // For true entry points, force pending dependencies to 0 to allow execution
         // This handles cases where entry points might have been incorrectly initialized
         node.pending_dependencies = 0;
-        
+
         Ok(true) // Signal to break from dependency waiting loop
     }
 
@@ -410,7 +413,10 @@ impl ReactiveExecutor {
         event: ProcessorEvent,
     ) -> Result<bool, ExecutionError> {
         match event {
-            ProcessorEvent::DependencyCompleted { dependency_id, metadata } => {
+            ProcessorEvent::DependencyCompleted {
+                dependency_id,
+                metadata,
+            } => {
                 Self::handle_dependency_completed(node, dependency_id, metadata);
                 Ok(false) // Continue waiting for more dependencies
             }
@@ -472,21 +478,30 @@ impl ReactiveExecutor {
         let node = Self::wait_for_dependencies(node, &processor_id, &cancellation_token).await?;
 
         // Acquire semaphore permit for concurrency control
-        let _permit = semaphore.acquire().await
+        let _permit = semaphore
+            .acquire()
+            .await
             .map_err(|e| ExecutionError::InternalError {
-                message: format!("Failed to acquire semaphore permit for processor '{}': {}", processor_id, e),
+                message: format!(
+                    "Failed to acquire semaphore permit for processor '{}': {}",
+                    processor_id, e
+                ),
             })?;
 
         // Check for cancellation after acquiring semaphore to prevent race condition
         // where a task acquires semaphore but should have been cancelled
         if cancellation_token.is_cancelled() {
             return Err(ExecutionError::InternalError {
-                message: format!("Processor '{}' cancelled after semaphore acquisition", processor_id),
+                message: format!(
+                    "Processor '{}' cancelled after semaphore acquisition",
+                    processor_id
+                ),
             });
         }
 
         // Get processor instance
-        let processor = processors.get(&processor_id)
+        let processor = processors
+            .get(&processor_id)
             .ok_or_else(|| ExecutionError::ProcessorNotFound(processor_id.clone()))?;
 
         // CRITICAL FIX: Get canonical payload AFTER dependencies complete
@@ -515,7 +530,7 @@ impl ReactiveExecutor {
                             let mut canonical_guard = canonical_payload_mutex.lock().await;
                             *canonical_guard = new_payload.clone();
                         } // canonical_guard dropped here - minimizes lock hold time
-                        
+
                         // Store successful result (without holding canonical lock)
                         {
                             let mut results_guard = results_mutex.lock().await;
@@ -525,7 +540,8 @@ impl ReactiveExecutor {
                         // Collect metadata from processor response (without holding canonical lock)
                         {
                             let mut pipeline_meta = pipeline_metadata_mutex.lock().await;
-                            pipeline_meta.merge_processor_response(&processor_id, &processor_response);
+                            pipeline_meta
+                                .merge_processor_response(&processor_id, &processor_response);
                         }
 
                         // Notify all dependents (canonical payload already updated)
@@ -587,7 +603,7 @@ impl ReactiveExecutor {
                         // Store failed result but notify dependents with empty metadata
                         let mut results_guard = results_mutex.lock().await;
                         results_guard.insert(processor_id.clone(), processor_response.clone());
-                        
+
                         // Notify dependents with None metadata to maintain dependency counting
                         // This prevents cascade failures while allowing execution to continue
                         for dependent_id in &node.dependents {
@@ -616,15 +632,17 @@ impl ReactiveExecutor {
                     FailureStrategy::ContinueOnError | FailureStrategy::BestEffort => {
                         // Store error result but notify dependents with empty metadata
                         let error_response = ProcessorResponse {
-                            outcome: Some(Outcome::Error(crate::proto::processor_v1::ErrorDetail {
-                                code: 500,
-                                message: error_msg,
-                            })),
+                            outcome: Some(Outcome::Error(
+                                crate::proto::processor_v1::ErrorDetail {
+                                    code: 500,
+                                    message: error_msg,
+                                },
+                            )),
                             metadata: None,
                         };
                         let mut results_guard = results_mutex.lock().await;
                         results_guard.insert(processor_id.clone(), error_response);
-                        
+
                         // Notify dependents with None metadata to maintain dependency counting
                         for dependent_id in &node.dependents {
                             if let Some(sender) = senders.get(dependent_id) {
@@ -654,7 +672,6 @@ impl DagExecutor for ReactiveExecutor {
         pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
     ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
-        
         // Validate dependency graph (reuse existing validation)
         let (_dependency_counts, _topological_ranks) = graph.dependency_counts_and_ranks()
             .ok_or_else(|| ExecutionError::InternalError {
@@ -695,13 +712,14 @@ impl DagExecutor for ReactiveExecutor {
         // Trigger entry point processors
         for entrypoint in entrypoints.iter() {
             if let Some(sender) = senders_arc.get(entrypoint) {
-                if let Err(_) = sender.send(ProcessorEvent::Execute {
-                    metadata: None,
-                }) {
+                if let Err(_) = sender.send(ProcessorEvent::Execute { metadata: None }) {
                     // Entry point processor channel closed - this indicates a serious issue
                     // since entry points should be ready to receive at startup
                     return Err(ExecutionError::InternalError {
-                        message: format!("Failed to trigger entry point processor '{}' - channel closed", entrypoint),
+                        message: format!(
+                            "Failed to trigger entry point processor '{}' - channel closed",
+                            entrypoint
+                        ),
                     });
                 }
             }
@@ -710,7 +728,7 @@ impl DagExecutor for ReactiveExecutor {
         // Wait for all tasks to complete
         let mut processor_error = None;
         let mut other_errors = Vec::new();
-        
+
         for (task, processor_id, dependents) in tasks.into_iter() {
             match task.await {
                 Ok(Ok(())) => {
@@ -742,21 +760,21 @@ impl DagExecutor for ReactiveExecutor {
                             });
                         }
                     }
-                    
+
                     // Determine if this was a panic or cancellation
                     let error_message = if join_error.is_panic() {
                         format!("Processor '{}' panicked during execution", processor_id)
                     } else {
                         format!("Processor '{}' task was cancelled", processor_id)
                     };
-                    
+
                     other_errors.push(ExecutionError::InternalError {
                         message: error_message,
                     });
                 }
             }
         }
-        
+
         // Return processor error first, then any other error, prioritizing actual failures
         if let Some(error) = processor_error {
             return Err(error);
@@ -774,7 +792,8 @@ impl DagExecutor for ReactiveExecutor {
         // Return collected metadata from processor responses
         let final_metadata = Arc::try_unwrap(pipeline_metadata_mutex)
             .map_err(|_| ExecutionError::InternalError {
-                message: "Failed to unwrap pipeline metadata Arc - multiple references still exist".into(),
+                message: "Failed to unwrap pipeline metadata Arc - multiple references still exist"
+                    .into(),
             })?
             .into_inner();
 
@@ -806,7 +825,10 @@ mod tests {
         let executor = ReactiveExecutor::new(2);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("test_proc".to_string(), Arc::new(StubProcessor::new("test_proc".to_string())));
+        processor_map.insert(
+            "test_proc".to_string(),
+            Arc::new(StubProcessor::new("test_proc".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
         dependency_graph.insert("test_proc".to_string(), vec![]);
@@ -817,14 +839,16 @@ mod tests {
             payload: b"test input".to_vec(),
         };
 
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         assert!(result.is_ok());
         let (responses, _metadata) = result.unwrap();
@@ -837,9 +861,18 @@ mod tests {
         let executor = ReactiveExecutor::new(2);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("proc1".to_string(), Arc::new(StubProcessor::new("proc1".to_string())));
-        processor_map.insert("proc2".to_string(), Arc::new(StubProcessor::new("proc2".to_string())));
-        processor_map.insert("proc3".to_string(), Arc::new(StubProcessor::new("proc3".to_string())));
+        processor_map.insert(
+            "proc1".to_string(),
+            Arc::new(StubProcessor::new("proc1".to_string())),
+        );
+        processor_map.insert(
+            "proc2".to_string(),
+            Arc::new(StubProcessor::new("proc2".to_string())),
+        );
+        processor_map.insert(
+            "proc3".to_string(),
+            Arc::new(StubProcessor::new("proc3".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
         dependency_graph.insert("proc1".to_string(), vec!["proc2".to_string()]);
@@ -852,14 +885,16 @@ mod tests {
             payload: b"test input".to_vec(),
         };
 
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         assert!(result.is_ok());
         let (responses, _metadata) = result.unwrap();
@@ -874,13 +909,28 @@ mod tests {
         let executor = ReactiveExecutor::new(4);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("entry".to_string(), Arc::new(StubProcessor::new("entry".to_string())));
-        processor_map.insert("left".to_string(), Arc::new(StubProcessor::new("left".to_string())));
-        processor_map.insert("right".to_string(), Arc::new(StubProcessor::new("right".to_string())));
-        processor_map.insert("merge".to_string(), Arc::new(StubProcessor::new("merge".to_string())));
+        processor_map.insert(
+            "entry".to_string(),
+            Arc::new(StubProcessor::new("entry".to_string())),
+        );
+        processor_map.insert(
+            "left".to_string(),
+            Arc::new(StubProcessor::new("left".to_string())),
+        );
+        processor_map.insert(
+            "right".to_string(),
+            Arc::new(StubProcessor::new("right".to_string())),
+        );
+        processor_map.insert(
+            "merge".to_string(),
+            Arc::new(StubProcessor::new("merge".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
-        dependency_graph.insert("entry".to_string(), vec!["left".to_string(), "right".to_string()]);
+        dependency_graph.insert(
+            "entry".to_string(),
+            vec!["left".to_string(), "right".to_string()],
+        );
         dependency_graph.insert("left".to_string(), vec!["merge".to_string()]);
         dependency_graph.insert("right".to_string(), vec!["merge".to_string()]);
         dependency_graph.insert("merge".to_string(), vec![]);
@@ -891,14 +941,16 @@ mod tests {
             payload: b"test input".to_vec(),
         };
 
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         assert!(result.is_ok());
         let (responses, _metadata) = result.unwrap();
@@ -916,9 +968,18 @@ mod tests {
         let executor = ReactiveExecutor::new(2);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("entry".to_string(), Arc::new(StubProcessor::new("entry".to_string())));
-        processor_map.insert("failing".to_string(), Arc::new(FailingProcessor::new("failing".to_string())));
-        processor_map.insert("dependent".to_string(), Arc::new(StubProcessor::new("dependent".to_string())));
+        processor_map.insert(
+            "entry".to_string(),
+            Arc::new(StubProcessor::new("entry".to_string())),
+        );
+        processor_map.insert(
+            "failing".to_string(),
+            Arc::new(FailingProcessor::new("failing".to_string())),
+        );
+        processor_map.insert(
+            "dependent".to_string(),
+            Arc::new(StubProcessor::new("dependent".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
         dependency_graph.insert("entry".to_string(), vec!["failing".to_string()]);
@@ -931,14 +992,16 @@ mod tests {
             payload: b"test input".to_vec(),
         };
 
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         // Should fail fast on first processor failure
         assert!(result.is_err());
@@ -957,12 +1020,24 @@ mod tests {
         let executor = ReactiveExecutor::new(2);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("entry".to_string(), Arc::new(StubProcessor::new("entry".to_string())));
-        processor_map.insert("failing".to_string(), Arc::new(FailingProcessor::new("failing".to_string())));
-        processor_map.insert("independent".to_string(), Arc::new(StubProcessor::new("independent".to_string())));
+        processor_map.insert(
+            "entry".to_string(),
+            Arc::new(StubProcessor::new("entry".to_string())),
+        );
+        processor_map.insert(
+            "failing".to_string(),
+            Arc::new(FailingProcessor::new("failing".to_string())),
+        );
+        processor_map.insert(
+            "independent".to_string(),
+            Arc::new(StubProcessor::new("independent".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
-        dependency_graph.insert("entry".to_string(), vec!["failing".to_string(), "independent".to_string()]);
+        dependency_graph.insert(
+            "entry".to_string(),
+            vec!["failing".to_string(), "independent".to_string()],
+        );
         dependency_graph.insert("failing".to_string(), vec![]);
         dependency_graph.insert("independent".to_string(), vec![]);
 
@@ -972,14 +1047,16 @@ mod tests {
             payload: b"test input".to_vec(),
         };
 
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::ContinueOnError,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::ContinueOnError,
+            )
+            .await;
 
         // Should continue execution despite failure
         assert!(result.is_ok());
@@ -994,7 +1071,7 @@ mod tests {
         // Verify the failing processor has an error outcome
         let failing_response = responses.get("failing").unwrap();
         match &failing_response.outcome {
-            Some(Outcome::Error(_)) => {}, // Expected
+            Some(Outcome::Error(_)) => {} // Expected
             _ => panic!("Expected Error outcome for failing processor"),
         }
     }
@@ -1008,7 +1085,10 @@ mod tests {
         let executor = ReactiveExecutor::new(1);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("entry".to_string(), Arc::new(StubProcessor::new("entry".to_string())));
+        processor_map.insert(
+            "entry".to_string(),
+            Arc::new(StubProcessor::new("entry".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
         dependency_graph.insert("entry".to_string(), vec![]);
@@ -1019,14 +1099,16 @@ mod tests {
             payload: b"test input".to_vec(),
         };
 
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         // Should succeed for properly configured entry point
         assert!(result.is_ok());
@@ -1042,7 +1124,10 @@ mod tests {
         let executor = ReactiveExecutor::new(1);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("no_outcome".to_string(), Arc::new(NoOutcomeProcessor::new("no_outcome".to_string())));
+        processor_map.insert(
+            "no_outcome".to_string(),
+            Arc::new(NoOutcomeProcessor::new("no_outcome".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
         dependency_graph.insert("no_outcome".to_string(), vec![]);
@@ -1054,18 +1139,23 @@ mod tests {
         };
 
         // Test FailFast behavior
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map.clone()),
-            DependencyGraph(dependency_graph.clone()),
-            EntryPoints(entry_points.clone()),
-            input.clone(),
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map.clone()),
+                DependencyGraph(dependency_graph.clone()),
+                EntryPoints(entry_points.clone()),
+                input.clone(),
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            ExecutionError::ProcessorFailed { processor_id, error } => {
+            ExecutionError::ProcessorFailed {
+                processor_id,
+                error,
+            } => {
                 assert_eq!(processor_id, "no_outcome");
                 assert_eq!(error, "Processor returned no outcome");
             }
@@ -1073,14 +1163,16 @@ mod tests {
         }
 
         // Test ContinueOnError behavior
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::ContinueOnError,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::ContinueOnError,
+            )
+            .await;
 
         assert!(result.is_ok());
         let (responses, _metadata) = result.unwrap();
@@ -1103,7 +1195,10 @@ mod tests {
         let executor = ReactiveExecutor::new(1);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("simple".to_string(), Arc::new(StubProcessor::new("simple".to_string())));
+        processor_map.insert(
+            "simple".to_string(),
+            Arc::new(StubProcessor::new("simple".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
         dependency_graph.insert("simple".to_string(), vec![]);
@@ -1116,14 +1211,16 @@ mod tests {
 
         // This test verifies that our channel error handling improvements
         // don't break normal execution of simple processors
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         // Should succeed - this tests that our error handling improvements
         // don't break normal execution
@@ -1131,7 +1228,7 @@ mod tests {
             Ok((responses, _metadata)) => {
                 assert_eq!(responses.len(), 1);
                 assert!(responses.contains_key("simple"));
-            },
+            }
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
     }
@@ -1143,7 +1240,10 @@ mod tests {
         let executor = ReactiveExecutor::new(1);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("entry".to_string(), Arc::new(StubProcessor::new("entry".to_string())));
+        processor_map.insert(
+            "entry".to_string(),
+            Arc::new(StubProcessor::new("entry".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
         dependency_graph.insert("entry".to_string(), vec![]);
@@ -1156,14 +1256,16 @@ mod tests {
 
         // This test verifies that entry point triggering works correctly
         // and that our error handling doesn't interfere with normal operation
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         assert!(result.is_ok());
         let (responses, _metadata) = result.unwrap();
@@ -1178,7 +1280,10 @@ mod tests {
         let executor = ReactiveExecutor::new(1);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("failing".to_string(), Arc::new(FailingProcessor::new("failing".to_string())));
+        processor_map.insert(
+            "failing".to_string(),
+            Arc::new(FailingProcessor::new("failing".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
         dependency_graph.insert("failing".to_string(), vec![]);
@@ -1191,14 +1296,16 @@ mod tests {
 
         // This test verifies that processor failures are handled correctly
         // and that our channel error handling doesn't interfere with failure reporting
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         // Should fail due to the failing processor
         assert!(result.is_err());
@@ -1217,16 +1324,29 @@ mod tests {
         let executor = ReactiveExecutor::new(3);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("proc1".to_string(), Arc::new(StubProcessor::new("proc1".to_string())));
-        processor_map.insert("proc2".to_string(), Arc::new(StubProcessor::new("proc2".to_string())));
-        processor_map.insert("proc3".to_string(), Arc::new(StubProcessor::new("proc3".to_string())));
+        processor_map.insert(
+            "proc1".to_string(),
+            Arc::new(StubProcessor::new("proc1".to_string())),
+        );
+        processor_map.insert(
+            "proc2".to_string(),
+            Arc::new(StubProcessor::new("proc2".to_string())),
+        );
+        processor_map.insert(
+            "proc3".to_string(),
+            Arc::new(StubProcessor::new("proc3".to_string())),
+        );
 
         let mut dependency_graph = HashMap::new();
         dependency_graph.insert("proc1".to_string(), vec![]);
         dependency_graph.insert("proc2".to_string(), vec![]);
         dependency_graph.insert("proc3".to_string(), vec![]);
 
-        let entry_points = vec!["proc1".to_string(), "proc2".to_string(), "proc3".to_string()];
+        let entry_points = vec![
+            "proc1".to_string(),
+            "proc2".to_string(),
+            "proc3".to_string(),
+        ];
 
         let input = ProcessorRequest {
             payload: b"test".to_vec(),
@@ -1234,14 +1354,16 @@ mod tests {
 
         // Test that multiple independent processors can execute successfully
         // and that our channel error handling doesn't interfere
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         match result {
             Ok((responses, _metadata)) => {
@@ -1256,12 +1378,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_panic_recovery_prevents_deadlock() {
+        use crate::proto::processor_v1::processor_response::Outcome;
+        use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
+        use crate::traits::processor::{Processor, ProcessorIntent};
+        use async_trait::async_trait;
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
-        use async_trait::async_trait;
-        use crate::traits::processor::{Processor, ProcessorIntent};
-        use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
-        use crate::proto::processor_v1::processor_response::Outcome;
 
         // Mock processor that panics during execution
         struct PanickingProcessor;
@@ -1318,7 +1440,10 @@ mod tests {
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
         processor_map.insert("panicking".to_string(), Arc::new(PanickingProcessor));
-        processor_map.insert("dependent".to_string(), Arc::new(TrackingProcessor::new(dependent_called.clone())));
+        processor_map.insert(
+            "dependent".to_string(),
+            Arc::new(TrackingProcessor::new(dependent_called.clone())),
+        );
 
         // Setup: panicking -> dependent
         let mut dependency_graph = HashMap::new();
@@ -1331,14 +1456,16 @@ mod tests {
             payload: b"test".to_vec(),
         };
 
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::ContinueOnError, // Continue despite panic
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::ContinueOnError, // Continue despite panic
+            )
+            .await;
 
         // The execution might fail due to the panic, but the key test is whether
         // the dependent processor was called (proving panic recovery worked)
@@ -1353,11 +1480,13 @@ mod tests {
                 false
             }
         };
-        
+
         // Most importantly: dependent processor should have been called
         // This proves panic recovery worked and prevented deadlock
-        assert!(dependent_called.load(Ordering::SeqCst), 
-                "Dependent processor was not called - panic recovery failed!");
+        assert!(
+            dependent_called.load(Ordering::SeqCst),
+            "Dependent processor was not called - panic recovery failed!"
+        );
 
         // If execution succeeded, verify dependent response exists
         if execution_succeeded {
@@ -1373,8 +1502,14 @@ mod tests {
         let executor = ReactiveExecutor::new(2);
 
         let mut processor_map: HashMap<String, Arc<dyn Processor>> = HashMap::new();
-        processor_map.insert("not_entry".to_string(), Arc::new(StubProcessor::new("not_entry".to_string())));
-        processor_map.insert("fake_entry".to_string(), Arc::new(StubProcessor::new("fake_entry".to_string())));
+        processor_map.insert(
+            "not_entry".to_string(),
+            Arc::new(StubProcessor::new("not_entry".to_string())),
+        );
+        processor_map.insert(
+            "fake_entry".to_string(),
+            Arc::new(StubProcessor::new("fake_entry".to_string())),
+        );
 
         // Misconfigured graph: "fake_entry" is marked as entry point but has dependencies
         let mut dependency_graph = HashMap::new();
@@ -1388,14 +1523,16 @@ mod tests {
             payload: b"test".to_vec(),
         };
 
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         // Should succeed because our current implementation forces pending_dependencies = 0
         // for entry points, handling the misconfiguration gracefully
@@ -1410,16 +1547,16 @@ mod tests {
         // implement canonical payload propagation like the work queue executor.
         // The reactive executor treats each processor independently rather than
         // maintaining a shared canonical payload that Transform processors can update.
-        // 
+        //
         // This is a known architectural difference - the reactive executor focuses on
         // event-driven execution rather than the canonical payload pattern.
-        // 
+        //
         // For now, we'll test that Transform processors can at least update their own output.
-        
-        use async_trait::async_trait;
-        use crate::traits::processor::{Processor, ProcessorIntent};
-        use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
+
         use crate::proto::processor_v1::processor_response::Outcome;
+        use crate::proto::processor_v1::{ProcessorRequest, ProcessorResponse};
+        use crate::traits::processor::{Processor, ProcessorIntent};
+        use async_trait::async_trait;
 
         // Simple Transform processor that modifies its input
         struct TransformProcessor;
@@ -1458,14 +1595,16 @@ mod tests {
             payload: b"hello".to_vec(),
         };
 
-        let result = executor.execute_with_strategy(
-            ProcessorMap(processor_map),
-            DependencyGraph(dependency_graph),
-            EntryPoints(entry_points),
-            input,
-            PipelineMetadata::new(),
-            FailureStrategy::FailFast,
-        ).await;
+        let result = executor
+            .execute_with_strategy(
+                ProcessorMap(processor_map),
+                DependencyGraph(dependency_graph),
+                EntryPoints(entry_points),
+                input,
+                PipelineMetadata::new(),
+                FailureStrategy::FailFast,
+            )
+            .await;
 
         assert!(result.is_ok());
         let (responses, _metadata) = result.unwrap();
@@ -1475,8 +1614,10 @@ mod tests {
         let transform_response = responses.get("transform").unwrap();
         if let Some(Outcome::NextPayload(payload)) = &transform_response.outcome {
             let output_text = String::from_utf8_lossy(payload);
-            assert_eq!(output_text, "hello-transformed", 
-                       "Transform processor should modify its own output");
+            assert_eq!(
+                output_text, "hello-transformed",
+                "Transform processor should modify its own output"
+            );
         } else {
             panic!("Transform processor should return NextPayload outcome");
         }

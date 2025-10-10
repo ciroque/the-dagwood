@@ -37,7 +37,7 @@ error while executing at wasm backtrace:
 #### Step 1: Isolate the Problem
 Used wasmtime CLI to test WASM modules directly:
 ```bash
-wasmtime --invoke allocate hello_world.wasm 51
+wasmtime --invoke allocate hello.wasm 51
 # Result: 1114120 (success)
 ```
 
@@ -182,11 +182,11 @@ The WASM backend now successfully integrates with:
 
 ### Core Implementation
 - `src/backends/wasm/processor.rs`: Fixed wasmtime configuration, removed debug output
-- `wasm_modules/hello_world/src/lib.rs`: Implemented wee_alloc, cleaned up allocation logic
-- `wasm_modules/hello_world/Cargo.toml`: Added wee_alloc dependency
+- `wasm_modules/hello_wasm/src/lib.rs`: Implemented wee_alloc, cleaned up allocation logic
+- `wasm_modules/hello_wasm/Cargo.toml`: Added wee_alloc dependency
 
 ### Documentation
-- `wasm_modules/hello_world/README.md`: Comprehensive build and test instructions
+- `wasm_modules/hello_wasm/README.md`: Comprehensive build and test instructions
 - `src/backends/wasm/WASM_LEARNINGS.md`: This document
 
 ## Final Architecture

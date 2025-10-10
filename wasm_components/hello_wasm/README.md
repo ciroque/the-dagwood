@@ -22,12 +22,12 @@ cargo build --target wasm32-unknown-unknown --release
 
 Copy the compiled WASM file to the expected location:
 ```bash
-cp target/wasm32-unknown-unknown/release/hello_world_wasm.wasm ../hello_world.wasm
+cp target/wasm32-unknown-unknown/release/hello_wasm.wasm ../hello.wasm
 ```
 
 Combined build and copy:
 ```bash
-cargo build --target wasm32-unknown-unknown --release && cp target/wasm32-unknown-unknown/release/hello_world_wasm.wasm ../hello_world.wasm
+cargo build --target wasm32-unknown-unknown --release && cp target/wasm32-unknown-unknown/release/hello_wasm.wasm ../hello.wasm
 ```
 
 ## Testing with Wasmtime
@@ -35,7 +35,7 @@ cargo build --target wasm32-unknown-unknown --release && cp target/wasm32-unknow
 ### Test the allocate function
 ```bash
 cd ..
-wasmtime --invoke allocate hello_world.wasm 51
+wasmtime --invoke allocate hello.wasm 51
 ```
 Expected output: A memory pointer (e.g., `1114120`)
 
@@ -47,7 +47,7 @@ Expected output: A memory pointer (e.g., `1114120`)
 
 ### Test the deallocate function
 ```bash
-wasmtime --invoke deallocate hello_world.wasm 1114120 51
+wasmtime --invoke deallocate hello.wasm 1114120 51
 ```
 Expected output: No output (void function)
 
@@ -61,14 +61,14 @@ The WASM module exports the following functions:
 
 ## Integration with DAGwood
 
-The compiled WASM module (`hello_world.wasm`) is used by the DAGwood WASM processor backend. The module implements a simple text transformation that appends "-wasm" to the input string.
+The compiled WASM module (`hello.wasm`) is used by the DAGwood WASM processor backend. The module implements a simple text transformation that appends "-wasm" to the input string.
 
 Example DAGwood configuration:
 ```yaml
 processors:
   - id: wasm_hello_world
     type: wasm
-    module: wasm_components/hello_world.wasm
+    module: wasm_components/hello.wasm
     options:
       intent: transform
 ```

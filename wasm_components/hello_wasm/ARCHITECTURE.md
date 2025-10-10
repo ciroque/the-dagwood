@@ -1,6 +1,6 @@
 # WASM Module Architecture
 
-This document describes the architectural decisions and design patterns used in the hello_world WASM module implementation.
+This document describes the architectural decisions and design patterns used in the hello_wasm WASM module implementation.
 
 ## WASM-Specific Concepts
 

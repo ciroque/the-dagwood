@@ -24,7 +24,7 @@ use std::sync::Arc;
 /// processors:
 ///   - id: hello_world_wasm
 ///     type: wasm
-///     module: "modules/hello_world.wasm"
+///     module: "modules/hello.wasm"
 ///     options:
 ///       intent: "transform"
 /// ```

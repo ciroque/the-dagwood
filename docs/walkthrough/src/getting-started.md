@@ -383,7 +383,7 @@ processors:
 
   - id: wasm_processing
     backend: wasm
-    module: wasm_components/hello_world.wasm
+    module: wasm_components/hello.wasm
     depends_on: [local_prep]
     options:
       intent: transform
@@ -417,7 +417,7 @@ cargo check
 ls -la wasm_components/
 
 # Rebuild WASM module
-cd wasm_components/hello_world
+cd wasm_components/hello_wasm
 cargo build --target wasm32-unknown-unknown --release
 ```
 

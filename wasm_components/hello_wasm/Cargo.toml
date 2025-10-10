@@ -1,5 +1,5 @@
 [package]
-name = "hello_world_wasm"
+name = "hello_wasm"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,8 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-wee_alloc = "0.4"
-# No external dependencies needed for this simple example
+wit-bindgen = "0.30"
+# wee_alloc = "0.4"  # May not be needed with WIT bindings
 
 [profile.release]
 # Optimize for size since WASM modules should be small

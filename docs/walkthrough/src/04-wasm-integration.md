@@ -41,7 +41,7 @@ processors:
   # WASM processor provides sandboxed execution
   - id: wasm_hello_world
     type: wasm
-    module: wasm_components/hello_world.wasm
+    module: wasm_components/hello.wasm
     depends_on: [prepare_input]
     options:
       intent: transform
@@ -158,7 +158,7 @@ WASM processors provide defense against:
 rustup target add wasm32-unknown-unknown
 
 # Build the module
-cd wasm_components/hello_world
+cd wasm_components/hello_wasm
 cargo build --target wasm32-unknown-unknown --release
 ```
 

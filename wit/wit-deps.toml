@@ -1,0 +1,28 @@
+# DAGwood WIT Dependencies Configuration
+# This file defines the WIT interface dependencies for DAGwood components
+
+[dependencies]
+# Core DAGwood processor interface
+dagwood-processor = { path = "versions/v1.0.0/dagwood-processor.wit" }
+
+[metadata]
+# Project metadata
+name = "dagwood-wit"
+version = "1.0.0"
+description = "WebAssembly Interface Types for DAGwood processor components"
+repository = "https://github.com/ciroque/the-dagwood"
+license = "MIT"
+
+# Compatibility matrix
+[compatibility]
+# Minimum DAGwood runtime version that supports this WIT version
+min-dagwood-version = "0.1.0"
+
+# Component compatibility
+[compatibility.components]
+# Components that implement this interface version
+hello-wasm = "1.0.0"
+
+# Breaking changes log
+[changelog]
+"1.0.0" = "Initial WIT interface with structured errors and memory management"

@@ -1,14 +1,14 @@
-# WIT Dependencies for hello_wasm
+# WIT Dependencies for wasm appender
 # This component implements the DAGwood processor interface v1.0.0
 
 [dependencies]
 dagwood-processor = { path = "wit/dagwood-processor.wit" }
 
 [metadata]
-component-name = "hello_wasm"
+component-name = "wasm_appender"
 wit-version = "v1.0.0"
 generated-date = "2025-10-09T16:05:00Z"
-description = "Hello World WASM component demonstrating WIT bindings"
+description = "WASM Appender component demonstrating WIT bindings"
 
 [compatibility]
 dagwood-runtime = ">= 0.1.0"

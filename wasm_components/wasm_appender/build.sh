@@ -2,12 +2,12 @@
 # Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 # SPDX-License-Identifier: MIT
 
-# Build script for hello_wasm component
+# Build script for wasm appender component
 # Builds the WASM module and copies it to the expected location
 
 set -e  # Exit on any error
 
-echo "🔨 Building hello_wasm component..."
+echo "🔨 Building wasm appender component..."
 
 # Ensure we have the WASM target
 echo "📦 Checking WASM target..."
@@ -22,10 +22,10 @@ cargo build --target wasm32-unknown-unknown --release
 
 # Copy to expected location
 echo "📋 Copying artifact to wasm_components/..."
-cp target/wasm32-unknown-unknown/release/hello_wasm.wasm ../
+cp target/wasm32-unknown-unknown/release/wasm_appender.wasm ../
 
 # Show file size
-WASM_SIZE=$(stat -c%s "../hello_wasm.wasm")
+WASM_SIZE=$(stat -c%s "../wasm_appender.wasm")
 echo "✅ Build complete! hello.wasm size: ${WASM_SIZE} bytes"
 
 # Optional: Show WASM module info if wasm-objdump is available

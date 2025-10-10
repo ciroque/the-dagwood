@@ -23,9 +23,9 @@ use exports::dagwood::component::processor::{
 /// This struct implements the Guest trait generated from our WIT specification.
 /// It provides the same functionality as the old C-style exports but with
 /// better type safety and structured error handling.
-struct HelloWasmComponent;
+struct WasmAppenderComponent;
 
-impl Guest for HelloWasmComponent {
+impl Guest for WasmAppenderComponent {
     /// Process input data and return transformed output
     /// 
     /// This function takes input data via pointers and returns a pointer to
@@ -140,7 +140,7 @@ impl Guest for HelloWasmComponent {
 }
 
 // Export the component using WIT bindings
-export!(HelloWasmComponent);
+export!(WasmAppenderComponent);
 
 #[cfg(test)]
 mod tests {
@@ -149,26 +149,26 @@ mod tests {
     #[test]
     fn test_allocate_zero_size() {
         // Test that zero-size allocation returns error
-        let result = HelloWasmComponent::allocate(0);
+        let result = WasmAppenderComponent::allocate(0);
         assert!(matches!(result, Err(AllocationError::InvalidSize(0))));
     }
 
     #[test]
     fn test_allocate_too_large() {
         // Test that oversized allocation returns error
-        let result = HelloWasmComponent::allocate(20_000_000); // > 10MB limit
+        let result = WasmAppenderComponent::allocate(20_000_000); // > 10MB limit
         assert!(matches!(result, Err(AllocationError::InvalidSize(_))));
     }
 
     #[test]
     fn test_deallocate_null_pointer() {
         // Test that deallocating null pointer is safe
-        HelloWasmComponent::deallocate(0, 100); // Should not panic
+        WasmAppenderComponent::deallocate(0, 100); // Should not panic
     }
 
     #[test]
     fn test_deallocate_zero_size() {
         // Test that zero-size deallocation is safe
-        HelloWasmComponent::deallocate(100, 0); // Should not panic
+        WasmAppenderComponent::deallocate(100, 0); // Should not panic
     }
 }

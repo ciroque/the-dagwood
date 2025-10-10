@@ -10,7 +10,7 @@ echo "Building Grain RLE WASM Component..."
 # Check if Grain compiler is available
 if ! command -v grain &> /dev/null; then
     echo "Error: Grain compiler not found. Please install Grain from https://grain-lang.org/"
-    echo "Installation: npm install -g @grain-lang/cli"
+    echo "Installation: npm install -g @grain-lang/grain-cli"
     exit 1
 fi
 
@@ -20,19 +20,12 @@ mkdir -p target
 # Compile Grain to WASM
 echo "Compiling Grain source to WebAssembly..."
 
-echo "Step 1: Compiling RLE module..."
-if ! grain compile src/rle.gr --release -o target/rle.gr.wasm; then
-    echo "❌ Failed to compile RLE module"
+echo "Compiling Grain RLE WASM component (includes dependencies)..."
+if ! grain compile src/main.gr --release --no-wasm-tail-call -o target/rle_grain.wasm; then
+    echo "❌ Failed to compile RLE component"
     exit 1
 fi
-echo "✅ RLE module compiled successfully"
-
-echo "Step 2: Compiling minimal module (no stdlib imports)..."
-if ! grain compile src/minimal.gr --release -o target/rle_grain.wasm; then
-    echo "❌ Failed to compile minimal module"
-    exit 1
-fi
-echo "✅ Minimal module compiled successfully"
+echo "✅ RLE component compiled successfully"
 
 # Check if compilation was successful
 if [ -f "target/rle_grain.wasm" ]; then

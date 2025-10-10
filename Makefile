@@ -67,7 +67,7 @@ outdated:
 
 licenses:
 	@echo "==> Checking license compliance..."
-	cargo deny check licenses || true
+	cargo deny check licenses
 
 # --------------------------------
 # 🌐 WASM Build Targets
@@ -110,8 +110,8 @@ help:
 	@echo "  audit         - Check for known vulnerabilities"
 	@echo "  outdated      - Check for outdated dependencies"
 	@echo "  licenses      - Check license compliance (cargo-deny)"
-	@echo "  ci             - Run full CI check suite"
+	@echo "  ci            - Run full CI check suite"
 	@echo "  clean         - Remove target artifacts"
-	@echo "  help           - Show this help message"
-	@echo "  wasm-build     - Build all WASM components"
-	@echo "  wasm-clean     - Clean WASM build artifacts"
+	@echo "  help          - Show this help message"
+	@echo "  wasm-build    - Build all WASM components"
+	@echo "  wasm-clean    - Clean WASM build artifacts"

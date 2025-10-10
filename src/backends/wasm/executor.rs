@@ -196,20 +196,6 @@ impl WasmExecutor {
         Ok(output)
     }
 
-    /// Create fallback result when WASM execution fails
-    pub fn create_fallback_result(input: &str, error: &WasmError) -> ExecutionResult {
-        let fallback_output = format!("{}-wasm", input);
-        
-        tracing::warn!("WASM execution failed, using fallback: {}", error);
-        
-        ExecutionResult {
-            output: fallback_output.clone(),
-            fuel_consumed: 0,
-            input_size: input.len(),
-            output_size: fallback_output.len(),
-            execution_time_ms: 0,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -311,15 +297,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_fallback_result() {
-        let error = WasmError::ExecutionError(anyhow::anyhow!("Test error"));
-        let result = WasmExecutor::create_fallback_result("hello", &error);
-
-        assert_eq!(result.output, "hello-wasm");
-        assert_eq!(result.input_size, 5);
-        assert_eq!(result.output_size, 10);
-        assert_eq!(result.fuel_consumed, 0);
-        assert_eq!(result.execution_time_ms, 0);
-    }
 }

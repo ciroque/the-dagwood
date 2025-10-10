@@ -168,10 +168,9 @@ impl WasmProcessor {
                 Ok(result.output.into_bytes())
             }
             Err(error) => {
-                tracing::warn!("WASM execution failed: {}", error);
-                // Use fallback strategy
-                let fallback_result = WasmExecutor::create_fallback_result(&input_str, &error);
-                Ok(fallback_result.output.into_bytes())
+                tracing::error!("WASM execution failed: {}", error);
+                // Propagate the error instead of masking it with fallback
+                Err(Box::new(error))
             }
         }
     }

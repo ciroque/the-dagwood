@@ -28,7 +28,7 @@ fi
 echo "✅ RLE module compiled successfully"
 
 echo "Step 2: Compiling minimal module (no stdlib imports)..."
-if ! grain compile src/minimal.gr --release --no-pervasives -o target/rle_grain.wasm; then
+if ! grain compile src/minimal.gr --release -o target/rle_grain.wasm; then
     echo "❌ Failed to compile minimal module"
     exit 1
 fi

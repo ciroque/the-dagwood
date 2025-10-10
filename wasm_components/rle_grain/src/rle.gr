@@ -229,9 +229,11 @@ provide let compressionStats = (original: String, compressed: String) => {
   let originalSize = String.length(original)
   let compressedSize = String.length(compressed)
   let ratio = if (originalSize > 0) {
-    compressedSize / originalSize
+    // Convert to floating-point for proper ratio calculation
+    // Multiply by 1.0 to force floating-point division
+    (compressedSize * 1.0) / (originalSize * 1.0)
   } else {
-    1
+    1.0 // Return floating-point 1.0 for consistency
   }
   (originalSize, compressedSize, ratio)
 }

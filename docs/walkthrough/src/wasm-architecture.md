@@ -195,7 +195,6 @@ pub trait WasmModuleInterface {
 Here's how a WASM module is implemented in Rust:
 
 ```rust
-// wasm_components/hello/src/lib.rs
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
@@ -257,7 +256,7 @@ cd wasm_components/wasm_appender
 cargo build --target wasm32-unknown-unknown --release
 
 # Copy to expected location
-cp target/wasm32-unknown-unknown/release/wasm_appender.wasm ../hello.wasm
+cp target/wasm32-unknown-unknown/release/wasm_appender.wasm ../
 
 ```
 

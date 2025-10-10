@@ -26,7 +26,7 @@ cp target/wasm32-unknown-unknown/release/wasm_appender.wasm ../
 
 # Show file size
 WASM_SIZE=$(stat -c%s "../wasm_appender.wasm")
-echo "✅ Build complete! hello.wasm size: ${WASM_SIZE} bytes"
+echo "✅ Build complete! wasm_appender.wasm size: ${WASM_SIZE} bytes"
 
 # Optional: Show WASM module info if wasm-objdump is available
 if command -v wasm-objdump &> /dev/null; then

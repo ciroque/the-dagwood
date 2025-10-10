@@ -22,7 +22,7 @@ cargo build --target wasm32-unknown-unknown --release
 
 Copy the compiled WASM file to the expected location:
 ```bash
-cp target/wasm32-unknown-unknown/release/wasm_appender.wasm ../hello.wasm
+cp target/wasm32-unknown-unknown/release/wasm_appender.wasm ../
 ```
 
 Combined build and copy:

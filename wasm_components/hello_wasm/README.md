@@ -22,12 +22,12 @@ cargo build --target wasm32-unknown-unknown --release
 
 Copy the compiled WASM file to the expected location:
 ```bash
-cp target/wasm32-unknown-unknown/release/hello_world_wasm.wasm ../hello.wasm
+cp target/wasm32-unknown-unknown/release/hello_wasm.wasm ../hello.wasm
 ```
 
 Combined build and copy:
 ```bash
-cargo build --target wasm32-unknown-unknown --release && cp target/wasm32-unknown-unknown/release/hello_world_wasm.wasm ../hello.wasm
+cargo build --target wasm32-unknown-unknown --release && cp target/wasm32-unknown-unknown/release/hello_wasm.wasm ../hello.wasm
 ```
 
 ## Testing with Wasmtime

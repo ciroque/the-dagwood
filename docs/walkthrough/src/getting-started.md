@@ -417,7 +417,7 @@ cargo check
 ls -la wasm_components/
 
 # Rebuild WASM module
-cd wasm_components/hello_world
+cd wasm_components/hello_wasm
 cargo build --target wasm32-unknown-unknown --release
 ```
 

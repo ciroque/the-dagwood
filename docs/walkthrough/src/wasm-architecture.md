@@ -195,7 +195,7 @@ pub trait WasmModuleInterface {
 Here's how a WASM module is implemented in Rust:
 
 ```rust
-// wasm_components/hello_world/src/lib.rs
+// wasm_components/hello/src/lib.rs
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
@@ -253,14 +253,14 @@ crate-type = ["cdylib"]
 
 ```bash
 # Build WASM module from Rust
-cd wasm_components/hello_world
+cd wasm_components/hello_wasm
 cargo build --target wasm32-unknown-unknown --release
 
 # Copy to expected location
-cp target/wasm32-unknown-unknown/release/hello.wasm ../hello.wasm
+cp target/wasm32-unknown-unknown/release/hello_wasm.wasm ../hello.wasm
 
 # Optional: Optimize WASM module
-wasm-opt -Oz hello.wasm -o hello_world_optimized.wasm
+wasm-opt -Oz hello.wasm -o hello_wasm_optimized.wasm
 ```
 
 ## Multi-Language Support

@@ -86,7 +86,7 @@ impl Guest for HelloWasmComponent {
             );
             
             // Write output length to the provided pointer
-            *(output_len_ptr as *mut u64) = output_len_val as u32;
+            *(output_len_ptr as *mut u64) = output_len_val as u64;
         }
         
         Ok(result_ptr)

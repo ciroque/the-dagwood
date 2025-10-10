@@ -158,7 +158,7 @@ WASM processors provide defense against:
 rustup target add wasm32-unknown-unknown
 
 # Build the module
-cd wasm_components/hello_world
+cd wasm_components/hello_wasm
 cargo build --target wasm32-unknown-unknown --release
 ```
 

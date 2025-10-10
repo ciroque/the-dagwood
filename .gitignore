@@ -43,3 +43,5 @@ node_modules/
 
 # mdBook generated output
 docs/walkthrough/book/
+
+**/*.gro

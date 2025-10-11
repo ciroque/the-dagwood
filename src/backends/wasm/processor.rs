@@ -118,6 +118,39 @@ impl WasmProcessor {
         })
     }
 
+    /// Creates a new WasmProcessor from an already loaded module.
+    ///
+    /// This constructor is used by the factory when the module has already been
+    /// loaded and analyzed for artifact type detection. This avoids double-loading
+    /// the same WASM bytes.
+    ///
+    /// # Arguments
+    ///
+    /// * `processor_id` - Unique identifier for this processor instance
+    /// * `loaded_module` - Pre-loaded and validated WASM module
+    /// * `intent` - Processor intent (Transform or Analyze)
+    pub fn from_loaded_module(
+        processor_id: String,
+        loaded_module: LoadedModule,
+        intent: ProcessorIntent,
+    ) -> WasmResult<Self> {
+        let module_path = loaded_module.module_path.clone();
+
+        tracing::debug!(
+            "Creating WasmProcessor from loaded module: {} (type: {:?}, imports: {})",
+            module_path,
+            loaded_module.component_type,
+            loaded_module.imports.len()
+        );
+
+        Ok(Self {
+            processor_id,
+            module_path,
+            loaded_module,
+            intent,
+        })
+    }
+
     /// Executes the WASM module with the given input bytes using orchestrated components.
     ///
     /// This method uses the specialized components to handle execution:

@@ -19,7 +19,6 @@
 //! - Independent testing
 //! - Easy extensibility
 
-use async_trait::async_trait;
 use std::fmt;
 
 /// Processing Node execution strategy trait
@@ -34,7 +33,6 @@ use std::fmt;
 /// - **Async Execution**: Consistent with DAGwood's async architecture
 /// - **Rich Errors**: Strategy-specific error context for debugging
 /// - **Extensibility**: Easy to add new artifact types
-#[async_trait]
 pub trait ProcessingNodeExecutor: Send + Sync {
     /// Execute the WASM artifact with the given input
     ///
@@ -45,7 +43,7 @@ pub trait ProcessingNodeExecutor: Send + Sync {
     /// # Returns
     ///
     /// Returns the processed output bytes or a strategy-specific error
-    async fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError>;
+    fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError>;
 
     /// Get a human-readable description of the artifact type
     fn artifact_type(&self) -> &'static str;
@@ -66,6 +64,8 @@ pub struct ExecutionMetadata {
     pub capabilities: Vec<String>,
 }
 
+use crate::backends::wasm::error::WasmError;
+
 /// Strategy-specific processing node errors
 ///
 /// This enum provides rich error context specific to each execution strategy,
@@ -80,6 +80,9 @@ pub enum ProcessingNodeError {
     
     /// C-Style module execution error
     CStyleError(CStyleExecutionError),
+    
+    /// Input processing error
+    InputError(String),
     
     /// General validation error
     ValidationError(String),
@@ -133,27 +136,18 @@ pub enum CStyleExecutionError {
     AllocationFailed(String),
     
     /// Function execution failed
-    ExecutionFailed(String),
+    FunctionExecutionFailed(String),
 }
 
 impl fmt::Display for ProcessingNodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ProcessingNodeError::ComponentError(e) => {
-                write!(f, "WIT Component execution error: {}", e)
-            }
-            ProcessingNodeError::WasiError(e) => {
-                write!(f, "WASI Preview 1 execution error: {}", e)
-            }
-            ProcessingNodeError::CStyleError(e) => {
-                write!(f, "C-Style execution error: {}", e)
-            }
-            ProcessingNodeError::ValidationError(msg) => {
-                write!(f, "Validation error: {}", msg)
-            }
-            ProcessingNodeError::RuntimeError(msg) => {
-                write!(f, "Runtime error: {}", msg)
-            }
+            ProcessingNodeError::ComponentError(e) => write!(f, "Component execution error: {}", e),
+            ProcessingNodeError::WasiError(e) => write!(f, "WASI execution error: {}", e),
+            ProcessingNodeError::CStyleError(e) => write!(f, "C-Style execution error: {}", e),
+            ProcessingNodeError::InputError(msg) => write!(f, "Input error: {}", msg),
+            ProcessingNodeError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
+            ProcessingNodeError::RuntimeError(msg) => write!(f, "Runtime error: {}", msg),
         }
     }
 }
@@ -208,8 +202,8 @@ impl fmt::Display for CStyleExecutionError {
             CStyleExecutionError::AllocationFailed(msg) => {
                 write!(f, "Memory allocation failed: {}", msg)
             }
-            CStyleExecutionError::ExecutionFailed(msg) => {
-                write!(f, "Function execution failed: {}", msg)
+            CStyleExecutionError::FunctionExecutionFailed(msg) => {
+                write!(f, "C-Style execution failed: {}", msg)
             }
         }
     }
@@ -220,9 +214,15 @@ impl std::error::Error for ComponentExecutionError {}
 impl std::error::Error for WasiExecutionError {}
 impl std::error::Error for CStyleExecutionError {}
 
-/// Convert ProcessingNodeError to WasmError for backward compatibility
-impl From<ProcessingNodeError> for crate::backends::wasm::WasmError {
+impl From<WasmError> for ProcessingNodeError {
+    fn from(error: WasmError) -> Self {
+        ProcessingNodeError::RuntimeError(error.to_string())
+    }
+}
+
+// Convert ProcessingNodeError to WasmError for better error handling
+impl From<ProcessingNodeError> for WasmError {
     fn from(error: ProcessingNodeError) -> Self {
-        crate::backends::wasm::WasmError::ProcessorError(error.to_string())
+        WasmError::ProcessorError(error.to_string())
     }
 }

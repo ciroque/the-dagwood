@@ -5,7 +5,6 @@ use super::super::{
     processing_node::{ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
     LoadedModule,
 };
-use async_trait::async_trait;
 use std::sync::Arc;
 
 /// Executor for WIT Components (Preview 2)
@@ -26,9 +25,8 @@ impl ComponentNodeExecutor {
     }
 }
 
-#[async_trait]
 impl ProcessingNodeExecutor for ComponentNodeExecutor {
-    async fn execute(&self, _input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
+    fn execute(&self, _input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
         // TODO: Implement WIT component execution
         // This is a placeholder implementation
         Ok(b"WIT Component execution not yet implemented".to_vec())

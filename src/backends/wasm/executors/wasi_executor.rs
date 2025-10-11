@@ -5,7 +5,6 @@ use super::super::{
     processing_node::{ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
     LoadedModule,
 };
-use async_trait::async_trait;
 use std::sync::Arc;
 
 /// Executor for WASI Preview 1 Modules
@@ -27,9 +26,8 @@ impl WasiNodeExecutor {
     }
 }
 
-#[async_trait]
 impl ProcessingNodeExecutor for WasiNodeExecutor {
-    async fn execute(&self, _input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
+    fn execute(&self, _input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
         // TODO: Implement WASI module execution with proper context
         // This is a placeholder implementation
         Ok(b"WASI Preview 1 execution not yet implemented".to_vec())

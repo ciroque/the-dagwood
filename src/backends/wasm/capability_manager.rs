@@ -149,7 +149,7 @@ impl CapabilityManager {
         Store::new(engine, setup.store_data)
     }
 
-    /// Get human-readable capability summary for logging/debugging
+    /// Get a human-readable capability summary for logging/debugging
     pub fn capability_summary(requirements: &CapabilityRequirements) -> String {
         let mut capabilities = Vec::new();
         

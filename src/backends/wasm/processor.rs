@@ -47,8 +47,9 @@
 
 use crate::backends::wasm::error::WasmResult;
 use crate::backends::wasm::module_loader::{WasmModuleLoader, LoadedModule};
-use crate::backends::wasm::capability_manager::CapabilityManager;
-use crate::backends::wasm::executor::WasmExecutor;
+use crate::backends::wasm::processing_node_factory::ProcessingNodeFactory;
+use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
+use std::sync::Arc;
 use crate::proto::processor_v1::{
     processor_response::Outcome, ErrorDetail, PipelineMetadata, ProcessorMetadata,
     ProcessorRequest, ProcessorResponse,
@@ -76,8 +77,8 @@ pub struct WasmProcessor {
     processor_id: String,
     /// Path to the WASM module file
     module_path: String,
-    /// Loaded and validated WASM module with metadata
-    loaded_module: LoadedModule,
+    /// The appropriate executor for this WASM artifact type
+    executor: Arc<dyn ProcessingNodeExecutor>,
     /// Processor intent (Transform or Analyze)
     intent: ProcessorIntent,
 }
@@ -110,10 +111,20 @@ impl WasmProcessor {
             loaded_module.imports.len()
         );
 
+        // Create the appropriate executor based on the WASM artifact type
+        let executor = ProcessingNodeFactory::create_executor(loaded_module)
+            .map_err(|e| WasmResult::<()>::Err(e.into()).unwrap_err())?;
+        
+        tracing::info!(
+            "Created WasmProcessor '{}' with {} executor",
+            processor_id,
+            executor.artifact_type()
+        );
+
         Ok(Self {
             processor_id,
             module_path,
-            loaded_module,
+            executor,
             intent,
         })
     }
@@ -143,19 +154,28 @@ impl WasmProcessor {
             loaded_module.imports.len()
         );
 
+        // Create the appropriate executor based on the WASM artifact type
+        let executor = ProcessingNodeFactory::create_executor(loaded_module)
+            .map_err(|e| WasmResult::<()>::Err(e.into()).unwrap_err())?;
+        
+        tracing::info!(
+            "Created WasmProcessor '{}' with {} executor",
+            processor_id,
+            executor.artifact_type()
+        );
+
         Ok(Self {
             processor_id,
             module_path,
-            loaded_module,
+            executor,
             intent,
         })
     }
 
-    /// Executes the WASM module with the given input bytes using orchestrated components.
+    /// Executes the WASM module with the given input bytes using the ProcessingNodeExecutor.
     ///
-    /// This method uses the specialized components to handle execution:
-    /// - CapabilityManager: Analyzes capabilities and creates WASI setup
-    /// - WasmExecutor: Handles the actual execution and memory management
+    /// This method uses the pre-created executor that was determined during initialization
+    /// based on the detected WASM artifact type (C-Style, WASI Preview 1, or WIT Component).
     ///
     /// # Arguments
     ///
@@ -168,41 +188,29 @@ impl WasmProcessor {
         &self,
         input: &[u8],
     ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-        // Analyze capabilities and create WASI setup
-        let requirements = CapabilityManager::analyze_capabilities(&self.loaded_module);
-        
-        // Validate capabilities against security policies
-        CapabilityManager::validate_capabilities(&requirements)?;
-        
-        // Log capability summary for audit purposes
-        let capability_summary = CapabilityManager::capability_summary(&requirements);
         tracing::debug!(
-            "WASM module '{}' capabilities: {}",
+            "Executing WASM module '{}' using {} executor",
             self.module_path,
-            capability_summary
+            self.executor.artifact_type()
         );
         
-        // Create WASI setup based on requirements
-        let wasi_setup = CapabilityManager::create_wasi_setup(&self.loaded_module.engine, &requirements)?;
-        
-        // Convert bytes to string for WasmExecutor (which expects string input)
-        let input_str = String::from_utf8_lossy(input);
-        
-        // Execute using WasmExecutor
-        match WasmExecutor::execute(&self.loaded_module, wasi_setup, &input_str) {
-            Ok(result) => {
+        // Execute using the ProcessingNodeExecutor
+        match self.executor.execute(input) {
+            Ok(output) => {
                 tracing::debug!(
-                    "WASM execution successful: input_size={}, output_size={}, fuel_consumed={}, time_ms={}",
-                    result.input_size,
-                    result.output_size,
-                    result.fuel_consumed,
-                    result.execution_time_ms
+                    "WASM execution successful: input_size={}, output_size={}, artifact_type={}",
+                    input.len(),
+                    output.len(),
+                    self.executor.artifact_type()
                 );
-                Ok(result.output.into_bytes())
+                Ok(output)
             }
             Err(error) => {
-                tracing::error!("WASM execution failed: {}", error);
-                // Propagate the error instead of masking it with fallback
+                tracing::error!(
+                    "WASM execution failed for {}: {}", 
+                    self.executor.artifact_type(),
+                    error
+                );
                 Err(Box::new(error))
             }
         }
@@ -229,8 +237,8 @@ impl Processor for WasmProcessor {
                 let mut processor_metadata_map = HashMap::new();
                 processor_metadata_map.insert("processor_id".to_string(), self.processor_id.clone());
                 processor_metadata_map.insert("module_path".to_string(), self.module_path.clone());
-                processor_metadata_map.insert("component_type".to_string(), format!("{:?}", self.loaded_module.component_type));
-                processor_metadata_map.insert("import_count".to_string(), self.loaded_module.imports.len().to_string());
+                processor_metadata_map.insert("artifact_type".to_string(), self.executor.artifact_type().to_string());
+                processor_metadata_map.insert("capabilities".to_string(), format!("{:?}", self.executor.capabilities()));
                 processor_metadata_map.insert("input_length".to_string(), input.len().to_string());
                 processor_metadata_map.insert("output_length".to_string(), output.len().to_string());
 

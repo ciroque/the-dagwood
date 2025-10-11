@@ -7,7 +7,9 @@ use super::super::{
     LoadedModule,
 };
 use crate::backends::wasm::capability_manager::CapabilityManager;
-use crate::backends::wasm::executor::WasmExecutor;
+use crate::backends::wasm::module_loader::WasmArtifact;
+use wasmtime::*;
+use std::ffi::{CStr, CString};
 
 /// Executor for C-Style WASM Modules
 ///
@@ -38,9 +40,32 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
         let requirements = CapabilityManager::analyze_capabilities(&self.loaded_module);
         let wasi_setup = CapabilityManager::create_wasi_setup(&self.loaded_module.engine, &requirements)?;
 
-        // Execute the WASM module
-        let result = WasmExecutor::execute(&self.loaded_module, wasi_setup, input_str)?;
-        Ok(result.output.into_bytes())
+        // Create store with WASI context
+        let mut store = Store::new(&self.loaded_module.engine, wasi_setup.store_data);
+        
+        // Set fuel limit for security and resource protection
+        store.set_fuel(100_000_000)
+            .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
+
+        // Execute based on artifact type
+        let output = match &self.loaded_module.artifact {
+            WasmArtifact::Module(module) => {
+                // Instantiate C-style module
+                let instance = wasi_setup.linker.instantiate(&mut store, module)
+                    .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
+                
+                // C-style modules must export process, allocate, and deallocate functions
+                self.execute_c_style_process(&mut store, &instance, input_str)?
+            }
+            WasmArtifact::Component(_) => {
+                // This shouldn't happen for C-style, but handle gracefully
+                return Err(ProcessingNodeError::ValidationError(
+                    "C-style executor received WIT component".to_string()
+                ));
+            }
+        };
+
+        Ok(output.into_bytes())
     }
 
     fn artifact_type(&self) -> &'static str {
@@ -63,6 +88,118 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
             import_count: self.loaded_module.imports.len(),
             capabilities: self.capabilities(),
         }
+    }
+}
+
+impl CStyleNodeExecutor {
+    /// Execute C-style WASM module (process, allocate, deallocate functions)
+    fn execute_c_style_process(
+        &self,
+        store: &mut Store<()>,
+        instance: &Instance,
+        input: &str,
+    ) -> Result<String, ProcessingNodeError> {
+        // Get the module's memory
+        let memory = instance
+            .get_memory(&mut *store, "memory")
+            .ok_or_else(|| ProcessingNodeError::ValidationError("WASM module must export 'memory'".to_string()))?;
+
+        // Get required functions
+        let process_func = instance
+            .get_typed_func::<(i32, i32, i32), i32>(&mut *store, "process")
+            .map_err(|_| ProcessingNodeError::ValidationError("WASM module must export 'process' function with signature (i32, i32, i32) -> i32".to_string()))?;
+
+        let allocate_func = instance
+            .get_typed_func::<i32, i32>(&mut *store, "allocate")
+            .map_err(|_| ProcessingNodeError::ValidationError("WASM module must export 'allocate' function with signature (i32) -> i32".to_string()))?;
+
+        let deallocate_func = instance
+            .get_typed_func::<(i32, i32), ()>(&mut *store, "deallocate")
+            .map_err(|_| ProcessingNodeError::ValidationError("WASM module must export 'deallocate' function with signature (i32, i32) -> ()".to_string()))?;
+
+        // Convert input to C string
+        let input_cstring = CString::new(input)
+            .map_err(|_| ProcessingNodeError::ValidationError("Input contains null bytes".to_string()))?;
+        let input_bytes = input_cstring.as_bytes_with_nul();
+
+        // Allocate memory in WASM for input
+        let input_ptr = allocate_func.call(&mut *store, input_bytes.len() as i32)
+            .map_err(|e| ProcessingNodeError::RuntimeError(format!("Failed to call allocate function: {}", e)))?;
+        if input_ptr == 0 {
+            return Err(ProcessingNodeError::RuntimeError("Failed to allocate input memory".to_string()));
+        }
+
+        // Write input to WASM memory
+        memory.write(&mut *store, input_ptr as usize, input_bytes)
+            .map_err(|e| ProcessingNodeError::RuntimeError(format!("Failed to write input to WASM memory: {}", e)))?;
+
+        // Allocate memory for output length
+        let output_len_ptr = allocate_func.call(&mut *store, 4)
+            .map_err(|e| ProcessingNodeError::RuntimeError(format!("Failed to allocate output length memory: {}", e)))?; // 4 bytes for i32
+        if output_len_ptr == 0 {
+            // Clean up input memory
+            let _ = deallocate_func.call(&mut *store, (input_ptr, input_bytes.len() as i32));
+            return Err(ProcessingNodeError::RuntimeError("Failed to allocate output length memory".to_string()));
+        }
+
+        // Call the process function
+        let result_ptr = process_func.call(&mut *store, (input_ptr, input_bytes.len() as i32, output_len_ptr))
+            .map_err(|e| {
+                // Clean up allocated memory
+                let _ = deallocate_func.call(&mut *store, (input_ptr, input_bytes.len() as i32));
+                let _ = deallocate_func.call(&mut *store, (output_len_ptr, 4));
+                ProcessingNodeError::RuntimeError(format!("Failed to call process function: {}", e))
+            })?;
+
+        // Clean up input memory
+        deallocate_func.call(&mut *store, (input_ptr, input_bytes.len() as i32))
+            .map_err(|e| ProcessingNodeError::RuntimeError(format!("Failed to deallocate input memory: {}", e)))?;
+
+        if result_ptr == 0 {
+            // Clean up output length memory
+            let _ = deallocate_func.call(&mut *store, (output_len_ptr, 4));
+            return Err(ProcessingNodeError::RuntimeError("WASM process function returned null pointer".to_string()));
+        }
+
+        // Read output length
+        let mut output_len_bytes = [0u8; 4];
+        memory.read(&mut *store, output_len_ptr as usize, &mut output_len_bytes)
+            .map_err(|e| ProcessingNodeError::RuntimeError(format!("Failed to read output length: {}", e)))?;
+        let output_len = i32::from_le_bytes(output_len_bytes) as usize;
+
+        // Clean up output length memory
+        deallocate_func.call(&mut *store, (output_len_ptr, 4))
+            .map_err(|e| ProcessingNodeError::RuntimeError(format!("Failed to deallocate output length memory: {}", e)))?;
+
+        if output_len == 0 {
+            // Clean up result memory
+            let _ = deallocate_func.call(&mut *store, (result_ptr, 1)); // Minimal cleanup
+            return Ok(String::new());
+        }
+
+        // Read output data
+        let mut output_bytes = vec![0u8; output_len];
+        memory.read(&mut *store, result_ptr as usize, &mut output_bytes)
+            .map_err(|e| ProcessingNodeError::RuntimeError(format!("Failed to read output data: {}", e)))?;
+
+        // Clean up result memory
+        deallocate_func.call(&mut *store, (result_ptr, output_len as i32))
+            .map_err(|e| ProcessingNodeError::RuntimeError(format!("Failed to deallocate result memory: {}", e)))?;
+
+        // Convert output to string (remove null terminator if present)
+        // Ensure null terminator exists
+        if output_bytes.last() != Some(&0) {
+            output_bytes.push(0);
+        }
+        
+        let output_cstr = CStr::from_bytes_with_nul(&output_bytes)
+            .map_err(|e| ProcessingNodeError::RuntimeError(format!("Invalid C string in output: {}", e)))?;
+
+        let output = output_cstr.to_str()
+            .map_err(|e| ProcessingNodeError::RuntimeError(format!("Invalid UTF-8 in output: {}", e)))?
+            .to_string();
+
+        Ok(output)
     }
 }
 

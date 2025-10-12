@@ -74,19 +74,19 @@ use crate::backends::wasm::error::WasmError;
 pub enum ProcessingNodeError {
     /// WIT Component execution error (Preview 2)
     ComponentError(ComponentExecutionError),
-    
+
     /// WASI Preview 1 module execution error
     WasiError(WasiExecutionError),
-    
+
     /// C-Style module execution error
     CStyleError(CStyleExecutionError),
-    
+
     /// Input processing error
     InputError(String),
-    
+
     /// General validation error
     ValidationError(String),
-    
+
     /// Runtime execution error
     RuntimeError(String),
 }
@@ -96,13 +96,13 @@ pub enum ProcessingNodeError {
 pub enum ComponentExecutionError {
     /// Component instantiation failed
     InstantiationFailed(String),
-    
+
     /// Required interface not found
     InterfaceNotFound(String),
-    
+
     /// Function call failed
     FunctionCallFailed(String),
-    
+
     /// Memory allocation failed
     MemoryAllocationFailed(String),
 }
@@ -112,13 +112,13 @@ pub enum ComponentExecutionError {
 pub enum WasiExecutionError {
     /// WASI context creation failed
     ContextCreationFailed(String),
-    
+
     /// Required WASI function not available
     FunctionNotAvailable(String),
-    
+
     /// WASI runtime error
     RuntimeError(String),
-    
+
     /// Memory management error
     MemoryError(String),
 }
@@ -128,13 +128,13 @@ pub enum WasiExecutionError {
 pub enum CStyleExecutionError {
     /// Required function export not found
     FunctionNotFound(String),
-    
+
     /// Function signature mismatch
     SignatureMismatch(String),
-    
+
     /// Memory allocation failed
     AllocationFailed(String),
-    
+
     /// Function execution failed
     FunctionExecutionFailed(String),
 }
@@ -159,7 +159,11 @@ impl fmt::Display for ComponentExecutionError {
                 write!(f, "Component instantiation failed: {}", msg)
             }
             ComponentExecutionError::InterfaceNotFound(interface) => {
-                write!(f, "Required interface '{}' not found in component", interface)
+                write!(
+                    f,
+                    "Required interface '{}' not found in component",
+                    interface
+                )
             }
             ComponentExecutionError::FunctionCallFailed(msg) => {
                 write!(f, "Component function call failed: {}", msg)
@@ -194,7 +198,11 @@ impl fmt::Display for CStyleExecutionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CStyleExecutionError::FunctionNotFound(func) => {
-                write!(f, "Required function '{}' not found in module exports", func)
+                write!(
+                    f,
+                    "Required function '{}' not found in module exports",
+                    func
+                )
             }
             CStyleExecutionError::SignatureMismatch(msg) => {
                 write!(f, "Function signature mismatch: {}", msg)

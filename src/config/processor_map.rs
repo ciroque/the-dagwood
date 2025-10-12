@@ -90,8 +90,9 @@ impl ProcessorMap {
         for p in &cfg.processors {
             let processor: Arc<dyn Processor> = match p.backend {
                 crate::config::BackendType::Local => {
-                    crate::backends::local::LocalProcessorFactory::create_processor(p)
-                        .map_err(|e| format!("Failed to create local processor '{}': {}", p.id, e))?
+                    crate::backends::local::LocalProcessorFactory::create_processor(p).map_err(
+                        |e| format!("Failed to create local processor '{}': {}", p.id, e),
+                    )?
                 }
                 crate::config::BackendType::Loadable => {
                     // TODO: dynamic library loading
@@ -370,19 +371,22 @@ mod tests {
 
         for test_case in test_cases {
             let processor_map_result = ProcessorMap::from_config(&test_case.config);
-            
+
             // If the test case contains WASM processors with non-existent files, expect failure
-            let has_invalid_wasm = test_case.config.processors.iter().any(|p| 
-                p.backend == BackendType::Wasm && 
-                p.module.as_ref().map_or(false, |m| m.ends_with(".wasm"))
-            );
-            
+            let has_invalid_wasm = test_case.config.processors.iter().any(|p| {
+                p.backend == BackendType::Wasm
+                    && p.module.as_ref().map_or(false, |m| m.ends_with(".wasm"))
+            });
+
             if has_invalid_wasm {
-                assert!(processor_map_result.is_err(), 
-                    "Test case '{}': Expected error for non-existent WASM file", test_case.name);
+                assert!(
+                    processor_map_result.is_err(),
+                    "Test case '{}': Expected error for non-existent WASM file",
+                    test_case.name
+                );
                 continue;
             }
-            
+
             let processor_map = processor_map_result.unwrap();
 
             // Check processor count
@@ -449,14 +453,16 @@ mod tests {
             };
 
             let processor_map_result = ProcessorMap::from_config(&config);
-            
+
             // Local and WASM processors with invalid configurations should fail
             // Other backend types should succeed with stub processors
             match backend_type {
                 BackendType::Local | BackendType::Wasm => {
-                    assert!(processor_map_result.is_err(), 
-                        "Expected error for invalid {} processor configuration", 
-                        format!("{:?}", backend_type));
+                    assert!(
+                        processor_map_result.is_err(),
+                        "Expected error for invalid {} processor configuration",
+                        format!("{:?}", backend_type)
+                    );
                 }
                 _ => {
                     let processor_map = processor_map_result.unwrap();

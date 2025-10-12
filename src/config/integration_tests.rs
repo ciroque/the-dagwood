@@ -50,7 +50,8 @@ mod integration_tests {
     #[test]
     fn test_build_dag_runtime_from_yaml() {
         let config = load_and_validate_config("configs/simple-text-pipeline.yaml").unwrap();
-        let (processors, _executor, failure_strategy) = RuntimeBuilder::from_config(&config).unwrap();
+        let (processors, _executor, failure_strategy) =
+            RuntimeBuilder::from_config(&config).unwrap();
 
         // Verify processor registry
         assert_eq!(processors.len(), 3);

@@ -16,12 +16,12 @@
 //! - Validate capability requests against security policies (future)
 
 use crate::backends::wasm::error::WasmResult;
-use crate::backends::wasm::module_loader::{LoadedModule, ImportType};
+use crate::backends::wasm::module_loader::{ImportType, LoadedModule};
 use std::collections::HashSet;
 use wasmtime::*;
 
 #[cfg(test)]
-use crate::backends::wasm::module_loader::{WasmArtifact};
+use crate::backends::wasm::module_loader::WasmArtifact;
 
 /// Capability requirements discovered from component analysis
 #[derive(Debug, Clone)]
@@ -59,17 +59,19 @@ impl CapabilityManager {
         // Should use: Component::from_bytes() -> resolve.worlds -> world.imports
         // Current: Raw WASM imports (wasi_snapshot_preview1.fd_write)
         // Future: WIT imports (wasi:filesystem/types@0.2.0)
-        // 
+        //
         // TODO: Consider CapabilityAnalyzer trait for strategy pattern:
         // - WitWorldAnalyzer: Component Model WIT parsing
         // - RawImportAnalyzer: Legacy WASM import analysis (fallback)
         // - Chain of responsibility: try WIT first, fallback to raw imports
-        
+
         // Analyze imports to determine capability needs
         for import in &loaded_module.imports {
             if let ImportType::Wasi = import.import_type {
-                requirements.wasi_functions.insert(import.function_name.clone());
-                
+                requirements
+                    .wasi_functions
+                    .insert(import.function_name.clone());
+
                 // Map WASI functions to capability categories
                 match import.function_name.as_str() {
                     "fd_write" | "fd_read" => {
@@ -105,7 +107,7 @@ impl CapabilityManager {
     ) -> WasmResult<WasiSetup> {
         // For Phase 1: Create minimal setup without actual WASI functions
         // TODO: Phase 2.1 - Add actual WASI function provisioning
-        
+
         let linker = Linker::new(engine);
         let store_data = ();
 
@@ -113,11 +115,8 @@ impl CapabilityManager {
         // 1. Create WasiCtxBuilder based on requirements
         // 2. Add only requested WASI functions to linker
         // 3. Apply capability restrictions based on policies
-        
-        Ok(WasiSetup {
-            linker,
-            store_data,
-        })
+
+        Ok(WasiSetup { linker, store_data })
     }
 
     /// Validate capability requirements against security policies
@@ -125,7 +124,7 @@ impl CapabilityManager {
     pub fn validate_capabilities(requirements: &CapabilityRequirements) -> WasmResult<()> {
         // Phase 2: Allow all requested capabilities
         // This is where future policy enforcement will happen
-        
+
         // Log capability requests for audit purposes
         tracing::debug!(
             "Component capability requirements: stdio={}, clocks={}, random={}, fs={}, net={}",
@@ -152,7 +151,7 @@ impl CapabilityManager {
     /// Get a human-readable capability summary for logging/debugging
     pub fn capability_summary(requirements: &CapabilityRequirements) -> String {
         let mut capabilities = Vec::new();
-        
+
         if requirements.needs_stdio {
             capabilities.push("stdio");
         }
@@ -180,20 +179,23 @@ impl CapabilityManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backends::wasm::module_loader::{ComponentType, ModuleImport, ImportType};
+    use crate::backends::wasm::module_loader::{ComponentType, ImportType, ModuleImport};
     use wasmtime::{Engine, Module};
 
     fn create_test_loaded_module(imports: Vec<ModuleImport>) -> LoadedModule {
         let engine = Engine::default();
         // Create a minimal valid WASM module for testing
-        let wasm_bytes = wat::parse_str(r#"
+        let wasm_bytes = wat::parse_str(
+            r#"
             (module
                 (func (export "process") (param i32 i32) (result i32)
                     i32.const 0
                 )
                 (memory (export "memory") 1)
             )
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         let module = Module::new(&engine, &wasm_bytes).unwrap();
 
         LoadedModule {

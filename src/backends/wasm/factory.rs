@@ -1,7 +1,9 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
-use crate::backends::wasm::{WasmError, WasmProcessor, WasmResult, WasmModuleLoader, LoadedModule, ComponentType};
+use crate::backends::wasm::{
+    ComponentType, LoadedModule, WasmError, WasmModuleLoader, WasmProcessor, WasmResult,
+};
 use crate::config::ProcessorConfig;
 use crate::traits::processor::{Processor, ProcessorIntent};
 use std::sync::Arc;
@@ -90,14 +92,14 @@ impl WasmProcessorFactory {
 
         // Load and detect WASM artifact type (single byte load for efficiency)
         let loaded_module = WasmModuleLoader::load_module(module_path)?;
-        
+
         // Log detection result
         tracing::info!(
             "Detected WASM artifact type: {:?} for module: {}",
             loaded_module.component_type,
             module_path
         );
-        
+
         // Create processor based on detected type
         match loaded_module.component_type {
             ComponentType::WitComponent => {
@@ -105,9 +107,10 @@ impl WasmProcessorFactory {
             }
             ComponentType::CStyle => {
                 // Check if it has WASI imports (Preview 1) or is pure C-style
-                let has_wasi_imports = loaded_module.imports.iter()
-                    .any(|import| matches!(import.import_type, crate::backends::wasm::ImportType::Wasi));
-                
+                let has_wasi_imports = loaded_module.imports.iter().any(|import| {
+                    matches!(import.import_type, crate::backends::wasm::ImportType::Wasi)
+                });
+
                 if has_wasi_imports {
                     Self::create_preview1_processor(config, loaded_module, intent)
                 } else {
@@ -116,26 +119,26 @@ impl WasmProcessorFactory {
             }
         }
     }
-    
+
     /// Create a WIT Component processor (Preview 2 - The New Hotness)
     fn create_wit_component_processor(
         config: &ProcessorConfig,
         loaded_module: LoadedModule,
         intent: ProcessorIntent,
     ) -> WasmResult<Arc<dyn Processor>> {
-        tracing::info!("Creating WIT Component processor (Preview 2): {}", config.id);
-        
+        tracing::info!(
+            "Creating WIT Component processor (Preview 2): {}",
+            config.id
+        );
+
         // For now, create a standard WasmProcessor
         // TODO: Implement specialized WIT component execution in future
-        let processor = WasmProcessor::from_loaded_module(
-            config.id.clone(),
-            loaded_module,
-            intent,
-        )?;
-        
+        let processor =
+            WasmProcessor::from_loaded_module(config.id.clone(), loaded_module, intent)?;
+
         Ok(Arc::new(processor))
     }
-    
+
     /// Create a WASI Preview 1 processor (Legacy but Common)
     fn create_preview1_processor(
         config: &ProcessorConfig,
@@ -143,17 +146,14 @@ impl WasmProcessorFactory {
         intent: ProcessorIntent,
     ) -> WasmResult<Arc<dyn Processor>> {
         tracing::info!("Creating WASI Preview 1 processor (Legacy): {}", config.id);
-        
+
         // Create processor with WASI support
-        let processor = WasmProcessor::from_loaded_module(
-            config.id.clone(),
-            loaded_module,
-            intent,
-        )?;
-        
+        let processor =
+            WasmProcessor::from_loaded_module(config.id.clone(), loaded_module, intent)?;
+
         Ok(Arc::new(processor))
     }
-    
+
     /// Create a C-Style processor (Old Reliable)
     fn create_cstyle_processor(
         config: &ProcessorConfig,
@@ -161,14 +161,11 @@ impl WasmProcessorFactory {
         intent: ProcessorIntent,
     ) -> WasmResult<Arc<dyn Processor>> {
         tracing::info!("Creating C-Style processor (Old Reliable): {}", config.id);
-        
+
         // Create processor with C-style execution
-        let processor = WasmProcessor::from_loaded_module(
-            config.id.clone(),
-            loaded_module,
-            intent,
-        )?;
-        
+        let processor =
+            WasmProcessor::from_loaded_module(config.id.clone(), loaded_module, intent)?;
+
         Ok(Arc::new(processor))
     }
 }

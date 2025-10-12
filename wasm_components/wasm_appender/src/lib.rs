@@ -130,102 +130,112 @@ mod tests {
     #[test]
     fn test_process_basic() {
         let input = "test";
-        let mut output_len = 0;
+        let mut output_len: i32 = 0;
         let output_ptr = process(
-            input.as_ptr(),
-            input.len(),
-            &mut output_len as *mut usize
+            input.as_ptr() as i32,
+            input.len() as i32,
+            &mut output_len as *mut i32 as i32
         );
         
-        assert!(!output_ptr.is_null(), "Process returned null pointer");
+        assert_ne!(output_ptr, 0, "Process returned null pointer");
         assert_eq!(output_len, 9); // "test-wasm" is 9 bytes
         
         // Convert back to string
         let output_slice = unsafe { 
-            slice::from_raw_parts(output_ptr, output_len) 
+            slice::from_raw_parts(output_ptr as *const u8, output_len as usize) 
         };
         let output_str = std::str::from_utf8(output_slice).unwrap();
         assert_eq!(output_str, "test-wasm");
         
         // Clean up (no null terminator!)
-        unsafe { deallocate(output_ptr, output_len) };
+        unsafe { deallocate(output_ptr, output_len as i32) };
     }
 
     #[test]
     fn test_process_empty_string() {
         let input = "";
-        let mut output_len = 0;
+        let mut output_len: i32 = 0;
         let output_ptr = process(
-            input.as_ptr(),
-            input.len(),
-            &mut output_len as *mut usize
+            input.as_ptr() as i32,
+            input.len() as i32,
+            &mut output_len as *mut i32 as i32
         );
         
-        assert!(!output_ptr.is_null(), "Process returned null pointer");
+        assert_ne!(output_ptr, 0, "Process returned null pointer");
         assert_eq!(output_len, 5); // "-wasm" is 5 bytes
         
         // Convert back to string
         let output_slice = unsafe { 
-            slice::from_raw_parts(output_ptr, output_len) 
+            slice::from_raw_parts(output_ptr as *const u8, output_len as usize) 
         };
         let output_str = std::str::from_utf8(output_slice).unwrap();
         assert_eq!(output_str, "-wasm");
         
         // Clean up
-        unsafe { deallocate(output_ptr, output_len) };
+        unsafe { deallocate(output_ptr, output_len as i32) };
     }
 
     #[test]
     fn test_process_invalid_utf8() {
         let invalid_utf8 = &[0xC3, 0x28]; // Invalid UTF-8 sequence
-        let mut output_len: usize = 0;
+        let mut output_len: i32 = 0;
         let output_ptr = process(
-            invalid_utf8.as_ptr(),
-            invalid_utf8.len(),
-            &mut output_len as *mut usize
+            invalid_utf8.as_ptr() as i32,
+            invalid_utf8.len() as i32,
+            &mut output_len as *mut i32 as i32
         );
         
-        assert!(output_ptr.is_null(), "Expected null for invalid UTF-8 input");
+        assert_eq!(output_ptr, 0, "Expected null for invalid UTF-8 input");
         assert_eq!(output_len, 0);
     }
 
     #[test]
     fn test_allocate_and_deallocate() {
         let size = 1024;
-        let ptr = allocate(size);
-        assert!(!ptr.is_null(), "Allocation failed");
+        let ptr = allocate(size as i32);
+        assert_ne!(ptr, 0, "Allocation failed");
         
         // Write some data to make sure it's usable memory
         unsafe {
-            for i in 0..size {
+            let ptr = ptr as *mut u8;
+            for i in 0..size as usize {
                 *ptr.add(i) = (i % 256) as u8;
             }
         }
         
         // Read back and verify
         unsafe {
-            for i in 0..size {
+            let ptr = ptr as *mut u8;
+            for i in 0..size as usize {
                 assert_eq!(*ptr.add(i), (i % 256) as u8);
             }
         }
         
-        // Free the memory
-        deallocate(ptr, size);
+        // Clean up
+        deallocate(ptr, size as i32);
     }
 
     #[test]
     fn test_memory_isolation() {
         // Test that different allocations don't interfere
-        let ptr1 = allocate(10);
-        let ptr2 = allocate(10);
+        let ptr1 = allocate(10 as i32);
+        let ptr2 = allocate(10 as i32);
         
+        assert_ne!(ptr1, 0, "First allocation failed");
+        assert_ne!(ptr2, 0, "Second allocation failed");
         assert_ne!(ptr1, ptr2, "Allocations should return different pointers");
         
         // Write to first allocation
-        unsafe { *ptr1 = 42 };
+        unsafe {
+            let ptr1 = ptr1 as *mut u8;
+            *ptr1 = 42;
+        }
         
         // Second allocation should still be zeroed
-        unsafe { assert_eq!(*ptr2, 0) };
+        unsafe {
+            let ptr2 = ptr2 as *mut u8;
+            assert_eq!(*ptr2, 0);
+        }
         
         deallocate(ptr1, 10);
         deallocate(ptr2, 10);

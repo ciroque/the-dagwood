@@ -46,10 +46,9 @@
 //! - **Epoch interruption disabled**: Prevents false interrupts in wasmtime 25.0+
 
 use crate::backends::wasm::error::WasmResult;
-use crate::backends::wasm::module_loader::{WasmModuleLoader, LoadedModule};
-use crate::backends::wasm::processing_node_factory::ProcessingNodeFactory;
+use crate::backends::wasm::module_loader::{LoadedModule, WasmModuleLoader};
 use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
-use std::sync::Arc;
+use crate::backends::wasm::processing_node_factory::ProcessingNodeFactory;
 use crate::proto::processor_v1::{
     processor_response::Outcome, ErrorDetail, PipelineMetadata, ProcessorMetadata,
     ProcessorRequest, ProcessorResponse,
@@ -57,9 +56,10 @@ use crate::proto::processor_v1::{
 use crate::traits::processor::{Processor, ProcessorIntent};
 use async_trait::async_trait;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// WASM Processor - orchestrates WASM module execution using specialized components
-/// 
+///
 /// This processor follows the Single Responsibility Principle by delegating to:
 /// - WasmModuleLoader: Module loading and validation
 /// - CapabilityManager: Capability analysis and WASI setup
@@ -114,7 +114,7 @@ impl WasmProcessor {
         // Create the appropriate executor based on the WASM artifact type
         let executor = ProcessingNodeFactory::create_executor(loaded_module)
             .map_err(|e| WasmResult::<()>::Err(e.into()).unwrap_err())?;
-        
+
         tracing::info!(
             "Created WasmProcessor '{}' with {} executor",
             processor_id,
@@ -157,7 +157,7 @@ impl WasmProcessor {
         // Create the appropriate executor based on the WASM artifact type
         let executor = ProcessingNodeFactory::create_executor(loaded_module)
             .map_err(|e| WasmResult::<()>::Err(e.into()).unwrap_err())?;
-        
+
         tracing::info!(
             "Created WasmProcessor '{}' with {} executor",
             processor_id,
@@ -193,7 +193,7 @@ impl WasmProcessor {
             self.module_path,
             self.executor.artifact_type()
         );
-        
+
         // Execute using the ProcessingNodeExecutor
         match self.executor.execute(input) {
             Ok(output) => {
@@ -207,7 +207,7 @@ impl WasmProcessor {
             }
             Err(error) => {
                 tracing::error!(
-                    "WASM execution failed for {}: {}", 
+                    "WASM execution failed for {}: {}",
                     self.executor.artifact_type(),
                     error
                 );
@@ -229,18 +229,26 @@ impl Processor for WasmProcessor {
 
     async fn process(&self, request: ProcessorRequest) -> ProcessorResponse {
         let input = request.payload;
-        
+
         // Execute WASM module using orchestrated components
         match self.execute_wasm(&input) {
             Ok(output) => {
                 // Create successful response with metadata
                 let mut processor_metadata_map = HashMap::new();
-                processor_metadata_map.insert("processor_id".to_string(), self.processor_id.clone());
+                processor_metadata_map
+                    .insert("processor_id".to_string(), self.processor_id.clone());
                 processor_metadata_map.insert("module_path".to_string(), self.module_path.clone());
-                processor_metadata_map.insert("artifact_type".to_string(), self.executor.artifact_type().to_string());
-                processor_metadata_map.insert("capabilities".to_string(), format!("{:?}", self.executor.capabilities()));
+                processor_metadata_map.insert(
+                    "artifact_type".to_string(),
+                    self.executor.artifact_type().to_string(),
+                );
+                processor_metadata_map.insert(
+                    "capabilities".to_string(),
+                    format!("{:?}", self.executor.capabilities()),
+                );
                 processor_metadata_map.insert("input_length".to_string(), input.len().to_string());
-                processor_metadata_map.insert("output_length".to_string(), output.len().to_string());
+                processor_metadata_map
+                    .insert("output_length".to_string(), output.len().to_string());
 
                 let processor_metadata = ProcessorMetadata {
                     metadata: processor_metadata_map,

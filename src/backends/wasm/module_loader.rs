@@ -18,8 +18,8 @@
 
 use crate::backends::wasm::error::{WasmError, WasmResult};
 use std::path::Path;
-use wasmtime::*;
 use wasmtime::component::Component;
+use wasmtime::*;
 
 /// Maximum allowed WASM module size (16MB)
 const MAX_WASM_COMPONENT_SIZE: usize = 16 * 1024 * 1024;
@@ -94,14 +94,21 @@ impl WasmModuleLoader {
                 // Successfully loaded as WIT component
                 tracing::debug!("Loaded as WIT component: {}", module_path_str);
                 let imports = Self::parse_component_imports(&component)?;
-                (WasmArtifact::Component(component), ComponentType::WitComponent, imports)
+                (
+                    WasmArtifact::Component(component),
+                    ComponentType::WitComponent,
+                    imports,
+                )
             }
             Err(_component_err) => {
                 // Failed as component, try as core module
-                tracing::debug!("Failed as component, trying as core module: {}", module_path_str);
+                tracing::debug!(
+                    "Failed as component, trying as core module: {}",
+                    module_path_str
+                );
                 let module = Module::new(&engine, &module_bytes)
                     .map_err(|e| WasmError::ModuleError(e.to_string()))?;
-                
+
                 let imports = Self::parse_module_imports(&module)?;
                 let component_type = Self::detect_component_type(&module);
                 (WasmArtifact::Module(module), component_type, imports)
@@ -221,8 +228,8 @@ impl WasmModuleLoader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::NamedTempFile;
     use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_engine_creation() {
@@ -239,7 +246,7 @@ mod tests {
 
         let result = WasmModuleLoader::load_module(temp_file.path());
         assert!(result.is_err());
-        
+
         if let Err(WasmError::ValidationError(msg)) = result {
             assert!(msg.contains("WASM module too large"));
         } else {
@@ -256,7 +263,7 @@ mod tests {
         // Test disallowed WASI function
         let result = WasmModuleLoader::validate_wasi_import("wasi_snapshot_preview1", "path_open");
         assert!(result.is_err());
-        
+
         if let Err(WasmError::ValidationError(msg)) = result {
             assert!(msg.contains("is not allowed"));
             assert!(msg.contains("path_open"));

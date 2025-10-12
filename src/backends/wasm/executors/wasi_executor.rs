@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 use super::super::{
+    capability_manager::CapabilityManager,
+    module_loader::WasmArtifact,
     processing_node::{ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
-    LoadedModule, capability_manager::CapabilityManager, module_loader::WasmArtifact,
+    LoadedModule,
 };
 use std::sync::Arc;
 use wasmtime::*;
@@ -35,37 +37,44 @@ impl ProcessingNodeExecutor for WasiNodeExecutor {
 
         // Set up WASI context with required capabilities
         let requirements = CapabilityManager::analyze_capabilities(&self.loaded_module);
-        let wasi_setup = CapabilityManager::create_wasi_setup(&self.loaded_module.engine, &requirements)?;
+        let wasi_setup =
+            CapabilityManager::create_wasi_setup(&self.loaded_module.engine, &requirements)?;
 
         // Create store with WASI context
         let mut store = Store::new(&self.loaded_module.engine, wasi_setup.store_data);
-        
+
         // Set fuel limit for security and resource protection
-        store.set_fuel(100_000_000)
+        store
+            .set_fuel(100_000_000)
             .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
 
         // Execute based on artifact type
         let output = match &self.loaded_module.artifact {
             WasmArtifact::Module(module) => {
                 // Instantiate WASI module
-                let instance = wasi_setup.linker.instantiate(&mut store, module)
+                let instance = wasi_setup
+                    .linker
+                    .instantiate(&mut store, module)
                     .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
-                
+
                 // WASI modules typically have a _start function or main function
                 // Try _start first (standard WASI entry point)
                 if let Ok(start_func) = instance.get_typed_func::<(), ()>(&mut store, "_start") {
                     // For _start, we need to set up stdin/stdout for communication
                     // This is a simplified approach - in practice, WASI modules might
                     // read from stdin and write to stdout
-                    start_func.call(&mut store, ())
+                    start_func
+                        .call(&mut store, ())
                         .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
-                    
+
                     // For now, return a processed version of the input
                     // In a real WASI implementation, we'd capture stdout
                     format!("{}-wasi", input_str).into_bytes()
-                } else if let Ok(main_func) = instance.get_typed_func::<(), i32>(&mut store, "main") {
+                } else if let Ok(main_func) = instance.get_typed_func::<(), i32>(&mut store, "main")
+                {
                     // Try main function
-                    let _exit_code = main_func.call(&mut store, ())
+                    let _exit_code = main_func
+                        .call(&mut store, ())
                         .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
                     format!("{}-wasi", input_str).into_bytes()
                 } else {
@@ -77,7 +86,7 @@ impl ProcessingNodeExecutor for WasiNodeExecutor {
             WasmArtifact::Component(_) => {
                 // This shouldn't happen for WASI Preview 1, but handle gracefully
                 return Err(ProcessingNodeError::ValidationError(
-                    "WASI Preview 1 executor received WIT component".to_string()
+                    "WASI Preview 1 executor received WIT component".to_string(),
                 ));
             }
         };
@@ -92,7 +101,7 @@ impl ProcessingNodeExecutor for WasiNodeExecutor {
     fn capabilities(&self) -> Vec<String> {
         // Extract capabilities from WASI imports
         let mut caps = vec!["wasi:preview1".to_string()];
-        
+
         // Add specific WASI capabilities based on imports
         for import in &self.loaded_module.imports {
             if import.module_name == "wasi_snapshot_preview1" {
@@ -101,7 +110,7 @@ impl ProcessingNodeExecutor for WasiNodeExecutor {
                 }
             }
         }
-        
+
         caps
     }
 
@@ -118,16 +127,16 @@ impl ProcessingNodeExecutor for WasiNodeExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backends::wasm::{ComponentType, ModuleImport, ImportType};
+    use crate::backends::wasm::{ComponentType, ImportType, ModuleImport};
     use wasmtime::{Engine, Module};
 
     fn create_mock_wasi_loaded_module() -> LoadedModule {
         let engine = Engine::default();
-        
+
         // Create a minimal valid WASM module for testing
         let wasm_bytes = wat::parse_str("(module)").unwrap();
         let module = Module::new(&engine, &wasm_bytes).unwrap();
-        
+
         let imports = vec![ModuleImport {
             module_name: "wasi_snapshot_preview1".to_string(),
             function_name: "proc_exit".to_string(),
@@ -147,11 +156,11 @@ mod tests {
     fn test_wasi_executor_creation() {
         let loaded_module = create_mock_wasi_loaded_module();
         let result = WasiNodeExecutor::new(loaded_module);
-        
+
         assert!(result.is_ok());
         let executor = result.unwrap();
         assert_eq!(executor.artifact_type(), "WASI Preview 1");
-        
+
         let capabilities = executor.capabilities();
         assert!(capabilities.contains(&"wasi:preview1".to_string()));
         assert!(capabilities.contains(&"wasi:proc_exit".to_string()));
@@ -161,10 +170,10 @@ mod tests {
     fn test_wasi_executor_fallback_execution() {
         let loaded_module = create_mock_wasi_loaded_module();
         let executor = WasiNodeExecutor::new(loaded_module).unwrap();
-        
+
         let input = b"test input";
         let result = executor.execute(input);
-        
+
         // The test module doesn't have proper WASI setup, so it might fail
         // Let's check what error we get
         match result {
@@ -175,7 +184,10 @@ mod tests {
             Err(e) => {
                 // This is expected for a mock module without proper WASI setup
                 println!("Expected error for mock WASI module: {}", e);
-                assert!(e.to_string().contains("Runtime error") || e.to_string().contains("Input error"));
+                assert!(
+                    e.to_string().contains("Runtime error")
+                        || e.to_string().contains("Input error")
+                );
             }
         }
     }

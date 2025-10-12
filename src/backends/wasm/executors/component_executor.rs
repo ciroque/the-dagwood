@@ -25,7 +25,6 @@ impl ComponentNodeExecutor {
             loaded_module: Arc::new(loaded_module),
         })
     }
-
 }
 
 impl ProcessingNodeExecutor for ComponentNodeExecutor {
@@ -65,7 +64,7 @@ mod tests {
 
     fn create_mock_component_loaded_module() -> LoadedModule {
         let engine = Engine::default();
-        
+
         // Create a minimal valid WASM module that implements the expected interface
         // This module takes a string input and returns it with a "processed: " prefix
         let wasm_bytes = wat::parse_str(r#"
@@ -170,9 +169,9 @@ mod tests {
                 )
             )
         "#).unwrap();
-        
+
         let module = Module::new(&engine, &wasm_bytes).unwrap();
-        
+
         LoadedModule {
             engine,
             artifact: WasmArtifact::Module(module),
@@ -186,9 +185,9 @@ mod tests {
     fn test_component_executor_creation() {
         let loaded_module = create_mock_component_loaded_module();
         let executor = ComponentNodeExecutor::new(loaded_module).unwrap();
-        
+
         assert_eq!(executor.artifact_type(), "WIT Component");
-        
+
         let capabilities = executor.capabilities();
         assert!(capabilities.contains(&"wasmtime:component-model".to_string()));
     }
@@ -197,14 +196,17 @@ mod tests {
     fn test_component_executor_validation_error() {
         // Test with a core module instead of a component
         let engine = Engine::default();
-        let wasm_bytes = wat::parse_str(r#"
+        let wasm_bytes = wat::parse_str(
+            r#"
             (module
                 (func (export "run") (result i32) i32.const 42)
             )
-        "#).unwrap();
-        
+        "#,
+        )
+        .unwrap();
+
         let module = wasmtime::Module::new(&engine, &wasm_bytes).unwrap();
-        
+
         let loaded_module = LoadedModule {
             engine,
             artifact: WasmArtifact::Module(module),
@@ -212,24 +214,24 @@ mod tests {
             imports: vec![],
             module_path: "test_module.wasm".to_string(),
         };
-        
+
         let result = ComponentNodeExecutor::new(loaded_module);
         assert!(result.is_ok()); // No-op executor doesn't validate
     }
-    
+
     #[test]
     fn test_component_execution() {
         let loaded_module = create_mock_component_loaded_module();
         let executor = ComponentNodeExecutor::new(loaded_module).unwrap();
-        
+
         let input = b"test input";
         let result = executor.execute(input);
-        
+
         match result {
             Ok(output_bytes) => {
                 // No-op executor returns empty vector
                 assert_eq!(output_bytes, Vec::<u8>::new());
-            },
+            }
             Err(e) => {
                 panic!("Component execution failed: {}", e);
             }

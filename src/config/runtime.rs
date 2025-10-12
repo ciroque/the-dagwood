@@ -46,7 +46,9 @@ impl RuntimeBuilder {
     ///
     /// # Returns
     /// A tuple of (ProcessorMap, DagExecutor, FailureStrategy) ready for DAG execution
-    pub fn from_config(cfg: &Config) -> Result<(ProcessorMap, Box<dyn DagExecutor>, FailureStrategy), String> {
+    pub fn from_config(
+        cfg: &Config,
+    ) -> Result<(ProcessorMap, Box<dyn DagExecutor>, FailureStrategy), String> {
         let processors = ProcessorMap::from_config(cfg)?;
         let executor = ExecutorFactory::from_config(cfg);
         Ok((processors, executor, cfg.failure_strategy))

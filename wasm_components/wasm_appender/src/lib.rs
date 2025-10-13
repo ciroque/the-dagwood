@@ -52,12 +52,14 @@ pub extern "C" fn process(
     }
     
     // Safety: We assume the input pointer and length are valid
-    let mut input_slice = unsafe { std::slice::from_raw_parts(input_ptr as *const u8, input_len as usize) };
+    let input_slice = unsafe { std::slice::from_raw_parts(input_ptr as *const u8, input_len as usize) };
     
     // Remove null terminator if present (DAGwood sends C-strings with null terminator)
-    if let Some(&0) = input_slice.last() {
-        input_slice = &input_slice[..input_slice.len() - 1];
-    }
+    let input_slice = if let Some(&0) = input_slice.last() {
+        &input_slice[..input_slice.len() - 1]
+    } else {
+        input_slice
+    };
     
     // Convert to Rust string
     let input_str = match std::str::from_utf8(input_slice) {

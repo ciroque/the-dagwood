@@ -8,7 +8,6 @@ use super::super::{
 };
 use crate::backends::wasm::capability_manager::CapabilityManager;
 use crate::backends::wasm::module_loader::WasmArtifact;
-use std::ffi::{CStr, CString};
 use wasmtime::*;
 
 /// Executor for C-Style WASM Modules
@@ -32,10 +31,6 @@ impl CStyleNodeExecutor {
 
 impl ProcessingNodeExecutor for CStyleNodeExecutor {
     fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
-        // Convert input to string for C-style interface
-        let input_str = std::str::from_utf8(input)
-            .map_err(|e| ProcessingNodeError::InputError(e.to_string()))?;
-
         // Set up WASI context with required capabilities
         let requirements = CapabilityManager::analyze_capabilities(&self.loaded_module);
         let wasi_setup =
@@ -50,7 +45,7 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
             .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
 
         // Execute based on artifact type
-        let output = match &self.loaded_module.artifact {
+        match &self.loaded_module.artifact {
             WasmArtifact::Module(module) => {
                 // Instantiate C-style module
                 let instance = wasi_setup
@@ -59,17 +54,15 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
                     .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
 
                 // C-style modules must export process, allocate, and deallocate functions
-                self.execute_c_style_process(&mut store, &instance, input_str)?
+                self.execute_c_style_process(&mut store, &instance, input)
             }
             WasmArtifact::Component(_) => {
                 // This shouldn't happen for C-style, but handle gracefully
-                return Err(ProcessingNodeError::ValidationError(
+                Err(ProcessingNodeError::ValidationError(
                     "C-style executor received WIT component".to_string(),
-                ));
+                ))
             }
-        };
-
-        Ok(output.into_bytes())
+        }
     }
 
     fn artifact_type(&self) -> &'static str {
@@ -101,8 +94,8 @@ impl CStyleNodeExecutor {
         &self,
         store: &mut Store<()>,
         instance: &Instance,
-        input: &str,
-    ) -> Result<String, ProcessingNodeError> {
+        input: &[u8],
+    ) -> Result<Vec<u8>, ProcessingNodeError> {
         // Get the module's memory
         let memory = instance.get_memory(&mut *store, "memory").ok_or_else(|| {
             ProcessingNodeError::ValidationError("WASM module must export 'memory'".to_string())
@@ -131,11 +124,8 @@ impl CStyleNodeExecutor {
                 )
             })?;
 
-        // Convert input to C string
-        let input_cstring = CString::new(input).map_err(|_| {
-            ProcessingNodeError::ValidationError("Input contains null bytes".to_string())
-        })?;
-        let input_bytes = input_cstring.as_bytes_with_nul();
+        // Use input bytes directly - no string conversion needed
+        let input_bytes = input;
 
         // Allocate memory in WASM for input
         let input_ptr = allocate_func
@@ -230,7 +220,7 @@ impl CStyleNodeExecutor {
         if output_len == 0 {
             // Clean up result memory
             let _ = deallocate_func.call(&mut *store, (result_ptr, 1)); // Minimal cleanup
-            return Ok(String::new());
+            return Ok(Vec::new());
         }
 
         // Read output data
@@ -251,24 +241,8 @@ impl CStyleNodeExecutor {
                 ))
             })?;
 
-        // Convert output to string (remove null terminator if present)
-        // Ensure null terminator exists
-        if output_bytes.last() != Some(&0) {
-            output_bytes.push(0);
-        }
-
-        let output_cstr = CStr::from_bytes_with_nul(&output_bytes).map_err(|e| {
-            ProcessingNodeError::RuntimeError(format!("Invalid C string in output: {}", e))
-        })?;
-
-        let output = output_cstr
-            .to_str()
-            .map_err(|e| {
-                ProcessingNodeError::RuntimeError(format!("Invalid UTF-8 in output: {}", e))
-            })?
-            .to_string();
-
-        Ok(output)
+        // Return the raw output bytes - let the caller handle any necessary conversion
+        Ok(output_bytes)
     }
 }
 

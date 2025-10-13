@@ -1,6 +1,3 @@
-// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
-// SPDX-License-Identifier: MIT
-
 use super::super::{
     processing_node::{ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
     LoadedModule,
@@ -8,19 +5,12 @@ use super::super::{
 use std::sync::Arc;
 use wasmtime::*;
 
-/// Executor for WASI Preview 1 Modules
-///
-/// Handles execution of WebAssembly modules that use the WASI Preview 1 API.
-/// This is the legacy way to interact with WebAssembly modules that need
-/// system capabilities like filesystem access.
 pub struct WasiNodeExecutor {
     loaded_module: Arc<LoadedModule>,
 }
 
 impl WasiNodeExecutor {
-    /// Create a new WasiNodeExecutor
     pub fn new(loaded_module: LoadedModule) -> Result<Self, ProcessingNodeError> {
-        // TODO: Implement WASI context validation
         Ok(Self {
             loaded_module: Arc::new(loaded_module),
         })
@@ -37,10 +27,8 @@ impl ProcessingNodeExecutor for WasiNodeExecutor {
     }
 
     fn capabilities(&self) -> Vec<String> {
-        // Extract capabilities from WASI imports
         let mut caps = vec!["wasi:preview1".to_string()];
 
-        // Add specific WASI capabilities based on imports
         for import in &self.loaded_module.imports {
             if import.module_name == "wasi_snapshot_preview1" {
                 if !caps.contains(&import.function_name) {
@@ -71,7 +59,6 @@ mod tests {
     fn create_mock_wasi_loaded_module() -> LoadedModule {
         let engine = Engine::default();
 
-        // Create a minimal valid WASM module for testing
         let wasm_bytes = wat::parse_str("(module)").unwrap();
         let module = Module::new(&engine, &wasm_bytes).unwrap();
 

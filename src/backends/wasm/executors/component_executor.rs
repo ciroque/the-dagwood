@@ -1,5 +1,3 @@
-// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
-// SPDX-License-Identifier: MIT
 
 use super::super::{
     processing_node::{ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
@@ -7,20 +5,12 @@ use super::super::{
 };
 use std::sync::Arc;
 
-/// Executor for WebAssembly Modules with a standard interface
-///
-/// Handles execution of WebAssembly modules that export a standard set of functions:
-/// - `process`: Processes input and returns output
-/// - `alloc`: Allocates memory in the module
-/// - `memory`: The module's linear memory
 pub struct ComponentNodeExecutor {
     loaded_module: Arc<LoadedModule>,
 }
 
 impl ComponentNodeExecutor {
-    /// Create a new ComponentNodeExecutor
     pub fn new(loaded_module: LoadedModule) -> Result<Self, ProcessingNodeError> {
-        // TODO: Implement WIT component validation
         Ok(Self {
             loaded_module: Arc::new(loaded_module),
         })
@@ -29,7 +19,6 @@ impl ComponentNodeExecutor {
 
 impl ProcessingNodeExecutor for ComponentNodeExecutor {
     fn execute(&self, _input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
-        // No-op implementation - just return empty vector
         Ok(Vec::new())
     }
 
@@ -38,8 +27,6 @@ impl ProcessingNodeExecutor for ComponentNodeExecutor {
     }
 
     fn capabilities(&self) -> Vec<String> {
-        // Return the capabilities required by this component
-        // This would typically come from component metadata in a real implementation
         vec![
             "wasmtime:component-model".to_string(),
             "string-processing".to_string(),

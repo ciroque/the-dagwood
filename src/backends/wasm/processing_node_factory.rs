@@ -1,16 +1,3 @@
-// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
-// SPDX-License-Identifier: MIT
-
-//! Processing Node Factory
-//!
-//! This module provides the factory for creating appropriate ProcessingNodeExecutor
-//! implementations based on detected WASM artifact types. The factory handles the
-//! three-way detection strategy:
-//!
-//! 1. **Preview 2 WIT Component** (The New Hotness) - Proper WIT components
-//! 2. **Preview 1 WASI Module** (Legacy but Common) - Modules with WASI imports
-//! 3. **C-Style Module** (Old Reliable) - Modules with C-style exports
-
 use super::executors::{CStyleNodeExecutor, ComponentNodeExecutor, WasiNodeExecutor};
 use crate::backends::wasm::{
     processing_node::{ProcessingNodeError, ProcessingNodeExecutor},
@@ -18,29 +5,9 @@ use crate::backends::wasm::{
 };
 use std::sync::Arc;
 
-/// Factory for creating ProcessingNodeExecutor implementations
-///
-/// This factory implements the three-way detection strategy documented in ADR-16,
-/// creating the appropriate executor based on the detected WASM artifact type.
 pub struct ProcessingNodeFactory;
 
 impl ProcessingNodeFactory {
-    /// Create an appropriate ProcessingNodeExecutor for the given loaded module
-    ///
-    /// # Detection Strategy
-    ///
-    /// 1. **WIT Component**: If loaded as Component, create ComponentNodeExecutor
-    /// 2. **WASI Module**: If Module with WASI imports, create WasiNodeExecutor  
-    /// 3. **C-Style Module**: If Module with C-style exports, create CStyleNodeExecutor
-    ///
-    /// # Arguments
-    ///
-    /// * `loaded_module` - Pre-loaded and validated WASM module
-    ///
-    /// # Returns
-    ///
-    /// Returns an Arc-wrapped ProcessingNodeExecutor or an error if no suitable
-    /// executor can be created.
     pub fn create_executor(
         loaded_module: LoadedModule,
     ) -> Result<Arc<dyn ProcessingNodeExecutor>, ProcessingNodeError> {

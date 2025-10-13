@@ -15,6 +15,8 @@ use wee_alloc::WeeAlloc;
 #[global_allocator]
 static ALLOC: WeeAlloc = WeeAlloc::INIT;
 
+const APPEND_STRING: &str = "::WASM";
+
 /// Primary WASM processing function with explicit length parameters.
 /// 
 /// This is the main WASM interface optimized for linear memory operations.
@@ -71,7 +73,7 @@ pub extern "C" fn process(
     };
     
     // Calculate output
-    let output = format!("{}-wasm", input_str);
+    let output = format!("{}{}", input_str, APPEND_STRING);
     let output_bytes = output.as_bytes();
     let output_len_val = output_bytes.len();
     

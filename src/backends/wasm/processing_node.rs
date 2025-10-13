@@ -1,61 +1,15 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
-//! Processing Node Execution Strategy Pattern
-//!
-//! This module implements the Strategy Pattern for WASM artifact execution,
-//! providing clean separation between different WASM artifact types:
-//! - C-Style modules with direct function exports
-//! - WASI Preview 1 modules with WASI runtime dependencies
-//! - WIT Components with structured interfaces (Preview 2)
-//!
-//! ## Architecture
-//!
-//! The `ProcessingNodeExecutor` trait defines the interface for all execution
-//! strategies, while concrete implementations handle the specifics of each
-//! artifact type. This enables:
-//! - Type-specific optimizations
-//! - Rich error context
-//! - Independent testing
-//! - Easy extensibility
-
 use std::fmt;
 
-/// Processing Node execution strategy trait
-///
-/// This trait defines the interface for executing different types of WASM artifacts.
-/// Each implementation handles the specifics of one artifact type while providing
-/// a consistent interface for the `WasmProcessor`.
-///
-/// # Design Principles
-///
-/// - **Single Responsibility**: Each implementation handles one artifact type
-/// - **Async Execution**: Consistent with DAGwood's async architecture
-/// - **Rich Errors**: Strategy-specific error context for debugging
-/// - **Extensibility**: Easy to add new artifact types
 pub trait ProcessingNodeExecutor: Send + Sync {
-    /// Execute the WASM artifact with the given input
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - Input bytes to process
-    ///
-    /// # Returns
-    ///
-    /// Returns the processed output bytes or a strategy-specific error
     fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError>;
-
-    /// Get a human-readable description of the artifact type
     fn artifact_type(&self) -> &'static str;
-
-    /// Get the capabilities/features supported by this executor
     fn capabilities(&self) -> Vec<String>;
-
-    /// Get execution metadata for observability
     fn execution_metadata(&self) -> ExecutionMetadata;
 }
 
-/// Execution metadata for observability and debugging
 #[derive(Debug, Clone)]
 pub struct ExecutionMetadata {
     pub module_path: String,
@@ -66,76 +20,51 @@ pub struct ExecutionMetadata {
 
 use crate::backends::wasm::error::WasmError;
 
-/// Strategy-specific processing node errors
-///
-/// This enum provides rich error context specific to each execution strategy,
-/// enabling better debugging and user experience.
 #[derive(Debug)]
 pub enum ProcessingNodeError {
-    /// WIT Component execution error (Preview 2)
     ComponentError(ComponentExecutionError),
 
-    /// WASI Preview 1 module execution error
     WasiError(WasiExecutionError),
 
-    /// C-Style module execution error
     CStyleError(CStyleExecutionError),
 
-    /// Input processing error
     InputError(String),
 
-    /// General validation error
     ValidationError(String),
 
-    /// Runtime execution error
     RuntimeError(String),
 }
 
-/// WIT Component execution errors (Preview 2)
 #[derive(Debug)]
 pub enum ComponentExecutionError {
-    /// Component instantiation failed
     InstantiationFailed(String),
 
-    /// Required interface not found
     InterfaceNotFound(String),
 
-    /// Function call failed
     FunctionCallFailed(String),
 
-    /// Memory allocation failed
     MemoryAllocationFailed(String),
 }
 
-/// WASI Preview 1 execution errors
 #[derive(Debug)]
 pub enum WasiExecutionError {
-    /// WASI context creation failed
     ContextCreationFailed(String),
 
-    /// Required WASI function not available
     FunctionNotAvailable(String),
 
-    /// WASI runtime error
     RuntimeError(String),
 
-    /// Memory management error
     MemoryError(String),
 }
 
-/// C-Style execution errors
 #[derive(Debug)]
 pub enum CStyleExecutionError {
-    /// Required function export not found
     FunctionNotFound(String),
 
-    /// Function signature mismatch
     SignatureMismatch(String),
 
-    /// Memory allocation failed
     AllocationFailed(String),
 
-    /// Function execution failed
     FunctionExecutionFailed(String),
 }
 

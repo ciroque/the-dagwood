@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 use std::sync::Arc;
 
 use super::super::{
@@ -255,8 +258,8 @@ mod tests {
         // Convert result back to string for verification
         let output = String::from_utf8(result).expect("Output is not valid UTF-8");
 
-        // The wasm_appender should append "-wasm" to the input
-        assert_eq!(output, "hello-wasm");
+        // The wasm_appender should append "::WASM" to the input
+        assert_eq!(output, "hello::WASM");
 
         // Verify metadata
         let metadata = executor.execution_metadata();

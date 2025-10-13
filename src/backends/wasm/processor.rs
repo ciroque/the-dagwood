@@ -1,52 +1,8 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
-//! WASM Processor Implementation
-//!
-//! This module provides a WebAssembly (WASM) processor backend for The DAGwood project.
-//! It uses the wasmtime runtime to execute WASM modules in a sandboxed environment
-//! with proper security isolation and resource management.
-//!
-//! ## Architecture Overview
-//!
-//! The WASM processor provides secure, isolated execution of user-defined processing logic
-//! compiled to WebAssembly. This enables:
-//! - **Security**: Complete sandboxing with no host system access
-//! - **Performance**: Near-native execution speed with wasmtime's optimizations
-//! - **Flexibility**: Support for any WASM-compiled language (Rust, C, AssemblyScript, etc.)
-//! - **Deterministic Execution**: Reproducible results with controlled resource access
-//!
-//! ## WASM Module Interface
-//!
-//! WASM modules must export the following C-style functions:
-//! ```c
-//! // Main processing function - takes data pointer and length, returns allocated data
-//! uint8_t* process(const uint8_t* input_ptr, size_t input_len, size_t* output_len);
-//!
-//! // Memory management functions for host-WASM communication
-//! void* allocate(size_t size);
-//! void deallocate(void* ptr, size_t size);
-//! ```
-//!
-//! ## Security Model
-//!
-//! ### Sandboxing
-//! - **Complete isolation**: WASM modules cannot access host filesystem, network, or system calls
-//! - **Memory isolation**: WASM linear memory is separate from host memory
-//! - **Limited WASI**: Allows essential WASI functions (proc_exit, random_get, clock_time_get) for modern WASM languages
-//!
-//! ### Resource Limits
-//! - **Fuel consumption**: Computational budget prevents infinite loops and runaway execution
-//! - **Memory limits**: WASM modules have bounded linear memory (default: 64KB pages)
-//! - **Input size limits**: Maximum input size prevents memory exhaustion attacks
-//! - **Module size limits**: Maximum WASM module size prevents storage attacks
-//!
-//! ### Timeout Protection
-//! - **Fuel-based timeouts**: Execution stops when fuel budget is exhausted
-//! - **Epoch interruption disabled**: Prevents false interrupts in wasmtime 25.0+
-
 use crate::backends::wasm::error::WasmResult;
-use crate::backends::wasm::module_loader::{LoadedModule, WasmModuleLoader};
+use crate::backends::wasm::module_loader::{WasmModuleLoader};
 use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
 use crate::backends::wasm::processing_node_factory::ProcessingNodeFactory;
 use crate::proto::processor_v1::{
@@ -57,21 +13,8 @@ use crate::traits::processor::{Processor, ProcessorIntent};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
+use crate::backends::wasm::WasmComponentDetector;
 
-/// WASM Processor - orchestrates WASM module execution using specialized components
-///
-/// This processor follows the Single Responsibility Principle by delegating to:
-/// - WasmModuleLoader: Module loading and validation
-/// - CapabilityManager: Capability analysis and WASI setup
-/// - WasmExecutor: Pure execution and memory management
-///
-/// # Security Features
-///
-/// - **Memory Protection**: Strict bounds checking and memory isolation
-/// - **Capability-Based Security**: Explicit WASI capability declarations
-/// - **Input Validation**: Size limits and content validation
-/// - **Resource Limits**: Fuel-based execution budgets
-/// - **Deterministic Execution**: Controlled execution environment
 pub struct WasmProcessor {
     /// Unique identifier for this processor instance
     processor_id: String,
@@ -84,113 +27,61 @@ pub struct WasmProcessor {
 }
 
 impl WasmProcessor {
-    /// Creates a new WasmProcessor with the specified configuration.
-    ///
-    /// This constructor orchestrates the loading and validation process using
-    /// specialized components following the Single Responsibility Principle.
-    ///
-    /// # Security
-    ///
-    /// The processor enforces several security measures:
-    /// - Module validation and capability analysis
-    /// - Memory limits and fuel-based execution budgets
-    /// - WASI capability restrictions
-    /// - Input validation and size limits
-    pub fn new(
-        processor_id: String,
-        module_path: String,
-        intent: ProcessorIntent,
-    ) -> WasmResult<Self> {
-        // Use WasmModuleLoader to handle loading and validation
+    pub fn new(processor_id: String, module_path: String) -> WasmResult<Self> {
         let loaded_module = WasmModuleLoader::load_module(&module_path)?;
-
-        tracing::info!(
-            "Loaded WASM module: {} (imports: {})",
-            module_path,
-            loaded_module.imports.len()
-        );
-
-        // Create the appropriate executor based on the WASM artifact type
-        let executor = ProcessingNodeFactory::create_executor(loaded_module)
+        let component_type = WasmComponentDetector::determine_type(&loaded_module);
+        let executor = ProcessingNodeFactory::create_executor(loaded_module, component_type)
             .map_err(|e| WasmResult::<()>::Err(e.into()).unwrap_err())?;
 
-        tracing::info!(
-            "Created WasmProcessor '{}' with {} executor",
-            processor_id,
-            executor.artifact_type()
-        );
-
         Ok(Self {
             processor_id,
             module_path,
+            executor,
+            intent: ProcessorIntent::Transform,
+        })
+    }
+
+    pub fn from_config(config: &crate::config::ProcessorConfig) -> WasmResult<Self> {
+        let module_path = config.module.as_ref().ok_or_else(|| {
+            crate::backends::wasm::WasmError::ValidationError(
+                "Missing required 'module' field in WASM processor configuration".to_string(),
+            )
+        })?;
+
+        let intent = if let Some(intent_value) = config.options.get("intent") {
+            if let Some(intent_str) = intent_value.as_str() {
+                match intent_str.to_lowercase().as_str() {
+                    "transform" => ProcessorIntent::Transform,
+                    "analyze" => ProcessorIntent::Analyze,
+                    invalid => {
+                        return Err(crate::backends::wasm::WasmError::ValidationError(format!(
+                            "Invalid intent '{}'. Must be 'transform' or 'analyze'.",
+                            invalid
+                        )))
+                    }
+                }
+            } else {
+                return Err(crate::backends::wasm::WasmError::ValidationError(
+                    "Intent option must be a string".to_string(),
+                ));
+            }
+        } else {
+            ProcessorIntent::Transform
+        };
+
+        let loaded_module = WasmModuleLoader::load_module(module_path)?;
+        let component_type = WasmComponentDetector::determine_type(&loaded_module);
+        let executor = ProcessingNodeFactory::create_executor(loaded_module, component_type)
+            .map_err(|e| crate::backends::wasm::WasmError::ProcessorError(e.to_string()))?;
+
+        Ok(Self {
+            processor_id: config.id.clone(),
+            module_path: module_path.clone(),
             executor,
             intent,
         })
     }
 
-    pub fn new_with_executor(
-        processor_id: String,
-        executor: Arc<dyn ProcessingNodeExecutor>,
-        intent: ProcessorIntent,
-    ) -> WasmResult<Self> {
-        let module_path = executor.execution_metadata().module_path.clone();
-
-        tracing::info!(
-            "Created WasmProcessor '{}' with {} executor",
-            processor_id,
-            executor.artifact_type()
-        );
-
-        Ok(Self {
-            processor_id,
-            module_path,
-            executor,
-            intent,
-        })
-    }
-
-    pub fn from_loaded_module(
-        processor_id: String,
-        loaded_module: LoadedModule,
-        intent: ProcessorIntent,
-    ) -> WasmResult<Self> {
-        let module_path = loaded_module.module_path.clone();
-
-        tracing::debug!(
-            "Creating WasmProcessor from loaded module: {} (imports: {})",
-            module_path,
-            loaded_module.imports.len()
-        );
-
-        let executor = ProcessingNodeFactory::create_executor(loaded_module)
-            .map_err(|e| WasmResult::<()>::Err(e.into()).unwrap_err())?;
-
-        tracing::info!(
-            "Created WasmProcessor '{}' with {} executor",
-            processor_id,
-            executor.artifact_type()
-        );
-
-        Ok(Self {
-            processor_id,
-            module_path,
-            executor,
-            intent,
-        })
-    }
-
-    /// Executes the WASM module with the given input bytes using the ProcessingNodeExecutor.
-    ///
-    /// This method uses the pre-created executor that was determined during initialization
-    /// based on the detected WASM artifact type (C-Style, WASI Preview 1, or WIT Component).
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - The input bytes to process
-    ///
-    /// # Returns
-    ///
-    /// Returns the processed output bytes or an error if execution fails.
     fn execute_wasm(
         &self,
         input: &[u8],
@@ -274,7 +165,6 @@ impl Processor for WasmProcessor {
                 }
             }
             Err(error) => {
-                // Create error response with error outcome
                 let error_detail = ErrorDetail {
                     code: 500,
                     message: format!("WASM execution failed: {}", error),

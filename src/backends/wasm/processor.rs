@@ -105,9 +105,8 @@ impl WasmProcessor {
         let loaded_module = WasmModuleLoader::load_module(&module_path)?;
 
         tracing::info!(
-            "Loaded WASM module: {} (type: {:?}, imports: {})",
+            "Loaded WASM module: {} (imports: {})",
             module_path,
-            loaded_module.component_type,
             loaded_module.imports.len()
         );
 
@@ -129,17 +128,27 @@ impl WasmProcessor {
         })
     }
 
-    /// Creates a new WasmProcessor from an already loaded module.
-    ///
-    /// This constructor is used by the factory when the module has already been
-    /// loaded and analyzed for artifact type detection. This avoids double-loading
-    /// the same WASM bytes.
-    ///
-    /// # Arguments
-    ///
-    /// * `processor_id` - Unique identifier for this processor instance
-    /// * `loaded_module` - Pre-loaded and validated WASM module
-    /// * `intent` - Processor intent (Transform or Analyze)
+    pub fn new_with_executor(
+        processor_id: String,
+        executor: Arc<dyn ProcessingNodeExecutor>,
+        intent: ProcessorIntent,
+    ) -> WasmResult<Self> {
+        let module_path = executor.execution_metadata().module_path.clone();
+
+        tracing::info!(
+            "Created WasmProcessor '{}' with {} executor",
+            processor_id,
+            executor.artifact_type()
+        );
+
+        Ok(Self {
+            processor_id,
+            module_path,
+            executor,
+            intent,
+        })
+    }
+
     pub fn from_loaded_module(
         processor_id: String,
         loaded_module: LoadedModule,
@@ -148,13 +157,11 @@ impl WasmProcessor {
         let module_path = loaded_module.module_path.clone();
 
         tracing::debug!(
-            "Creating WasmProcessor from loaded module: {} (type: {:?}, imports: {})",
+            "Creating WasmProcessor from loaded module: {} (imports: {})",
             module_path,
-            loaded_module.component_type,
             loaded_module.imports.len()
         );
 
-        // Create the appropriate executor based on the WASM artifact type
         let executor = ProcessingNodeFactory::create_executor(loaded_module)
             .map_err(|e| WasmResult::<()>::Err(e.into()).unwrap_err())?;
 

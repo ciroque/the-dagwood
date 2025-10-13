@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 pub mod capability_manager;
+pub mod component_detector;
 mod error;
 pub mod executors;
 pub mod factory;
@@ -14,6 +15,7 @@ pub mod processor;
 pub use error::{WasmError, WasmResult};
 
 // pub use capability_manager::{CapabilityManager, CapabilityRequirements, WasiSetup};
+pub use component_detector::WasmComponentDetector;
 pub use executors::{CStyleNodeExecutor, ComponentNodeExecutor, WasiNodeExecutor};
 pub use factory::WasmProcessorFactory;
 pub use module_loader::{ComponentType, ImportType, LoadedModule, ModuleImport, WasmModuleLoader};

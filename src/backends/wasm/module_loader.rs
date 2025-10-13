@@ -31,6 +31,8 @@ pub enum ComponentType {
     CStyle,
     /// WIT-based component with structured errors
     WitComponent,
+
+    WasiPreview1
 }
 
 /// WASM artifact type - either a Module or Component
@@ -45,7 +47,6 @@ pub enum WasmArtifact {
 pub struct LoadedModule {
     pub engine: Engine,
     pub artifact: WasmArtifact,
-    pub component_type: ComponentType,
     pub imports: Vec<ModuleImport>,
     pub module_path: String,
 }
@@ -89,19 +90,13 @@ impl WasmModuleLoader {
         }
 
         // Try to load as Component first (WIT-based), then fallback to Module (C-style)
-        let (artifact, component_type, imports) = match Component::new(&engine, &module_bytes) {
+        let (artifact, imports) = match Component::new(&engine, &module_bytes) {
             Ok(component) => {
-                // Successfully loaded as WIT component
                 tracing::debug!("Loaded as WIT component: {}", module_path_str);
                 let imports = Self::parse_component_imports(&component)?;
-                (
-                    WasmArtifact::Component(component),
-                    ComponentType::WitComponent,
-                    imports,
-                )
+                (WasmArtifact::Component(component), imports)
             }
             Err(_component_err) => {
-                // Failed as component, try as core module
                 tracing::debug!(
                     "Failed as component, trying as core module: {}",
                     module_path_str
@@ -110,15 +105,13 @@ impl WasmModuleLoader {
                     .map_err(|e| WasmError::ModuleError(e.to_string()))?;
 
                 let imports = Self::parse_module_imports(&module)?;
-                let component_type = Self::detect_component_type(&module);
-                (WasmArtifact::Module(module), component_type, imports)
+                (WasmArtifact::Module(module), imports)
             }
         };
 
         Ok(LoadedModule {
             engine,
             artifact,
-            component_type,
             imports,
             module_path: module_path_str,
         })
@@ -202,28 +195,6 @@ impl WasmModuleLoader {
         Ok(())
     }
 
-    /// Detect component type based on exports
-    fn detect_component_type(module: &Module) -> ComponentType {
-        let exports: Vec<_> = module.exports().map(|e| e.name()).collect();
-
-        // Check for WIT-based component exports (future Phase 2.1)
-        if exports.contains(&"processing-node") {
-            return ComponentType::WitComponent;
-        }
-
-        // Check for C-style exports
-        let has_process = exports.contains(&"process");
-        let has_allocate = exports.contains(&"allocate");
-        let has_deallocate = exports.contains(&"deallocate");
-
-        // TODO(steve): This is kinda silly, no?
-        if has_process && has_allocate && has_deallocate {
-            ComponentType::CStyle
-        } else {
-            // Default to C-style for backward compatibility
-            ComponentType::CStyle
-        }
-    }
 }
 
 #[cfg(test)]

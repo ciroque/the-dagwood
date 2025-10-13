@@ -175,7 +175,6 @@ mod tests {
         LoadedModule {
             engine,
             artifact: WasmArtifact::Module(module),
-            component_type: crate::backends::wasm::module_loader::ComponentType::CStyle,
             imports: vec![],
             module_path: "test_component.wasm".to_string(),
         }
@@ -210,7 +209,6 @@ mod tests {
         let loaded_module = LoadedModule {
             engine,
             artifact: WasmArtifact::Module(module),
-            component_type: crate::backends::wasm::module_loader::ComponentType::CStyle,
             imports: vec![],
             module_path: "test_module.wasm".to_string(),
         };

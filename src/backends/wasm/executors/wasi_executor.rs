@@ -65,7 +65,7 @@ impl ProcessingNodeExecutor for WasiNodeExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backends::wasm::{ComponentType, ImportType, ModuleImport};
+    use crate::backends::wasm::{ImportType, ModuleImport};
     use wasmtime::{Engine, Module};
 
     fn create_mock_wasi_loaded_module() -> LoadedModule {
@@ -84,7 +84,6 @@ mod tests {
         LoadedModule {
             engine,
             artifact: crate::backends::wasm::module_loader::WasmArtifact::Module(module),
-            component_type: ComponentType::CStyle,
             imports,
             module_path: "test_wasi.wasm".to_string(),
         }

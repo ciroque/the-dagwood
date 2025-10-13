@@ -1,28 +1,18 @@
-// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
-
 use std::sync::Arc;
 
 use super::super::{
     processing_node::{ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
     LoadedModule,
 };
-use crate::backends::wasm::capability_manager::CapabilityManager;
 use crate::backends::wasm::module_loader::WasmArtifact;
 use wasmtime::*;
 
-/// Executor for C-Style WASM Modules
-///
-/// Handles execution of WebAssembly modules that export C-style functions:
-/// C-Style WASM executor that handles WebAssembly modules
-/// with C-style function exports.
 pub struct CStyleNodeExecutor {
     loaded_module: Arc<LoadedModule>,
 }
 
 impl CStyleNodeExecutor {
-    /// Create a new CStyleNodeExecutor
     pub fn new(loaded_module: LoadedModule) -> Result<Self, ProcessingNodeError> {
-        // TODO: Add validation specific to C-style modules
         Ok(Self {
             loaded_module: Arc::new(loaded_module),
         })
@@ -31,33 +21,20 @@ impl CStyleNodeExecutor {
 
 impl ProcessingNodeExecutor for CStyleNodeExecutor {
     fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
-        // Set up WASI context with required capabilities
-        let requirements = CapabilityManager::analyze_capabilities(&self.loaded_module);
-        let wasi_setup =
-            CapabilityManager::create_wasi_setup(&self.loaded_module.engine, &requirements)?;
-
-        // Create store with WASI context
-        let mut store = Store::new(&self.loaded_module.engine, wasi_setup.store_data);
-
-        // Set fuel limit for security and resource protection
+        let mut store = Store::new(&self.loaded_module.engine, ());
+        
         store
             .set_fuel(100_000_000)
             .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
 
-        // Execute based on artifact type
         match &self.loaded_module.artifact {
             WasmArtifact::Module(module) => {
-                // Instantiate C-style module
-                let instance = wasi_setup
-                    .linker
-                    .instantiate(&mut store, module)
+                let instance = Instance::new(&mut store, module, &[])
                     .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
 
-                // C-style modules must export process, allocate, and deallocate functions
                 self.execute_c_style_process(&mut store, &instance, input)
             }
             WasmArtifact::Component(_) => {
-                // This shouldn't happen for C-style, but handle gracefully
                 Err(ProcessingNodeError::ValidationError(
                     "C-style executor received WIT component".to_string(),
                 ))
@@ -70,7 +47,6 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
     }
 
     fn capabilities(&self) -> Vec<String> {
-        // C-Style modules are completely sandboxed with no system access
         vec![
             "c-style".to_string(),
             "sandboxed".to_string(),
@@ -89,19 +65,16 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
 }
 
 impl CStyleNodeExecutor {
-    /// Execute C-style WASM module (process, allocate, deallocate functions)
     fn execute_c_style_process(
         &self,
         store: &mut Store<()>,
         instance: &Instance,
         input: &[u8],
     ) -> Result<Vec<u8>, ProcessingNodeError> {
-        // Get the module's memory
         let memory = instance.get_memory(&mut *store, "memory").ok_or_else(|| {
             ProcessingNodeError::ValidationError("WASM module must export 'memory'".to_string())
         })?;
 
-        // Get required functions
         let process_func = instance
             .get_typed_func::<(i32, i32, i32), i32>(&mut *store, "process")
             .map_err(|_| ProcessingNodeError::ValidationError("WASM module must export 'process' function with signature (i32, i32, i32) -> i32".to_string()))?;

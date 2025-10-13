@@ -216,6 +216,7 @@ impl WasmModuleLoader {
         let has_allocate = exports.contains(&"allocate");
         let has_deallocate = exports.contains(&"deallocate");
 
+        // TODO(steve): This is kinda silly, no?
         if has_process && has_allocate && has_deallocate {
             ComponentType::CStyle
         } else {

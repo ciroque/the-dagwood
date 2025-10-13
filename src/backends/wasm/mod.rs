@@ -13,7 +13,7 @@ pub mod processor;
 // Re-export the error types for public use
 pub use error::{WasmError, WasmResult};
 
-pub use capability_manager::{CapabilityManager, CapabilityRequirements, WasiSetup};
+// pub use capability_manager::{CapabilityManager, CapabilityRequirements, WasiSetup};
 pub use executors::{CStyleNodeExecutor, ComponentNodeExecutor, WasiNodeExecutor};
 pub use factory::WasmProcessorFactory;
 pub use module_loader::{ComponentType, ImportType, LoadedModule, ModuleImport, WasmModuleLoader};

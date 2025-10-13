@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
 //
 // use crate::backends::wasm::error::WasmResult;
 // use crate::backends::wasm::module_loader::LoadedModule;

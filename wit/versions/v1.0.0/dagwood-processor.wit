@@ -162,15 +162,6 @@ world dagwood-component {
     /// - deallocate: Memory deallocation for cleanup
     export processing-node;
     
-    /// No imports allowed for security
-    /// 
-    /// DAGwood WASM components deliberately import nothing to ensure
-    /// complete sandboxing. This prevents access to:
-    /// - Filesystem operations (WASI filesystem)
-    /// - Network operations (WASI sockets)
-    /// - System calls (WASI system interface)
-    /// - Random number generation (WASI random)
-    /// - Time/clock access (WASI clocks)
-    /// 
-    /// Components must be completely self-contained and deterministic.
+    /// No imports by default, see the WASI Interface Policy above for more details
+    import none;
 }

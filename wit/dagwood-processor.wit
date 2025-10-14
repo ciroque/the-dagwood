@@ -77,8 +77,8 @@ package dagwood:component@1.0.0;
 interface processing-node {
     /// Size limits for WASM memory management
     /// These constants define the operational boundaries for safe WASM execution
-    const MAX_PAYLOAD_SIZE: u32 = 0x8000000; // 128MB - reasonable limit for WASM linear memory
-    const MAX_ALLOCATION_SIZE: u32 = 0x4000000; // 64MB - maximum single allocation
+    const MAX_PAYLOAD_SIZE: u32 = 0x8000000; // 128MB (134,217,728 bytes) - reasonable limit for WASM linear memory
+    const MAX_ALLOCATION_SIZE: u32 = 0x4000000; // 64MB (67,108,864 bytes) - maximum single allocation
     const MIN_ALLOCATION_SIZE: u32 = 1; // Minimum allocation size
     const MAX_ERROR_STRING_LEN: u32 = 256; // Maximum error string length to prevent DoS
     
@@ -148,7 +148,7 @@ interface processing-node {
     ///     if msg.len() > MAX_ERROR_STRING_LEN as usize {
     ///         // Safe UTF-8 truncation - find last valid char boundary
     ///         let mut truncate_at = MAX_ERROR_STRING_LEN as usize - 3;
-    ///         while !msg.is_char_boundary(truncate_at) && truncate_at > 0 {
+    ///         while truncate_at > 0 && !msg.is_char_boundary(truncate_at) {
     ///             truncate_at -= 1;
     ///         }
     ///         format!("{}...", &msg[..truncate_at])
@@ -264,6 +264,8 @@ interface processing-node {
     /// ```c
     /// uint32_t deallocate(void* ptr, uint32_t size); // Returns error code (0=success, non-zero=error)
     /// ```
+    /// 
+    /// **Note**: WIT function returns `result<(), allocation-error>` which bindings map to error codes.
     /// 
     /// ## Enhanced Memory Safety with Result:
     /// - **Validation**: Returns allocation-error instead of silent corruption

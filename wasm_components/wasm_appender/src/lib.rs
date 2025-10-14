@@ -149,7 +149,7 @@ mod tests {
             slice::from_raw_parts(output_ptr as *const u8, output_len as usize) 
         };
         let output_str = std::str::from_utf8(output_slice).unwrap();
-        assert_eq!(output_str, "test-wasm");
+        assert_eq!(output_str, APPEND_STRING);
         
         // Clean up (no null terminator!)
         unsafe { deallocate(output_ptr, output_len as i32) };
@@ -166,14 +166,14 @@ mod tests {
         );
         
         assert_ne!(output_ptr, 0, "Process returned null pointer");
-        assert_eq!(output_len, 5); // "-wasm" is 5 bytes
+        assert_eq!(output_len, 5);
         
         // Convert back to string
         let output_slice = unsafe { 
             slice::from_raw_parts(output_ptr as *const u8, output_len as usize) 
         };
         let output_str = std::str::from_utf8(output_slice).unwrap();
-        assert_eq!(output_str, "-wasm");
+        assert_eq!(output_str, APPEND_STRING);
         
         // Clean up
         unsafe { deallocate(output_ptr, output_len as i32) };

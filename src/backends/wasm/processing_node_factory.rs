@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::executors::{CStyleNodeExecutor, ComponentNodeExecutor, WasiNodeExecutor};
-use crate::backends::wasm::{
-    processing_node::{ProcessingNodeError, ProcessingNodeExecutor},
-    ComponentType, LoadedModule,
-};
+use crate::backends::wasm::{processing_node::{ProcessingNodeError, ProcessingNodeExecutor}, ComponentType, LoadedModule, WasmComponentDetector};
 use std::sync::Arc;
 
 pub struct ProcessingNodeFactory;
@@ -13,9 +10,8 @@ pub struct ProcessingNodeFactory;
 impl ProcessingNodeFactory {
     pub fn create_executor(
         loaded_module: LoadedModule,
-        component_type: ComponentType
     ) -> Result<Arc<dyn ProcessingNodeExecutor>, ProcessingNodeError> {
-
+        let component_type = WasmComponentDetector::determine_type(&loaded_module);
         match component_type {
             ComponentType::WitComponent => {
                 tracing::info!(
@@ -74,7 +70,7 @@ mod tests {
     #[ignore = "This is for the future"]
     fn test_create_wasi_executor() {
         let loaded_module = create_mock_loaded_module(true);
-        let result = ProcessingNodeFactory::create_executor(loaded_module, ComponentType::WasiPreview1);
+        let result = ProcessingNodeFactory::create_executor(loaded_module);
 
         assert!(result.is_ok());
         let executor = result.unwrap();
@@ -84,7 +80,7 @@ mod tests {
     #[test]
     fn test_create_cstyle_executor() {
         let loaded_module = create_mock_loaded_module(false);
-        let result = ProcessingNodeFactory::create_executor(loaded_module, ComponentType::CStyle);
+        let result = ProcessingNodeFactory::create_executor(loaded_module);
 
         assert!(result.is_ok());
         let executor = result.unwrap();

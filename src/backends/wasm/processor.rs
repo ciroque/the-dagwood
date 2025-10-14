@@ -13,7 +13,6 @@ use crate::traits::processor::{Processor, ProcessorIntent};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::backends::wasm::WasmComponentDetector;
 
 pub struct WasmProcessor {
     /// Unique identifier for this processor instance
@@ -29,8 +28,7 @@ pub struct WasmProcessor {
 impl WasmProcessor {
     pub fn new(processor_id: String, module_path: String) -> WasmResult<Self> {
         let loaded_module = WasmModuleLoader::load_module(&module_path)?;
-        let component_type = WasmComponentDetector::determine_type(&loaded_module);
-        let executor = ProcessingNodeFactory::create_executor(loaded_module, component_type)
+        let executor = ProcessingNodeFactory::create_executor(loaded_module)
             .map_err(|e| WasmResult::<()>::Err(e.into()).unwrap_err())?;
 
         Ok(Self {
@@ -70,8 +68,7 @@ impl WasmProcessor {
         };
 
         let loaded_module = WasmModuleLoader::load_module(module_path)?;
-        let component_type = WasmComponentDetector::determine_type(&loaded_module);
-        let executor = ProcessingNodeFactory::create_executor(loaded_module, component_type)
+        let executor = ProcessingNodeFactory::create_executor(loaded_module)
             .map_err(|e| crate::backends::wasm::WasmError::ProcessorError(e.to_string()))?;
 
         Ok(Self {

@@ -81,15 +81,8 @@ interface processing-node {
     const MAX_ALLOCATION_SIZE: u32 = 67108864; // 64MB - maximum single allocation
     const MIN_ALLOCATION_SIZE: u32 = 1; // Minimum allocation size
     const MAX_ERROR_STRING_LEN: u32 = 256; // Maximum error string length to prevent DoS
-    
-    /// Error codes for mapping to Rust ProcessingNodeError types
-    const ERROR_CODE_VALIDATION: u32 = 1000;
-    const ERROR_CODE_RUNTIME: u32 = 2000;
-    const ERROR_CODE_INPUT: u32 = 3000;
-    const ERROR_CODE_ALLOCATION: u32 = 4000;
-    const ERROR_CODE_PROCESSING: u32 = 5000;
 
-    /// Memory allocation errors with error codes for Rust mapping
+    /// Memory allocation errors with Rust mapping
     variant allocation-error {
         /// Out of memory - cannot allocate requested size
         /// Maps to ProcessingNodeError::CStyleError(AllocationFailed)
@@ -108,7 +101,7 @@ interface processing-node {
         size-mismatch(u32),
     }
     
-    /// Data processing errors with error codes for Rust mapping
+    /// Data processing errors with Rust mapping
     variant processing-error {
         /// Invalid input data (malformed format, etc.)
         /// Maps to ProcessingNodeError::InputError
@@ -202,7 +195,7 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// uint32_t deallocate(void* ptr, uint32_t size); // Returns error code (0=success, else see ERROR_CODE_*)
+    /// uint32_t deallocate(void* ptr, uint32_t size); // Returns error code (0=success, non-zero=error)
     /// ```
     /// 
     /// ## Enhanced Memory Safety with Result:

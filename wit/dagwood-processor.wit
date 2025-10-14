@@ -190,7 +190,7 @@ interface processing-node {
     /// 
     /// ## Parameters:
     /// - `input-ptr`: Pointer to input data in WASM linear memory (u32 - WASM address space)
-    ///   - **Performance Hint**: For optimal SIMD performance, hosts SHOULD align to 16- or 32-byte boundaries when possible
+    ///   - **Performance Hint**: For optimal SIMD performance, hosts SHOULD align to 16-, 32-, or 64-byte boundaries when possible
     ///   - **Requirement**: Must be valid within WASM linear memory bounds (no alignment required)
     /// - `input-len`: Length of input data in bytes (u32 - matches WASM 32-bit addressing)
     ///   - **Constraints**: Must be ≤ MAX_PAYLOAD_SIZE (128MB) as defined by constants

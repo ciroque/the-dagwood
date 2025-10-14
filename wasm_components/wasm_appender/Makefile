@@ -43,14 +43,14 @@ test:
 	@echo "🔨 Building WASM module first (required for integration tests)..."
 	@$(MAKE) build
 	@echo "🚀 Running wasmtime-based integration tests..."
-	@cargo test --test simple_wasm_test -- --nocapture
+	@cargo test --test wasm_tests -- --nocapture
 
 test-verbose:
 	@echo "🧪 Running verbose tests for $(COMPONENT_NAME)..."
 	@echo "🔨 Building WASM module first (required for integration tests)..."
 	@$(MAKE) build
 	@echo "🚀 Running wasmtime-based integration tests with verbose output..."
-	@cargo test --test simple_wasm_test -- --nocapture --test-threads=1
+	@cargo test --test wasm_tests -- --nocapture --test-threads=1
 
 # --------------------------------
 # 🧹 Cleanup Targets

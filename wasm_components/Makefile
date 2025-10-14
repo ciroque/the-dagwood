@@ -185,4 +185,4 @@ help:
 	@echo "  make test-rle_grain       - Test just the rle_grain component"
 	@echo ""
 
-.PHONY: build-all test-all clean-all list info help
+.PHONY: build-all build-% test-all test-% clean-all clean-% list info help

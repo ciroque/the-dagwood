@@ -36,6 +36,30 @@
 /// - Provides foundation for Component Model migration
 /// - Maintains exact compatibility with current C-style exports
 /// 
+/// ## Future Evolution Path (vNext Component Model)
+/// 
+/// **Current v1.0**: Raw pointer interface optimized for C compatibility and host control
+/// ```wit
+/// process: func(input-ptr: u32, input-len: u32, output-len-ptr: u32) -> result<u32, processing-error>;
+/// ```
+/// 
+/// **Future vNext**: Direct `list<u8>` interface reducing host boilerplate
+/// ```wit
+/// process: func(input: list<u8>) -> result<list<u8>, processing-error>;
+/// ```
+/// 
+/// **Migration Benefits**:
+/// - **Eliminates Host Boilerplate**: No manual allocate/memcpy/deallocate cycles
+/// - **Type Safety**: Component Model handles memory management automatically
+/// - **Multi-Language Ergonomics**: Natural `Vec<u8>` in Rust, `[]byte` in Go, etc.
+/// - **Backward Compatibility**: Pointer-based components can coexist during transition
+/// 
+/// **Current Pointer Advantages** (why v1.0 is optimal for now):
+/// - **C Ecosystem Compatibility**: Direct FFI with existing C/C++ WASM toolchains
+/// - **Memory Control**: Host retains fine-grained control over allocation strategies
+/// - **Debugging**: Explicit memory operations aid in troubleshooting
+/// - **Performance**: Zero abstraction overhead for memory-sensitive workloads
+/// 
 /// ## Security Model
 /// 
 /// - **Complete Sandboxing**: No access to host filesystem, network, or system calls

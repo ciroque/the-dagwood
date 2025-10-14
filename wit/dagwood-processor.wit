@@ -118,8 +118,9 @@ interface processing-node {
         /// Maps to ProcessingNodeError::ValidationError
         /// 
         /// ## Size Value Usage:
-        /// - **Debugging**: Value is the expected size for the allocation
-        /// - **Validation**: Helps identify incorrect deallocate() calls
+        /// - **Debugging**: Value is the expected size (from original allocation record)
+        /// - **Context**: Compare with deallocate() call size parameter to identify mismatch
+        /// - **Implementation**: Component returns the size it expected, not the size provided
         /// - **Privacy**: Safe to log - size values don't reveal sensitive information
         /// - **Range**: Value should be between MIN_ALLOCATION_SIZE and MAX_ALLOCATION_SIZE
         size-mismatch(u32),

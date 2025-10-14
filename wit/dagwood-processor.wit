@@ -173,14 +173,19 @@ interface processing-node {
     /// 
     /// ## Parameters:
     /// - `input-ptr`: Pointer to input data in WASM linear memory (u32 - WASM address space)
-    ///   - **Alignment**: Naturally aligned to page boundaries (64KB) for optimal SIMD performance
-    ///   - **Range**: Must be valid within WASM linear memory bounds
+    ///   - **Performance Hint**: For optimal SIMD performance, hosts SHOULD align to 64KB boundaries when possible
+    ///   - **Requirement**: Must be valid within WASM linear memory bounds (no alignment required)
     /// - `input-len`: Length of input data in bytes (u32 - matches WASM 32-bit addressing)
     ///   - **Constraints**: Must be ≤ MAX_PAYLOAD_SIZE (128MB) as defined by constants
     ///   - **Validation**: Zero-length inputs are valid and should return zero-length outputs
     /// - `output-len-ptr`: Pointer to where output length should be written (u32)
-    ///   - **Alignment**: 4-byte aligned for efficient i32 read/write operations
-    ///   - **Usage**: Component writes output length here; host reads after process() returns
+    ///   - **Performance Hint**: For efficient access, hosts SHOULD use 4-byte alignment when possible
+    ///   - **Requirement**: Must be valid u32 pointer in WASM linear memory (no alignment required)
+    /// 
+    /// ## Alignment Contract:
+    /// The WIT interface cannot enforce pointer alignment - these are performance recommendations only.
+    /// Components MUST NOT assume alignment guarantees and SHOULD handle unaligned pointers gracefully.
+    /// Hosts SHOULD provide aligned pointers when possible for optimal performance.
     /// 
     /// ## Returns:
     /// - **Success**: Pointer to allocated output data in WASM linear memory

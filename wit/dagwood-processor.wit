@@ -133,7 +133,7 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// uint8_t* process(const uint8_t* input_ptr, uint32_t input_len, uint32_t* output_len);
+    /// uint8_t* process(const uint8_t* input_ptr, uint32_t input_len, uint32_t *output_len);
     /// ```
     /// 
     /// ## Parameters:

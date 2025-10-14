@@ -12,7 +12,7 @@ const MAX_WASM_COMPONENT_SIZE: usize = 16 * 1024 * 1024;
 pub enum ComponentType {
     CStyle,
     WitComponent,
-    WasiPreview1
+    WasiPreview1,
 }
 
 pub enum WasmArtifact {
@@ -147,7 +147,6 @@ impl WasmModuleLoader {
 
         Ok(())
     }
-
 }
 
 #[cfg(test)]
@@ -195,6 +194,5 @@ mod tests {
     }
 
     #[test]
-    fn test_component_type_detection() {
-    }
+    fn test_component_type_detection() {}
 }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use crate::backends::wasm::error::WasmResult;
-use crate::backends::wasm::module_loader::{WasmModuleLoader};
+use crate::backends::wasm::module_loader::WasmModuleLoader;
 use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
 use crate::backends::wasm::processing_node_factory::ProcessingNodeFactory;
 use crate::proto::processor_v1::{

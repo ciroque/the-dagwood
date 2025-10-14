@@ -77,8 +77,8 @@ package dagwood:component@1.0.0;
 interface processing-node {
     /// Size limits for WASM memory management
     /// These constants define the operational boundaries for safe WASM execution
-    const MAX_PAYLOAD_SIZE: u32 = 134217728; // 128MB - reasonable limit for WASM linear memory
-    const MAX_ALLOCATION_SIZE: u32 = 67108864; // 64MB - maximum single allocation
+    const MAX_PAYLOAD_SIZE: u32 = 0x8000000; // 128MB - reasonable limit for WASM linear memory
+    const MAX_ALLOCATION_SIZE: u32 = 0x4000000; // 64MB - maximum single allocation
     const MIN_ALLOCATION_SIZE: u32 = 1; // Minimum allocation size
     const MAX_ERROR_STRING_LEN: u32 = 256; // Maximum error string length to prevent DoS
 

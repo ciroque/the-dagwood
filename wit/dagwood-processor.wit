@@ -80,6 +80,7 @@ interface processing-node {
     const MAX_PAYLOAD_SIZE: u32 = 134217728; // 128MB - reasonable limit for WASM linear memory
     const MAX_ALLOCATION_SIZE: u32 = 67108864; // 64MB - maximum single allocation
     const MIN_ALLOCATION_SIZE: u32 = 1; // Minimum allocation size
+    const MAX_ERROR_STRING_LEN: u32 = 256; // Maximum error string length to prevent DoS
     
     /// Error codes for mapping to Rust ProcessingNodeError types
     const ERROR_CODE_VALIDATION: u32 = 1000;
@@ -111,18 +112,18 @@ interface processing-node {
     variant processing-error {
         /// Invalid input data (malformed format, etc.)
         /// Maps to ProcessingNodeError::InputError
-        /// Error strings ≤ 256 bytes to bound WASM memory; prefer concise codes like 'E001: Invalid header'
+        /// Error strings ≤ MAX_ERROR_STRING_LEN bytes to bound WASM memory; prefer concise codes like 'E001: Invalid header'
         invalid-input(string),
         /// Processing logic failed (algorithm error, computation failure)
         /// Maps to ProcessingNodeError::CStyleError(FunctionExecutionFailed)
-        /// Error strings ≤ 256 bytes to bound WASM memory; prefer concise codes like 'E002: Algorithm failed'
+        /// Error strings ≤ MAX_ERROR_STRING_LEN bytes to bound WASM memory; prefer concise codes like 'E002: Algorithm failed'
         processing-failed(string),
         /// Input too large for component to handle
         /// Maps to ProcessingNodeError::ValidationError
         input-too-large(u32),
         /// Unknown/unexpected error for extensibility and opaque binary handling
         /// Maps to ProcessingNodeError::RuntimeError - catches weird formats gracefully
-        /// Error strings ≤ 256 bytes to bound WASM memory; prefer concise codes like 'E999: Unknown format'
+        /// Error strings ≤ MAX_ERROR_STRING_LEN bytes to bound WASM memory; prefer concise codes like 'E999: Unknown format'
         unknown(string),
     }
     

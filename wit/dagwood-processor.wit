@@ -135,8 +135,14 @@ interface processing-node {
     /// 
     /// ## Parameters:
     /// - `input-ptr`: Pointer to input data in WASM linear memory (u32 - WASM address space)
+    ///   - **Alignment**: Naturally aligned to page boundaries (64KB) for optimal SIMD performance
+    ///   - **Range**: Must be valid within WASM linear memory bounds
     /// - `input-len`: Length of input data in bytes (u32 - matches WASM 32-bit addressing)
+    ///   - **Constraints**: Must be ≤ MAX_PAYLOAD_SIZE (128MB) as defined by constants
+    ///   - **Validation**: Zero-length inputs are valid and should return zero-length outputs
     /// - `output-len-ptr`: Pointer to where output length should be written (u32)
+    ///   - **Alignment**: 4-byte aligned for efficient i32 read/write operations
+    ///   - **Usage**: Component writes output length here; host reads after process() returns
     /// 
     /// ## Returns:
     /// - **Success**: Pointer to allocated output data in WASM linear memory

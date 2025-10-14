@@ -81,6 +81,20 @@ interface processing-node {
     const MAX_ALLOCATION_SIZE: u32 = 0x4000000; // 64MB - maximum single allocation
     const MIN_ALLOCATION_SIZE: u32 = 1; // Minimum allocation size
     const MAX_ERROR_STRING_LEN: u32 = 256; // Maximum error string length to prevent DoS
+    
+    /// ## Validation Contract Overview
+    /// 
+    /// This interface follows a **schema-driven validation** approach similar to Protocol Buffers:
+    /// - **Constants define limits** that MUST be enforced by implementations
+    /// - **Components are responsible** for validating inputs against these constants
+    /// - **wit-bindgen SHOULD generate** validation helpers using these constants
+    /// - **Hosts MAY validate** as defense-in-depth but SHOULD NOT rely on this
+    /// 
+    /// This approach solves the WASM validation chicken-and-egg problem by:
+    /// 1. **Clear contracts** defined in the WIT schema
+    /// 2. **Component responsibility** for self-validation
+    /// 3. **Tooling support** for automatic validation generation
+    /// 4. **Host fallback** for additional security
 
     /// Memory allocation errors with Rust mapping
     variant allocation-error {
@@ -102,21 +116,48 @@ interface processing-node {
     }
     
     /// Data processing errors with Rust mapping
+    /// 
+    /// ## String Validation Contract:
+    /// All string parameters in error variants MUST be ≤ MAX_ERROR_STRING_LEN bytes.
+    /// 
+    /// ## Implementation Requirements:
+    /// - **Component Responsibility**: Components MUST truncate error strings before returning
+    /// - **Truncation Format**: Use "..." suffix to indicate truncation (e.g., "E001: Long message...")
+    /// - **Binding Generation**: wit-bindgen SHOULD generate validation helpers using MAX_ERROR_STRING_LEN
+    /// - **Host Validation**: Hosts MAY validate string lengths as defense-in-depth
+    /// 
+    /// ## Violation Handling:
+    /// - Oversized strings indicate component implementation bugs
+    /// - Hosts SHOULD log warnings for oversized strings
+    /// - Hosts MAY truncate as fallback but SHOULD NOT rely on this
+    /// 
+    /// ## Example Implementation:
+    /// ```rust
+    /// fn create_error(details: &str) -> String {
+    ///     let msg = format!("E001: {}", details);
+    ///     if msg.len() > MAX_ERROR_STRING_LEN as usize {
+    ///         let truncated = &msg[..MAX_ERROR_STRING_LEN as usize - 3];
+    ///         format!("{}...", truncated)
+    ///     } else {
+    ///         msg
+    ///     }
+    /// }
+    /// ```
     variant processing-error {
         /// Invalid input data (malformed format, etc.)
         /// Maps to ProcessingNodeError::InputError
-        /// Error strings ≤ MAX_ERROR_STRING_LEN bytes to bound WASM memory; prefer concise codes like 'E001: Invalid header'
+        /// String MUST be ≤ MAX_ERROR_STRING_LEN bytes; prefer concise codes like 'E001: Invalid header'
         invalid-input(string),
         /// Processing logic failed (algorithm error, computation failure)
         /// Maps to ProcessingNodeError::CStyleError(FunctionExecutionFailed)
-        /// Error strings ≤ MAX_ERROR_STRING_LEN bytes to bound WASM memory; prefer concise codes like 'E002: Algorithm failed'
+        /// String MUST be ≤ MAX_ERROR_STRING_LEN bytes; prefer concise codes like 'E002: Algorithm failed'
         processing-failed(string),
         /// Input too large for component to handle
         /// Maps to ProcessingNodeError::ValidationError
         input-too-large(u32),
         /// Unknown/unexpected error for extensibility and opaque binary handling
         /// Maps to ProcessingNodeError::RuntimeError - catches weird formats gracefully
-        /// Error strings ≤ MAX_ERROR_STRING_LEN bytes to bound WASM memory; prefer concise codes like 'E999: Unknown format'
+        /// String MUST be ≤ MAX_ERROR_STRING_LEN bytes; prefer concise codes like 'E999: Unknown format'
         unknown(string),
     }
     
@@ -175,6 +216,15 @@ interface processing-node {
     /// ```c
     /// void* allocate(uint32_t size);
     /// ```
+    /// 
+    /// ## Size Validation Contract:
+    /// Size parameter MUST be validated against MIN_ALLOCATION_SIZE and MAX_ALLOCATION_SIZE.
+    /// 
+    /// ## Implementation Requirements:
+    /// - **Component Responsibility**: Components MUST validate size before allocation
+    /// - **Range Checking**: Size MUST be >= MIN_ALLOCATION_SIZE and <= MAX_ALLOCATION_SIZE
+    /// - **Binding Generation**: wit-bindgen SHOULD generate size validation using constants
+    /// - **Host Validation**: Hosts MAY validate sizes as defense-in-depth
     /// 
     /// ## Size Validation:
     /// - Size must be ≥ MIN_ALLOCATION_SIZE (1 byte)

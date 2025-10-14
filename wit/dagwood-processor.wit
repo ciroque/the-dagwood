@@ -231,10 +231,23 @@ interface processing-node {
     
     /// Map allocation error to error code for Rust ProcessingNodeError conversion
     /// Returns error code that maps to appropriate ProcessingNodeError variant
+    /// 
+    /// ## Explicit Mappings:
+    /// - `out-of-memory` → ERROR_CODE_ALLOCATION (4000) → ProcessingNodeError::CStyleError(AllocationFailed)
+    /// - `invalid-size(size)` → ERROR_CODE_VALIDATION (1000) → ProcessingNodeError::ValidationError
+    /// - `memory-corruption` → ERROR_CODE_RUNTIME (2000) → ProcessingNodeError::RuntimeError
+    /// - `invalid-pointer(ptr)` → ERROR_CODE_ALLOCATION (4000) → ProcessingNodeError::CStyleError(AllocationFailed)
+    /// - `size-mismatch(expected)` → ERROR_CODE_VALIDATION (1000) → ProcessingNodeError::ValidationError
     map-allocation-error: func(error: allocation-error) -> u32;
     
     /// Map processing error to error code for Rust ProcessingNodeError conversion
     /// Returns error code that maps to appropriate ProcessingNodeError variant
+    /// 
+    /// ## Explicit Mappings:
+    /// - `invalid-input(msg)` → ERROR_CODE_INPUT (3000) → ProcessingNodeError::InputError
+    /// - `processing-failed(msg)` → ERROR_CODE_PROCESSING (5000) → ProcessingNodeError::CStyleError(FunctionExecutionFailed)
+    /// - `input-too-large(size)` → ERROR_CODE_VALIDATION (1000) → ProcessingNodeError::ValidationError
+    /// - `unknown(msg)` → ERROR_CODE_RUNTIME (2000) → ProcessingNodeError::RuntimeError
     map-processing-error: func(error: processing-error) -> u32;
     
     /// Runtime compliance and tooling support

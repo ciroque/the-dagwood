@@ -9,6 +9,7 @@ module TestRle
 
 from "./src/rle.gr" include Rle
 from "string" include String
+from "list" include List
 
 // Test data
 let testStrings = [
@@ -51,7 +52,7 @@ let testEncoding = () => {
     print("")
   }
   
-  List.forEach(testStrings, testString)
+  List.forEach(testString, testStrings)
 }
 
 // Test auto-detection
@@ -74,7 +75,7 @@ let testAutoDetection = () => {
     print("")
   }
   
-  List.forEach(testStrings, testAuto)
+  List.forEach(testAuto, testStrings)
 }
 
 // Main test function

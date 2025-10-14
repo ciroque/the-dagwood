@@ -75,16 +75,15 @@ licenses:
 
 wasm-build:
 	@echo "==> Building all WASM components..."
-	cd scripts && ./build-wasm.sh
+	@$(MAKE) -C wasm_components build-all
+
+wasm-test:
+	@echo "==> Running WASM component tests..."
+	@$(MAKE) -C wasm_components test-all
 
 wasm-clean:
 	@echo "==> Cleaning WASM build artifacts..."
-	# Clean Rust build artifacts
-	find wasm_components -type f -name '*.wasm' -delete
-	# Clean build artifact directories (pkg/, target/, .wasm/)
-	find wasm_components -type d \( -name 'pkg' -o -name 'target' \) -exec rm -rf {} +
-	# Clean any remaining empty directories
-	find wasm_components -type d -empty -delete
+	@$(MAKE) -C wasm_components clean-all
 
 # --------------------------------
 # 🧩 Utility Targets
@@ -114,4 +113,5 @@ help:
 	@echo "  clean         - Remove target artifacts"
 	@echo "  help          - Show this help message"
 	@echo "  wasm-build    - Build all WASM components"
+	@echo "  wasm-test     - Run all WASM component tests"
 	@echo "  wasm-clean    - Clean WASM build artifacts"

@@ -154,7 +154,7 @@ mod tests {
         assert_eq!(output_str, expected_output);
         
         // Clean up (no null terminator!)
-        unsafe { deallocate(output_ptr, output_len as i32) };
+        deallocate(output_ptr, output_len as i32);
     }
 
     #[test]
@@ -180,7 +180,7 @@ mod tests {
         assert_eq!(output_str, expected_output);
 
         // Clean up
-        unsafe { deallocate(output_ptr, output_len as i32) };
+        deallocate(output_ptr, output_len as i32);
     }
 
     #[test]

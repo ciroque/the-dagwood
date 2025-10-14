@@ -201,7 +201,7 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// int deallocate(void* ptr, uint32_t size); // Returns 0 on success, error code on failure
+    /// uint32_t deallocate(void* ptr, uint32_t size); // Returns error code (0=success, else see ERROR_CODE_*)
     /// ```
     /// 
     /// ## Enhanced Memory Safety with Result:

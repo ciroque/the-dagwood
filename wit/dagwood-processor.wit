@@ -87,14 +87,12 @@ interface processing-node {
     /// This interface follows a **schema-driven validation** approach similar to Protocol Buffers:
     /// - **Constants define limits** that MUST be enforced by implementations
     /// - **Components are responsible** for validating inputs against these constants
-    /// - **wit-bindgen SHOULD generate** validation helpers using these constants
     /// - **Hosts MAY validate** as defense-in-depth but SHOULD NOT rely on this
     /// 
     /// This approach solves the WASM validation chicken-and-egg problem by:
     /// 1. **Clear contracts** defined in the WIT schema
     /// 2. **Component responsibility** for self-validation
-    /// 3. **Tooling support** for automatic validation generation
-    /// 4. **Host fallback** for additional security
+    /// 3. **Host fallback** for additional security
 
     /// Memory allocation errors with Rust mapping
     variant allocation-error {
@@ -123,7 +121,6 @@ interface processing-node {
     /// ## Implementation Requirements:
     /// - **Component Responsibility**: Components MUST truncate error strings before returning
     /// - **Truncation Format**: Use "..." suffix to indicate truncation (e.g., "E001: Long message...")
-    /// - **Binding Generation**: wit-bindgen SHOULD generate validation helpers using MAX_ERROR_STRING_LEN
     /// - **Host Validation**: Hosts MAY validate string lengths as defense-in-depth
     /// 
     /// ## Violation Handling:
@@ -193,9 +190,8 @@ interface processing-node {
     /// - Caller must call deallocate() to free the returned memory on success
     /// 
     /// ## Error Propagation & Debugging:
-    /// - **Bindings Behavior**: Language bindings (Rust, etc.) map `Err` results to null pointer (0) + error logging
+    /// - **Error Handling**: Components return processing-error variants for different failure modes
     /// - **Consistency Tip**: Components should write `*output-len-ptr = 0` on error for consistent host-side handling
-    /// - **Rust Integration**: Errors chain cleanly with `?` operator in ProcessingNodeExecutor implementations
     /// - **Opaque Binary Safety**: Use `unknown(string)` for unexpected binary formats that can't be categorized
     /// 
     /// ## Simplified Memory Flow:
@@ -228,7 +224,6 @@ interface processing-node {
     /// ## Implementation Requirements:
     /// - **Component Responsibility**: Components MUST validate size before allocation
     /// - **Range Checking**: Size MUST be >= MIN_ALLOCATION_SIZE and <= MAX_ALLOCATION_SIZE
-    /// - **Binding Generation**: wit-bindgen SHOULD generate size validation using constants
     /// - **Host Validation**: Hosts MAY validate sizes as defense-in-depth
     /// 
     /// ## Size Validation:

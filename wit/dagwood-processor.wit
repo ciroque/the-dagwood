@@ -147,7 +147,8 @@ interface processing-node {
     ///     let msg = format!("E001: {}", details);
     ///     if msg.len() > MAX_ERROR_STRING_LEN as usize {
     ///         // Safe UTF-8 truncation - find last valid char boundary
-    ///         let mut truncate_at = MAX_ERROR_STRING_LEN as usize - 3;
+    ///         let max_truncate = MAX_ERROR_STRING_LEN as usize - 3;
+    ///         let mut truncate_at = msg.len().min(max_truncate);
     ///         while truncate_at > 0 && !msg.is_char_boundary(truncate_at) {
     ///             truncate_at -= 1;
     ///         }

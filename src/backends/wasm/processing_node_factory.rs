@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 use super::executors::{CStyleNodeExecutor, ComponentNodeExecutor, WasiNodeExecutor};
-use crate::backends::wasm::{processing_node::{ProcessingNodeError, ProcessingNodeExecutor}, ComponentType, LoadedModule, WasmComponentDetector};
+use crate::backends::wasm::{
+    processing_node::{ProcessingNodeError, ProcessingNodeExecutor},
+    ComponentType, LoadedModule, WasmComponentDetector,
+};
 use std::sync::Arc;
 
 pub struct ProcessingNodeFactory;

@@ -102,10 +102,11 @@ impl ProcessorMap {
                     // TODO: build RPC client
                     Arc::new(crate::backends::stub::StubProcessor::new(p.id.clone()))
                 }
-                crate::config::BackendType::Wasm => {
-                    Arc::new(crate::backends::wasm::WasmProcessor::from_config(p)
-                        .map_err(|e| format!("Failed to create WASM processor '{}': {}", p.id, e))?)
-                }
+                crate::config::BackendType::Wasm => Arc::new(
+                    crate::backends::wasm::WasmProcessor::from_config(p).map_err(|e| {
+                        format!("Failed to create WASM processor '{}': {}", p.id, e)
+                    })?,
+                ),
             };
 
             registry.insert(p.id.clone(), processor);

@@ -25,7 +25,7 @@ impl CStyleNodeExecutor {
 impl ProcessingNodeExecutor for CStyleNodeExecutor {
     fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
         let mut store = Store::new(&self.loaded_module.engine, ());
-        
+
         store
             .set_fuel(100_000_000)
             .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
@@ -37,11 +37,9 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
 
                 self.execute_c_style_process(&mut store, &instance, input)
             }
-            WasmArtifact::Component(_) => {
-                Err(ProcessingNodeError::ValidationError(
-                    "C-style executor received WIT component".to_string(),
-                ))
-            }
+            WasmArtifact::Component(_) => Err(ProcessingNodeError::ValidationError(
+                "C-style executor received WIT component".to_string(),
+            )),
         }
     }
 

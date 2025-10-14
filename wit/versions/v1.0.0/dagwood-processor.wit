@@ -38,10 +38,16 @@
 /// 
 /// ## Security Model
 /// 
-/// - **Complete Sandboxing**: No access to host filesystem, network, or system calls
+/// - **Complete Sandboxing**: By default, there is no access to host filesystem, network, or system calls; see the WASI Interface Policy for more details
 /// - **Memory Isolation**: Components operate within bounded WASM linear memory
 /// - **Resource Limits**: Execution time and memory consumption are bounded
 /// - **Input Validation**: All inputs are validated before processing
+/// 
+/// ## WASI Interface Policy
+/// 
+/// - **Root Interface**: This core WIT does not import any WASI interfaces
+/// - **Component-Specific WASI**: Individual processor nodes may include their own WITs with WASI interfaces
+/// - **DAGwood Support**: DAGwood will attempt to honor component-specific WASI requirements
 
 package dagwood:component@1.0.0;
 

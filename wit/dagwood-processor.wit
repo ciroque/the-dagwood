@@ -107,9 +107,21 @@ interface processing-node {
         memory-corruption,
         /// Invalid pointer - not from a previous allocate() call or already freed
         /// Maps to ProcessingNodeError::CStyleError(AllocationFailed)
+        /// 
+        /// ## Pointer Value Usage:
+        /// - **Debugging**: Value is the invalid WASM linear memory offset for component debugging
+        /// - **Privacy**: Safe to log - WASM pointers are offsets, not host memory addresses
+        /// - **Validation**: Hosts can check if value is within valid WASM memory bounds
+        /// - **Range**: Value should be < WASM linear memory size (typically < 4GB)
         invalid-pointer(u32),
         /// Size mismatch - deallocate size doesn't match original allocation
         /// Maps to ProcessingNodeError::ValidationError
+        /// 
+        /// ## Size Value Usage:
+        /// - **Debugging**: Value is the expected size for the allocation
+        /// - **Validation**: Helps identify incorrect deallocate() calls
+        /// - **Privacy**: Safe to log - size values don't reveal sensitive information
+        /// - **Range**: Value should be between MIN_ALLOCATION_SIZE and MAX_ALLOCATION_SIZE
         size-mismatch(u32),
     }
     

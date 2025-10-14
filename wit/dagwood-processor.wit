@@ -88,6 +88,9 @@ interface processing-node {
         /// Input too large for component to handle
         /// Maps to ProcessingNodeError::ValidationError
         input-too-large(u32),
+        /// Unknown/unexpected error for extensibility and opaque binary handling
+        /// Maps to ProcessingNodeError::RuntimeError - catches weird formats gracefully
+        unknown(string),
     }
     
     /// Main data processing function
@@ -106,15 +109,22 @@ interface processing-node {
     /// - `output-len-ptr`: Pointer to where output length should be written (u32)
     /// 
     /// ## Returns:
-    /// - Pointer to allocated output data in WASM linear memory
-    /// - Returns processing-error on failure with mapped error codes
-    /// - Caller must call deallocate() to free the returned memory
+    /// - **Success**: Pointer to allocated output data in WASM linear memory
+    /// - **Error**: Returns processing-error with mapped error codes
+    /// - Caller must call deallocate() to free the returned memory on success
+    /// 
+    /// ## Error Propagation & Debugging:
+    /// - **Bindings Behavior**: Language bindings (Rust, etc.) map `Err` results to null pointer (0) + error logging
+    /// - **Consistency Tip**: Components should write `*output-len-ptr = 0` on error for consistent host-side handling
+    /// - **Rust Integration**: Errors chain cleanly with `?` operator in ProcessingNodeExecutor implementations
+    /// - **Opaque Binary Safety**: Use `unknown(string)` for unexpected binary formats that can't be categorized
     /// 
     /// ## Simplified Memory Flow:
     /// 1. Host allocates input memory and writes data
     /// 2. Host allocates output length storage (4 bytes)
     /// 3. Host calls process() - component processes and allocates output
-    /// 4. Host reads output and cleans up all allocations
+    /// 4. **Success**: Host reads output and cleans up all allocations
+    /// 5. **Error**: Host checks error, cleans up input allocations only
     /// 
     /// ## Size Validation:
     /// - Input length must be ≤ MAX_PAYLOAD_SIZE (128MB)

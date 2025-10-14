@@ -75,6 +75,12 @@ interface processing-node {
         /// Memory corruption - internal allocator state is corrupted
         /// Maps to ProcessingNodeError::RuntimeError
         memory-corruption,
+        /// Invalid pointer - not from a previous allocate() call or already freed
+        /// Maps to ProcessingNodeError::CStyleError(AllocationFailed)
+        invalid-pointer(u32),
+        /// Size mismatch - deallocate size doesn't match original allocation
+        /// Maps to ProcessingNodeError::ValidationError
+        size-mismatch(u32),
     }
     
     /// Data processing errors with error codes for Rust mapping
@@ -162,16 +168,22 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// void deallocate(void* ptr, uint32_t size);
+    /// int deallocate(void* ptr, uint32_t size); // Returns 0 on success, error code on failure
     /// ```
     /// 
-    /// ## Memory Safety:
-    /// - Pointer must be from a previous allocate() call
-    /// - Size must exactly match the allocated size
-    /// - Double-free and use-after-free are undefined behavior
-    /// - Freeing null pointer (0) is safe and ignored
-    /// - Size parameter enables allocator validation and debugging
-    deallocate: func(ptr: u32, size: u32);
+    /// ## Enhanced Memory Safety with Result:
+    /// - **Validation**: Returns allocation-error instead of silent corruption
+    /// - **Double-free Detection**: `invalid-pointer` error for already-freed memory
+    /// - **Size Validation**: `size-mismatch` error if size doesn't match original allocation
+    /// - **Multi-language Safety**: Error bubbling works cleanly in Go, Rust, etc.
+    /// - **Debugging**: Specific error variants help identify memory management bugs
+    /// 
+    /// ## Error Cases:
+    /// - `invalid-pointer(ptr)`: Pointer not from allocate() or already freed
+    /// - `size-mismatch(expected)`: Size doesn't match, returns expected size
+    /// - `memory-corruption`: Internal allocator state corrupted
+    /// - **Success**: Freeing null pointer (0) returns Ok(()) safely
+    deallocate: func(ptr: u32, size: u32) -> result<(), allocation-error>;
     
     /// Validation helper functions for size limits and error handling
     /// These functions help components validate inputs and map errors correctly

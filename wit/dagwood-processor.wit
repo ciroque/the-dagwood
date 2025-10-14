@@ -110,8 +110,7 @@ interface processing-node {
         /// 
         /// ## Pointer Value Usage:
         /// - **Debugging**: Value is the invalid WASM linear memory offset for component debugging
-        /// - **Privacy**: Safe to log - WASM pointers are offsets, not host memory addresses
-        /// - **Validation**: Hosts can check if value is within valid WASM memory bounds
+        /// - **Privacy**: While WASM pointers are offsets and not host memory addresses, logging invalid pointer values could still leak information about memory layout or allocation patterns. Only log these values if necessary for debugging, and be aware of the potential for information leakage.        /// - **Validation**: Hosts can check if value is within valid WASM memory bounds
         /// - **Range**: Value should be < WASM linear memory size (typically < 4GB)
         invalid-pointer(u32),
         /// Size mismatch - deallocate size doesn't match original allocation
@@ -152,7 +151,12 @@ interface processing-node {
     ///         while truncate_at > 0 && !msg.is_char_boundary(truncate_at) {
     ///             truncate_at -= 1;
     ///         }
-    ///         format!("{}...", &msg[..truncate_at])
+    ///         if truncate_at == 0 {
+    ///             // Fallback: return error code only if no content can be preserved
+    ///             "E001...".to_string()
+    ///         } else {
+    ///             format!("{}...", &msg[..truncate_at])
+    ///         }
     ///     } else {
     ///         msg
     ///     }
@@ -268,11 +272,10 @@ interface processing-node {
     /// // Conceptual mapping - actual C bindings may use different patterns
     /// typedef enum { 
     ///     DEALLOC_OK = 0, 
-    ///     DEALLOC_OUT_OF_MEMORY = 1, 
-    ///     DEALLOC_INVALID_SIZE = 2,
-    ///     DEALLOC_MEMORY_CORRUPTION = 3,
-    ///     DEALLOC_INVALID_PTR = 4, 
-    ///     DEALLOC_SIZE_MISMATCH = 5 
+    ///     DEALLOC_INVALID_SIZE = 1,
+    ///     DEALLOC_MEMORY_CORRUPTION = 2,
+    ///     DEALLOC_INVALID_PTR = 3,
+    ///     DEALLOC_SIZE_MISMATCH = 4
     /// } dealloc_result_t;
     /// dealloc_result_t deallocate(uint32_t ptr, uint32_t size);
     /// ```

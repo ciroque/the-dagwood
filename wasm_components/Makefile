@@ -137,6 +137,8 @@ list:
 				echo "    Language: Rust"; \
 			elif [ -f "$$component/grain.toml" ]; then \
 				echo "    Language: Grain"; \
+			elif [ -f "$$component/CMakeLists.txt" ] || [ -f "$$component/meson.build" ] || [ -f "$$component/configure.ac" ]; then \
+				echo "    Language: C/C++"; \
 			elif [ -f "$$component/package.json" ]; then \
 				echo "    Language: Node.js"; \
 			elif [ -f "$$component/go.mod" ]; then \
@@ -145,7 +147,7 @@ list:
 				echo "    Language: Unknown"; \
 			fi; \
 			if [ -f "$$component.wasm" ]; then \
-				size=$$(stat -c%s "$$component.wasm" 2>/dev/null || echo "0"); \
+				size=$$(wc -c < "$$component.wasm" 2>/dev/null | tr -d '[:space:]' || echo "0"); \
 				echo "    Status: Built ($$size bytes)"; \
 			else \
 				echo "    Status: Not built"; \

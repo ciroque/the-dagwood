@@ -24,7 +24,7 @@ build:
 	@cargo build --target $(WASM_TARGET) --release
 	@echo "📋 Copying artifact to wasm_components/..."
 	@cp target/$(WASM_TARGET)/release/$(COMPONENT_NAME).wasm $(WASM_OUTPUT)
-	@WASM_SIZE=$$(stat -c%s "$(WASM_OUTPUT)"); \
+	@WASM_SIZE=$$(wc -c < "$(WASM_OUTPUT)"); \
 	echo "✅ Build complete! $(COMPONENT_NAME).wasm size: $${WASM_SIZE} bytes"
 	@if command -v wasm-objdump &> /dev/null; then \
 		echo "📊 WASM module exports:"; \

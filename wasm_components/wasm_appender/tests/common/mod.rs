@@ -50,3 +50,23 @@ impl WasmTestRunner {
         test_fn(&mut store, &instance)
     }
 }
+
+/// Helper function to read a little-endian i32 from WASM memory
+/// 
+/// This eliminates duplication of manual byte reconstruction and reduces
+/// the chance of indexing mistakes across test functions.
+/// 
+/// # Arguments
+/// * `memory_data` - Reference to the WASM memory data slice
+/// * `ptr` - Pointer/offset in memory where the i32 is stored
+/// 
+/// # Returns
+/// The i32 value reconstructed from little-endian bytes
+pub fn read_i32_le(memory_data: &[u8], ptr: usize) -> i32 {
+    i32::from_le_bytes([
+        memory_data[ptr],
+        memory_data[ptr + 1],
+        memory_data[ptr + 2],
+        memory_data[ptr + 3],
+    ])
+}

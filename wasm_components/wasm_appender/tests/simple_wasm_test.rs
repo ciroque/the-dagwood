@@ -1,31 +1,12 @@
 mod common;
 
-use common::WasmTestRunner;
+use common::{WasmTestRunner, read_i32_le};
 
 /// Simple integration test that validates the WASM module loads and exports the expected functions
 /// This test works with wasmtime 37.0 API
 
 const APPEND_STRING: &str = "::WASM";
 
-#[test]
-fn test_wasm_module_loads_and_functions_exist() {
-    let runner = WasmTestRunner::new().expect("Should be able to create WASM test runner");
-    
-    runner.run_test(|store, instance| {
-        // Verify the module exports the expected functions
-        let _process = instance.get_typed_func::<(i32, i32, i32), i32>(&mut *store, "process")
-            .expect("process function should be exported");
-        let _allocate = instance.get_typed_func::<i32, i32>(&mut *store, "allocate")
-            .expect("allocate function should be exported");
-        let _deallocate = instance.get_typed_func::<(i32, i32), ()>(&mut *store, "deallocate")
-            .expect("deallocate function should be exported");
-        let _memory = instance.get_memory(&mut *store, "memory")
-            .expect("memory should be exported");
-        
-        println!("✅ WASM module loads successfully and exports all required functions");
-        Ok(())
-    }).expect("WASM module should load and export required functions");
-}
 
 #[test]
 fn test_wasm_basic_functionality() {
@@ -69,12 +50,7 @@ fn test_wasm_basic_functionality() {
         // Read the output length
         let output_len = {
             let memory_data = memory.data(&mut *store);
-            i32::from_le_bytes([
-                memory_data[output_len_ptr as usize],
-                memory_data[output_len_ptr as usize + 1],
-                memory_data[output_len_ptr as usize + 2],
-                memory_data[output_len_ptr as usize + 3],
-            ])
+            read_i32_le(memory_data, output_len_ptr as usize)
         };
         
         assert_ne!(output_ptr, 0, "Process should return non-null pointer");
@@ -130,12 +106,7 @@ fn test_wasm_empty_string() {
         // Read the output length
         let output_len = {
             let memory_data = memory.data(&mut *store);
-            i32::from_le_bytes([
-                memory_data[output_len_ptr as usize],
-                memory_data[output_len_ptr as usize + 1],
-                memory_data[output_len_ptr as usize + 2],
-                memory_data[output_len_ptr as usize + 3],
-            ])
+            read_i32_le(memory_data, output_len_ptr as usize)
         };
         
         // The WASM module returns null pointer for empty input (input_len <= 0)

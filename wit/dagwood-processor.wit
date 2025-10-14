@@ -186,6 +186,8 @@ interface processing-node {
     /// uint8_t* process(const uint8_t* input_ptr, uint32_t input_len, uint32_t *output_len);
     /// ```
     /// 
+    /// **Note**: WIT `output-len-ptr: u32` is a WASM linear memory offset pointing to where the u32 output length should be written.
+    /// 
     /// ## Parameters:
     /// - `input-ptr`: Pointer to input data in WASM linear memory (u32 - WASM address space)
     ///   - **Performance Hint**: For optimal SIMD performance, hosts SHOULD align to 16- or 32-byte boundaries when possible
@@ -263,10 +265,12 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// uint32_t deallocate(void* ptr, uint32_t size); // Returns error code (0=success, non-zero=error)
+    /// // Conceptual mapping - actual C bindings may use different patterns
+    /// typedef enum { DEALLOC_OK = 0, DEALLOC_INVALID_PTR = 1, DEALLOC_SIZE_MISMATCH = 2 } dealloc_result_t;
+    /// dealloc_result_t deallocate(uint32_t ptr, uint32_t size);
     /// ```
     /// 
-    /// **Note**: WIT function returns `result<(), allocation-error>` which bindings map to error codes.
+    /// **Note**: WIT `result<(), allocation-error>` maps to C enum/error codes. Actual binding patterns vary by generator.
     /// 
     /// ## Enhanced Memory Safety with Result:
     /// - **Validation**: Returns allocation-error instead of silent corruption

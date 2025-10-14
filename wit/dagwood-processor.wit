@@ -133,8 +133,12 @@ interface processing-node {
     /// fn create_error(details: &str) -> String {
     ///     let msg = format!("E001: {}", details);
     ///     if msg.len() > MAX_ERROR_STRING_LEN as usize {
-    ///         let truncated = &msg[..MAX_ERROR_STRING_LEN as usize - 3];
-    ///         format!("{}...", truncated)
+    ///         // Safe UTF-8 truncation - find last valid char boundary
+    ///         let mut truncate_at = MAX_ERROR_STRING_LEN as usize - 3;
+    ///         while !msg.is_char_boundary(truncate_at) && truncate_at > 0 {
+    ///             truncate_at -= 1;
+    ///         }
+    ///         format!("{}...", &msg[..truncate_at])
     ///     } else {
     ///         msg
     ///     }

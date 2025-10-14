@@ -266,7 +266,14 @@ interface processing-node {
     /// ## Current C-style equivalent:
     /// ```c
     /// // Conceptual mapping - actual C bindings may use different patterns
-    /// typedef enum { DEALLOC_OK = 0, DEALLOC_INVALID_PTR = 1, DEALLOC_SIZE_MISMATCH = 2 } dealloc_result_t;
+    /// typedef enum { 
+    ///     DEALLOC_OK = 0, 
+    ///     DEALLOC_OUT_OF_MEMORY = 1, 
+    ///     DEALLOC_INVALID_SIZE = 2,
+    ///     DEALLOC_MEMORY_CORRUPTION = 3,
+    ///     DEALLOC_INVALID_PTR = 4, 
+    ///     DEALLOC_SIZE_MISMATCH = 5 
+    /// } dealloc_result_t;
     /// dealloc_result_t deallocate(uint32_t ptr, uint32_t size);
     /// ```
     /// 

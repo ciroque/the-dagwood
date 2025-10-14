@@ -227,6 +227,30 @@ interface processing-node {
     /// Map processing error to error code for Rust ProcessingNodeError conversion
     /// Returns error code that maps to appropriate ProcessingNodeError variant
     map-processing-error: func(error: processing-error) -> u32;
+    
+    /// Runtime compliance and tooling support
+    
+    /// Get component interface version for runtime compliance checks
+    /// 
+    /// Returns the WIT interface version this component implements.
+    /// Enables hosts to verify compatibility before processing.
+    /// 
+    /// ## Version Format:
+    /// - **Semantic Version**: "1.0.0" format for human readability
+    /// - **Breaking Changes**: Major version increments (1.x.x → 2.x.x)
+    /// - **Compatible Changes**: Minor/patch increments (1.0.x → 1.1.x)
+    /// 
+    /// ## Usage Patterns:
+    /// - **Host Verification**: Check compatibility on component load
+    /// - **Multi-Language Testing**: Verify consistent interface across toolchains
+    /// - **Debugging**: Identify version mismatches in production
+    /// - **Tooling Integration**: Enable automated compatibility validation
+    /// 
+    /// ## Example Returns:
+    /// - `"1.0.0"` - Current interface version
+    /// - `"1.1.0"` - Added optional features (backward compatible)
+    /// - `"2.0.0"` - Breaking changes (requires host updates)
+    version: func() -> string;
 }
 
 /// World definition for DAGwood WASM components

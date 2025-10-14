@@ -51,24 +51,43 @@ package dagwood:component@1.0.0;
 /// data within DAGwood pipelines. Components are simple, stateless
 /// processors that transform input data to output data.
 interface processing-node {
-    /// Memory allocation errors
+    /// Size limits for WASM memory management
+    /// These constants define the operational boundaries for safe WASM execution
+    const MAX_PAYLOAD_SIZE: u32 = 134217728; // 128MB - reasonable limit for WASM linear memory
+    const MAX_ALLOCATION_SIZE: u32 = 67108864; // 64MB - maximum single allocation
+    const MIN_ALLOCATION_SIZE: u32 = 1; // Minimum allocation size
+    
+    /// Error codes for mapping to Rust ProcessingNodeError types
+    const ERROR_CODE_VALIDATION: u32 = 1000;
+    const ERROR_CODE_RUNTIME: u32 = 2000;
+    const ERROR_CODE_INPUT: u32 = 3000;
+    const ERROR_CODE_ALLOCATION: u32 = 4000;
+    const ERROR_CODE_PROCESSING: u32 = 5000;
+
+    /// Memory allocation errors with error codes for Rust mapping
     variant allocation-error {
         /// Out of memory - cannot allocate requested size
+        /// Maps to ProcessingNodeError::CStyleError(AllocationFailed)
         out-of-memory,
         /// Invalid size - zero or excessively large allocation request
-        invalid-size(u64),
+        /// Maps to ProcessingNodeError::ValidationError
+        invalid-size(u32),
         /// Memory corruption - internal allocator state is corrupted
+        /// Maps to ProcessingNodeError::RuntimeError
         memory-corruption,
     }
     
-    /// Data processing errors
+    /// Data processing errors with error codes for Rust mapping
     variant processing-error {
-        /// Invalid input data (malformed UTF-8, wrong format, etc.)
+        /// Invalid input data (malformed format, etc.)
+        /// Maps to ProcessingNodeError::InputError
         invalid-input(string),
         /// Processing logic failed (algorithm error, computation failure)
+        /// Maps to ProcessingNodeError::CStyleError(FunctionExecutionFailed)
         processing-failed(string),
         /// Input too large for component to handle
-        input-too-large(u64),
+        /// Maps to ProcessingNodeError::ValidationError
+        input-too-large(u32),
     }
     
     /// Main data processing function
@@ -78,28 +97,30 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// uint8_t* process(const uint8_t* input_ptr, size_t input_len, size_t* output_len);
+    /// uint8_t* process(const uint8_t* input_ptr, uint32_t input_len, uint32_t* output_len);
     /// ```
     /// 
     /// ## Parameters:
-    /// - `input-ptr`: Pointer to input data in WASM linear memory
-    /// - `input-len`: Length of input data in bytes
-    /// - `output-len-ptr`: Pointer to where output length should be written
+    /// - `input-ptr`: Pointer to input data in WASM linear memory (u32 - WASM address space)
+    /// - `input-len`: Length of input data in bytes (u32 - matches WASM 32-bit addressing)
+    /// - `output-len-ptr`: Pointer to where output length should be written (u32)
     /// 
     /// ## Returns:
     /// - Pointer to allocated output data in WASM linear memory
-    /// - Returns 0 (null) on error
+    /// - Returns processing-error on failure with mapped error codes
     /// - Caller must call deallocate() to free the returned memory
     /// 
-    /// ## Memory Management:
-    /// 1. Host calls allocate() to get memory for input data
-    /// 2. Host writes input data to allocated memory
-    /// 3. Host calls allocate() to get memory for output length parameter
-    /// 4. Host calls process() with pointers to input and output length
-    /// 5. Component writes output length to output_len_ptr
-    /// 6. Component returns pointer to allocated output data
-    /// 7. Host reads output data and calls deallocate() for cleanup
-    process: func(input-ptr: u32, input-len: u64, output-len-ptr: u32) -> result<u32, processing-error>;
+    /// ## Simplified Memory Flow:
+    /// 1. Host allocates input memory and writes data
+    /// 2. Host allocates output length storage (4 bytes)
+    /// 3. Host calls process() - component processes and allocates output
+    /// 4. Host reads output and cleans up all allocations
+    /// 
+    /// ## Size Validation:
+    /// - Input length must be ≤ MAX_PAYLOAD_SIZE (128MB)
+    /// - Output length must be ≤ MAX_PAYLOAD_SIZE (128MB)
+    /// - Zero-length inputs are valid and return zero-length outputs
+    process: func(input-ptr: u32, input-len: u32, output-len-ptr: u32) -> result<u32, processing-error>;
     
     /// Allocate memory in WASM linear memory
     /// 
@@ -109,20 +130,20 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// void* allocate(size_t size);
+    /// void* allocate(uint32_t size);
     /// ```
     /// 
-    /// ## Usage Pattern:
-    /// 1. Host calls allocate(input_size) to get memory for input
-    /// 2. Host writes input data to allocated memory
-    /// 3. Host calls process() with pointer to allocated memory
-    /// 4. Host calls deallocate() to free memory after processing
+    /// ## Size Validation:
+    /// - Size must be ≥ MIN_ALLOCATION_SIZE (1 byte)
+    /// - Size must be ≤ MAX_ALLOCATION_SIZE (64MB)
+    /// - Returns invalid-size error for out-of-bounds requests
     /// 
     /// ## Memory Safety:
-    /// - Returns allocation-error on failure instead of null pointer
-    /// - Allocated memory is uninitialized
-    /// - Caller must call deallocate() to prevent memory leaks
-    allocate: func(size: u64) -> result<u32, allocation-error>;
+    /// - Returns allocation-error on failure with specific error codes
+    /// - Allocated memory is uninitialized (contains arbitrary data)
+    /// - Caller must call deallocate() with exact size to prevent leaks
+    /// - Multiple allocations are allowed but each needs separate deallocation
+    allocate: func(size: u32) -> result<u32, allocation-error>;
     
     /// Deallocate memory in WASM linear memory
     /// 
@@ -131,7 +152,7 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// void deallocate(void* ptr, size_t size);
+    /// void deallocate(void* ptr, uint32_t size);
     /// ```
     /// 
     /// ## Memory Safety:
@@ -139,7 +160,27 @@ interface processing-node {
     /// - Size must exactly match the allocated size
     /// - Double-free and use-after-free are undefined behavior
     /// - Freeing null pointer (0) is safe and ignored
-    deallocate: func(ptr: u32, size: u64);
+    /// - Size parameter enables allocator validation and debugging
+    deallocate: func(ptr: u32, size: u32);
+    
+    /// Validation helper functions for size limits and error handling
+    /// These functions help components validate inputs and map errors correctly
+    
+    /// Validate payload size against limits
+    /// Returns true if size is within acceptable bounds for processing
+    validate-payload-size: func(size: u32) -> bool;
+    
+    /// Validate allocation size against limits  
+    /// Returns true if size is within acceptable bounds for allocation
+    validate-allocation-size: func(size: u32) -> bool;
+    
+    /// Map allocation error to error code for Rust ProcessingNodeError conversion
+    /// Returns error code that maps to appropriate ProcessingNodeError variant
+    map-allocation-error: func(error: allocation-error) -> u32;
+    
+    /// Map processing error to error code for Rust ProcessingNodeError conversion
+    /// Returns error code that maps to appropriate ProcessingNodeError variant
+    map-processing-error: func(error: processing-error) -> u32;
 }
 
 /// World definition for DAGwood WASM components

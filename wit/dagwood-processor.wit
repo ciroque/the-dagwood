@@ -286,9 +286,9 @@ interface processing-node {
     /// - **Tooling Integration**: Automated compatibility matrices
     /// 
     /// ## Example Returns:
-    /// - `{major: 1, minor: 0, patch: 0}` - Current interface version
-    /// - `{major: 1, minor: 1, patch: 0}` - Added optional features (backward compatible)
-    /// - `{major: 2, minor: 0, patch: 0}` - Breaking changes (requires host updates)
+    /// - `{major: 1u32, minor: 0u32, patch: 0u32}` - Current interface version
+    /// - `{major: 1u32, minor: 1u32, patch: 0u32}` - Added optional features (backward compatible)
+    /// - `{major: 2u32, minor: 0u32, patch: 0u32}` - Breaking changes (requires host updates)
     version: func() -> interface-version;
 }
 

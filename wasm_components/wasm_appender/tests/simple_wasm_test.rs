@@ -1,33 +1,11 @@
-use wasmtime::*;
+mod common;
+
+use common::WasmTestRunner;
 
 /// Simple integration test that validates the WASM module loads and exports the expected functions
 /// This test works with wasmtime 37.0 API
 
 const APPEND_STRING: &str = "::WASM";
-
-struct WasmTestRunner {
-    engine: Engine,
-    module: Module,
-}
-
-impl WasmTestRunner {
-    fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let engine = Engine::default();
-        let module = Module::from_file(&engine, "../wasm_appender.wasm")
-            .map_err(|e| format!("Failed to load WASM module: {}", e))?;
-        
-        Ok(Self { engine, module })
-    }
-    
-    fn run_test<F>(&self, test_fn: F) -> Result<(), Box<dyn std::error::Error>>
-    where
-        F: FnOnce(&mut Store<()>, &Instance) -> Result<(), Box<dyn std::error::Error>>,
-    {
-        let mut store = Store::new(&self.engine, ());
-        let instance = Instance::new(&mut store, &self.module, &[])?;
-        test_fn(&mut store, &instance)
-    }
-}
 
 #[test]
 fn test_wasm_module_loads_and_functions_exist() {
@@ -90,7 +68,7 @@ fn test_wasm_basic_functionality() {
         
         // Read the output length
         let output_len = {
-            let memory_data = memory.data(&*store);
+            let memory_data = memory.data(&mut *store);
             i32::from_le_bytes([
                 memory_data[output_len_ptr as usize],
                 memory_data[output_len_ptr as usize + 1],
@@ -104,7 +82,7 @@ fn test_wasm_basic_functionality() {
         
         // Read the output string
         let output_str = {
-            let memory_data = memory.data(&*store);
+            let memory_data = memory.data(&mut *store);
             let output_bytes = &memory_data[output_ptr as usize..(output_ptr as usize + output_len as usize)];
             std::str::from_utf8(output_bytes)
                 .expect("Output should be valid UTF-8")
@@ -151,7 +129,7 @@ fn test_wasm_empty_string() {
         
         // Read the output length
         let output_len = {
-            let memory_data = memory.data(&*store);
+            let memory_data = memory.data(&mut *store);
             i32::from_le_bytes([
                 memory_data[output_len_ptr as usize],
                 memory_data[output_len_ptr as usize + 1],

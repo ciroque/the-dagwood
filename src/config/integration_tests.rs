@@ -50,7 +50,8 @@ mod integration_tests {
     #[test]
     fn test_build_dag_runtime_from_yaml() {
         let config = load_and_validate_config("configs/simple-text-pipeline.yaml").unwrap();
-        let (processors, _executor, failure_strategy) = RuntimeBuilder::from_config(&config);
+        let (processors, _executor, failure_strategy) =
+            RuntimeBuilder::from_config(&config).unwrap();
 
         // Verify processor registry
         assert_eq!(processors.len(), 3);
@@ -92,7 +93,7 @@ mod integration_tests {
     #[test]
     fn test_executor_options_from_yaml() {
         let config = load_and_validate_config("configs/parallel-analysis-pipeline.yaml").unwrap();
-        let (_, _executor, _) = RuntimeBuilder::from_config(&config);
+        let (_, _executor, _) = RuntimeBuilder::from_config(&config).unwrap();
 
         // The executor should be created successfully with the configured options
         // We can't easily inspect internal state, but we can verify it exists

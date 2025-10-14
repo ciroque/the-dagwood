@@ -235,7 +235,8 @@ async fn run_single_config(
     let config = load_and_validate_config(config_file)?;
 
     // Build runtime components from configuration
-    let (processors, executor, failure_strategy) = RuntimeBuilder::from_config(&config);
+    let (processors, executor, failure_strategy) = RuntimeBuilder::from_config(&config)
+        .map_err(|e| format!("Failed to build runtime: {}", e))?;
 
     // Build dependency graph and entry points from config
     let mut graph_map = HashMap::new();

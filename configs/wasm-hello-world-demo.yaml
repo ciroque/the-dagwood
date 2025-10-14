@@ -1,4 +1,4 @@
-strategy: work_queue
+strategy: reactive
 failure_strategy: fail_fast
 executor_options:
   max_concurrency: 2
@@ -12,7 +12,7 @@ processors:
 
   - id: wasm_hello_wasm
     type: wasm
-    module: wasm_components/hello.wasm
+    module: wasm_components/wasm_appender.wasm
     depends_on:
       - input_processor
     options:

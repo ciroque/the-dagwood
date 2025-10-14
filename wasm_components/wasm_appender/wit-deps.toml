@@ -1,5 +1,5 @@
 # WIT Dependencies for wasm appender
-# This component implements the DAGwood processor interface v1.0.0
+# This component implements the DAGwood processing-node interface v1.0.0
 
 [dependencies]
 dagwood-processor = { path = "wit/dagwood-processor.wit" }

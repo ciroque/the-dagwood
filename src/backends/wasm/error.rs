@@ -32,6 +32,15 @@ pub enum WasmError {
 
     #[error("Invalid input: {0}")]
     ValidationError(String),
+
+    #[error("Engine creation error: {0}")]
+    EngineError(String),
+
+    #[error("String conversion error: {0}")]
+    StringError(String),
+
+    #[error("Processor error: {0}")]
+    ProcessorError(String),
 }
 
 pub type WasmResult<T> = Result<T, WasmError>;

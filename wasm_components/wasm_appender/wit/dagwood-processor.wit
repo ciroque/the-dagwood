@@ -50,7 +50,7 @@ package dagwood:component@1.0.0;
 /// This interface defines the contract for WASM components that process
 /// data within DAGwood pipelines. Components are simple, stateless
 /// processors that transform input data to output data.
-interface processor {
+interface processing-node {
     /// Memory allocation errors
     variant allocation-error {
         /// Out of memory - cannot allocate requested size
@@ -145,16 +145,16 @@ interface processor {
 /// World definition for DAGwood WASM components
 /// 
 /// This world defines the complete interface that DAGwood WASM components
-/// must implement. It includes only the processor interface with no imports,
+/// must implement. It includes only the processing-node interface with no imports,
 /// ensuring complete sandboxing and security isolation.
 world dagwood-component {
-    /// Export the processor interface
+    /// Export the processing-node interface
     /// 
-    /// WASM components must export all functions in the processor interface:
+    /// WASM components must export all functions in the processing-node interface:
     /// - process: Main data processing logic
     /// - allocate: Memory allocation for host-component communication
     /// - deallocate: Memory deallocation for cleanup
-    export processor;
+    export processing-node;
     
     /// No imports allowed for security
     /// 

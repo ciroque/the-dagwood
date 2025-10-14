@@ -236,27 +236,43 @@ interface processing-node {
     
     /// Runtime compliance and tooling support
     
+    /// Structured version information for programmatic compatibility checks
+    record interface-version {
+        /// Major version - incremented for breaking changes
+        major: u32,
+        /// Minor version - incremented for backward-compatible additions
+        minor: u32,
+        /// Patch version - incremented for backward-compatible fixes
+        patch: u32,
+    }
+    
     /// Get component interface version for runtime compliance checks
     /// 
-    /// Returns the WIT interface version this component implements.
-    /// Enables hosts to verify compatibility before processing.
+    /// Returns the WIT interface version this component implements as structured data.
+    /// Enables efficient programmatic compatibility verification without string parsing.
     /// 
-    /// ## Version Format:
-    /// - **Semantic Version**: "1.0.0" format for human readability
+    /// ## Version Semantics:
     /// - **Breaking Changes**: Major version increments (1.x.x → 2.x.x)
-    /// - **Compatible Changes**: Minor/patch increments (1.0.x → 1.1.x)
+    /// - **Compatible Additions**: Minor version increments (1.0.x → 1.1.x)
+    /// - **Compatible Fixes**: Patch version increments (1.0.0 → 1.0.1)
+    /// 
+    /// ## Multi-Language Benefits:
+    /// - **C Hosts**: Direct u32 comparison without strcmp overhead
+    /// - **Rust Hosts**: Clean destructuring `let {major, minor, patch} = version()`
+    /// - **Go Hosts**: Native struct comparison without version parsing
+    /// - **Performance**: No atoi/string parsing in performance-critical loads
     /// 
     /// ## Usage Patterns:
-    /// - **Host Verification**: Check compatibility on component load
-    /// - **Multi-Language Testing**: Verify consistent interface across toolchains
-    /// - **Debugging**: Identify version mismatches in production
-    /// - **Tooling Integration**: Enable automated compatibility validation
+    /// - **Host Verification**: `if version().major > 1 { return incompatible; }`
+    /// - **Feature Detection**: `if version().minor >= 2 { use_new_feature(); }`
+    /// - **Debugging**: Log structured version data for clear diagnostics
+    /// - **Tooling Integration**: Automated compatibility matrices
     /// 
     /// ## Example Returns:
-    /// - `"1.0.0"` - Current interface version
-    /// - `"1.1.0"` - Added optional features (backward compatible)
-    /// - `"2.0.0"` - Breaking changes (requires host updates)
-    version: func() -> string;
+    /// - `{major: 1, minor: 0, patch: 0}` - Current interface version
+    /// - `{major: 1, minor: 1, patch: 0}` - Added optional features (backward compatible)
+    /// - `{major: 2, minor: 0, patch: 0}` - Breaking changes (requires host updates)
+    version: func() -> interface-version;
 }
 
 /// World definition for DAGwood WASM components

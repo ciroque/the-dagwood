@@ -40,15 +40,17 @@ build:
 
 test:
 	@echo "🧪 Running tests for $(COMPONENT_NAME)..."
-	@echo "⚠️  WASM component tests require WASM runtime environment"
-	@echo "💡 Tests are designed to run in WASM context, skipping native test execution"
-	@echo "✅ Component builds successfully - tests would run in WASM environment"
+	@echo "🔨 Building WASM module first (required for integration tests)..."
+	@$(MAKE) build
+	@echo "🚀 Running wasmtime-based integration tests..."
+	@cargo test --test simple_wasm_test -- --nocapture
 
 test-verbose:
 	@echo "🧪 Running verbose tests for $(COMPONENT_NAME)..."
-	@echo "⚠️  WASM component tests require WASM runtime environment"
-	@echo "💡 Tests are designed to run in WASM context, skipping native test execution"
-	@echo "✅ Component builds successfully - tests would run in WASM environment"
+	@echo "🔨 Building WASM module first (required for integration tests)..."
+	@$(MAKE) build
+	@echo "🚀 Running wasmtime-based integration tests with verbose output..."
+	@cargo test --test simple_wasm_test -- --nocapture --test-threads=1
 
 # --------------------------------
 # 🧹 Cleanup Targets

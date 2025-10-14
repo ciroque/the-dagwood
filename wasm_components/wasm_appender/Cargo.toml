@@ -9,6 +9,9 @@ crate-type = ["cdylib"]
 [dependencies]
 wee_alloc = "0.4"
 
+[dev-dependencies]
+wasmtime = "37.0"
+
 [profile.release]
 # Optimize for size since WASM modules should be small
 opt-level = "s"

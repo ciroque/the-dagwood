@@ -36,6 +36,30 @@
 /// - Provides foundation for Component Model migration
 /// - Maintains exact compatibility with current C-style exports
 /// 
+/// ## Future Evolution Path (vNext Component Model)
+/// 
+/// **Current v1.0**: Raw pointer interface optimized for C compatibility and host control
+/// ```wit
+/// process: func(input-ptr: u32, input-len: u32, output-len-ptr: u32) -> result<u32, processing-error>;
+/// ```
+/// 
+/// **Future vNext**: Direct `list<u8>` interface reducing host boilerplate
+/// ```wit
+/// process: func(input: list<u8>) -> result<list<u8>, processing-error>;
+/// ```
+/// 
+/// **Migration Benefits**:
+/// - **Eliminates Host Boilerplate**: No manual allocate/memcpy/deallocate cycles
+/// - **Type Safety**: Component Model handles memory management automatically
+/// - **Multi-Language Ergonomics**: Natural `Vec<u8>` in Rust, `[]byte` in Go, etc.
+/// - **Backward Compatibility**: Pointer-based components can coexist during transition
+/// 
+/// **Current Pointer Advantages** (why v1.0 is optimal for now):
+/// - **C Ecosystem Compatibility**: Direct FFI with existing C/C++ WASM toolchains
+/// - **Memory Control**: Host retains fine-grained control over allocation strategies
+/// - **Debugging**: Explicit memory operations aid in troubleshooting
+/// - **Performance**: Zero abstraction overhead for memory-sensitive workloads
+/// 
 /// ## Security Model
 /// 
 /// - **Complete Sandboxing**: No access to host filesystem, network, or system calls
@@ -51,24 +75,109 @@ package dagwood:component@1.0.0;
 /// data within DAGwood pipelines. Components are simple, stateless
 /// processors that transform input data to output data.
 interface processing-node {
-    /// Memory allocation errors
+    /// Size limits for WASM memory management
+    /// These constants define the operational boundaries for safe WASM execution
+    const MAX_PAYLOAD_SIZE: u32 = 0x8000000; // 128MB (134,217,728 bytes) - reasonable limit for WASM linear memory
+    const MAX_ALLOCATION_SIZE: u32 = 0x4000000; // 64MB (67,108,864 bytes) - maximum single allocation
+    const MIN_ALLOCATION_SIZE: u32 = 1; // Minimum allocation size
+    const MAX_ERROR_STRING_LEN: u32 = 256; // Maximum error string length to prevent DoS
+    
+    /// ## Validation Contract Overview
+    /// 
+    /// This interface follows a **schema-driven validation** approach similar to Protocol Buffers:
+    /// - **Constants define limits** that MUST be enforced by implementations
+    /// - **Components are responsible** for validating inputs against these constants
+    /// - **Hosts MAY validate** as defense-in-depth but SHOULD NOT rely on this
+    /// 
+    /// This approach solves the WASM validation chicken-and-egg problem by:
+    /// 1. **Clear contracts** defined in the WIT schema
+    /// 2. **Component responsibility** for self-validation
+    /// 3. **Host fallback** for additional security
+
+    /// Memory allocation errors with Rust mapping
     variant allocation-error {
         /// Out of memory - cannot allocate requested size
+        /// Maps to ProcessingNodeError::CStyleError(AllocationFailed)
         out-of-memory,
         /// Invalid size - zero or excessively large allocation request
-        invalid-size(u64),
+        /// Maps to ProcessingNodeError::ValidationError
+        invalid-size(u32),
         /// Memory corruption - internal allocator state is corrupted
+        /// Maps to ProcessingNodeError::RuntimeError
         memory-corruption,
+        /// Invalid pointer - not from a previous allocate() call or already freed
+        /// Maps to ProcessingNodeError::CStyleError(AllocationFailed)
+        /// 
+        /// ## Pointer Value Usage:
+        /// - **Debugging**: Value is the invalid WASM linear memory offset for component debugging
+        /// - **Privacy**: While WASM pointers are offsets and not host memory addresses, logging invalid pointer values could still leak information about memory layout or allocation patterns. Only log these values if necessary for debugging, and be aware of the potential for information leakage.        /// - **Validation**: Hosts can check if value is within valid WASM memory bounds
+        /// - **Range**: Value should be < WASM linear memory size (typically < 4GB)
+        invalid-pointer(u32),
+        /// Size mismatch - deallocate size doesn't match original allocation
+        /// Maps to ProcessingNodeError::ValidationError
+        /// 
+        /// ## Size Value Usage:
+        /// - **Debugging**: Value is the expected size (from original allocation record)
+        /// - **Context**: Compare with deallocate() call size parameter to identify mismatch
+        /// - **Implementation**: Component returns the size it expected, not the size provided
+        /// - **Privacy**: Safe to log - size values don't reveal sensitive information
+        /// - **Range**: Value should be between MIN_ALLOCATION_SIZE and MAX_ALLOCATION_SIZE
+        size-mismatch(u32),
     }
     
-    /// Data processing errors
+    /// Data processing errors with Rust mapping
+    /// 
+    /// ## String Validation Contract:
+    /// All string parameters in error variants MUST be ≤ MAX_ERROR_STRING_LEN bytes.
+    /// 
+    /// ## Implementation Requirements:
+    /// - **Component Responsibility**: Components MUST truncate error strings before returning
+    /// - **Truncation Format**: Use "..." suffix to indicate truncation (e.g., "E001: Long message...")
+    /// - **Host Validation**: Hosts MAY validate string lengths as defense-in-depth
+    /// 
+    /// ## Violation Handling:
+    /// - Oversized strings indicate component implementation bugs
+    /// - Hosts SHOULD log warnings for oversized strings
+    /// - Hosts MAY truncate as fallback but SHOULD NOT rely on this
+    /// 
+    /// ## Example Implementation:
+    /// ```rust
+    /// fn create_error(details: &str) -> String {
+    ///     let msg = format!("E001: {}", details);
+    ///     if msg.len() > MAX_ERROR_STRING_LEN as usize {
+    ///         // Safe UTF-8 truncation - find last valid char boundary
+    ///         let max_truncate = MAX_ERROR_STRING_LEN as usize - 3;
+    ///         let mut truncate_at = msg.len().min(max_truncate);
+    ///         while truncate_at > 0 && !msg.is_char_boundary(truncate_at) {
+    ///             truncate_at -= 1;
+    ///         }
+    ///         if truncate_at == 0 {
+    ///             // Fallback: return error code only if no content can be preserved
+    ///             "E001...".to_string()
+    ///         } else {
+    ///             format!("{}...", &msg[..truncate_at])
+    ///         }
+    ///     } else {
+    ///         msg
+    ///     }
+    /// }
+    /// ```
     variant processing-error {
-        /// Invalid input data (malformed UTF-8, wrong format, etc.)
+        /// Invalid input data (malformed format, etc.)
+        /// Maps to ProcessingNodeError::InputError
+        /// String MUST be ≤ MAX_ERROR_STRING_LEN bytes; prefer concise codes like 'E001: Invalid header'
         invalid-input(string),
         /// Processing logic failed (algorithm error, computation failure)
+        /// Maps to ProcessingNodeError::CStyleError(FunctionExecutionFailed)
+        /// String MUST be ≤ MAX_ERROR_STRING_LEN bytes; prefer concise codes like 'E002: Algorithm failed'
         processing-failed(string),
         /// Input too large for component to handle
-        input-too-large(u64),
+        /// Maps to ProcessingNodeError::ValidationError
+        input-too-large(u32),
+        /// Unknown/unexpected error for extensibility and opaque binary handling
+        /// Maps to ProcessingNodeError::RuntimeError - catches weird formats gracefully
+        /// String MUST be ≤ MAX_ERROR_STRING_LEN bytes; prefer concise codes like 'E999: Unknown format'
+        unknown(string),
     }
     
     /// Main data processing function
@@ -78,28 +187,49 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// uint8_t* process(const uint8_t* input_ptr, size_t input_len, size_t* output_len);
+    /// uint8_t *process(const uint8_t *input_ptr, uint32_t input_len, uint32_t *output_len);
     /// ```
     /// 
+    /// **Note**: WIT `output-len-ptr: u32` is a WASM linear memory offset pointing to where the u32 output length should be written.
+    /// 
     /// ## Parameters:
-    /// - `input-ptr`: Pointer to input data in WASM linear memory
-    /// - `input-len`: Length of input data in bytes
-    /// - `output-len-ptr`: Pointer to where output length should be written
+    /// - `input-ptr`: Pointer to input data in WASM linear memory (u32 - WASM address space)
+    ///   - **Performance Hint**: For optimal SIMD performance, hosts SHOULD align to 16-, 32-, or 64-byte boundaries when possible
+    ///   - **Requirement**: Must be valid within WASM linear memory bounds (no alignment required)
+    /// - `input-len`: Length of input data in bytes (u32 - matches WASM 32-bit addressing)
+    ///   - **Constraints**: Must be ≤ MAX_PAYLOAD_SIZE (128MB) as defined by constants
+    ///   - **Validation**: Zero-length inputs are valid and should return zero-length outputs
+    /// - `output-len-ptr`: Pointer to where output length should be written (u32)
+    ///   - **Performance Hint**: For efficient access, hosts SHOULD use 4-byte alignment when possible
+    ///   - **Requirement**: Must be valid u32 pointer in WASM linear memory (no alignment required)
+    /// 
+    /// ## Alignment Contract:
+    /// The WIT interface cannot enforce pointer alignment - these are performance recommendations only.
+    /// Components MUST NOT assume alignment guarantees and SHOULD handle unaligned pointers gracefully.
+    /// Hosts SHOULD provide aligned pointers when possible for optimal performance.
     /// 
     /// ## Returns:
-    /// - Pointer to allocated output data in WASM linear memory
-    /// - Returns 0 (null) on error
-    /// - Caller must call deallocate() to free the returned memory
+    /// - **Success**: Pointer to allocated output data in WASM linear memory
+    /// - **Error**: Returns processing-error with mapped error codes
+    /// - Caller must call deallocate() to free the returned memory on success
     /// 
-    /// ## Memory Management:
-    /// 1. Host calls allocate() to get memory for input data
-    /// 2. Host writes input data to allocated memory
-    /// 3. Host calls allocate() to get memory for output length parameter
-    /// 4. Host calls process() with pointers to input and output length
-    /// 5. Component writes output length to output_len_ptr
-    /// 6. Component returns pointer to allocated output data
-    /// 7. Host reads output data and calls deallocate() for cleanup
-    process: func(input-ptr: u32, input-len: u64, output-len-ptr: u32) -> result<u32, processing-error>;
+    /// ## Error Propagation & Debugging:
+    /// - **Error Handling**: Components return processing-error variants for different failure modes
+    /// - **Consistency Tip**: Components should write `*output-len-ptr = 0` on error for consistent host-side handling
+    /// - **Opaque Binary Safety**: Use `unknown(string)` for unexpected binary formats that can't be categorized
+    /// 
+    /// ## Simplified Memory Flow:
+    /// 1. Host allocates input memory and writes data
+    /// 2. Host allocates output length storage (4 bytes)
+    /// 3. Host calls process() - component processes and allocates output
+    /// 4. **Success**: Host reads output and cleans up all allocations
+    /// 5. **Error**: Host checks error, cleans up input allocations only
+    /// 
+    /// ## Size Validation:
+    /// - Input length must be ≤ MAX_PAYLOAD_SIZE (128MB)
+    /// - Output length must be ≤ MAX_PAYLOAD_SIZE (128MB)
+    /// - Zero-length inputs are valid and return zero-length outputs
+    process: func(input-ptr: u32, input-len: u32, output-len-ptr: u32) -> result<u32, processing-error>;
     
     /// Allocate memory in WASM linear memory
     /// 
@@ -109,20 +239,28 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// void* allocate(size_t size);
+    /// void* allocate(uint32_t size);
     /// ```
     /// 
-    /// ## Usage Pattern:
-    /// 1. Host calls allocate(input_size) to get memory for input
-    /// 2. Host writes input data to allocated memory
-    /// 3. Host calls process() with pointer to allocated memory
-    /// 4. Host calls deallocate() to free memory after processing
+    /// ## Size Validation Contract:
+    /// Size parameter MUST be validated against MIN_ALLOCATION_SIZE and MAX_ALLOCATION_SIZE.
+    /// 
+    /// ## Implementation Requirements:
+    /// - **Component Responsibility**: Components MUST validate size before allocation
+    /// - **Range Checking**: Size MUST be >= MIN_ALLOCATION_SIZE and <= MAX_ALLOCATION_SIZE
+    /// - **Host Validation**: Hosts MAY validate sizes as defense-in-depth
+    /// 
+    /// ## Size Validation:
+    /// - Size must be ≥ MIN_ALLOCATION_SIZE (1 byte)
+    /// - Size must be ≤ MAX_ALLOCATION_SIZE (64MB)
+    /// - Returns invalid-size error for out-of-bounds requests
     /// 
     /// ## Memory Safety:
-    /// - Returns allocation-error on failure instead of null pointer
-    /// - Allocated memory is uninitialized
-    /// - Caller must call deallocate() to prevent memory leaks
-    allocate: func(size: u64) -> result<u32, allocation-error>;
+    /// - Returns allocation-error on failure with specific error codes
+    /// - Allocated memory is uninitialized (contains arbitrary data)
+    /// - Caller must call deallocate() with exact size to prevent leaks
+    /// - Multiple allocations are allowed but each needs separate deallocation
+    allocate: func(size: u32) -> result<u32, allocation-error>;
     
     /// Deallocate memory in WASM linear memory
     /// 
@@ -131,15 +269,71 @@ interface processing-node {
     /// 
     /// ## Current C-style equivalent:
     /// ```c
-    /// void deallocate(void* ptr, size_t size);
+    /// // Conceptual mapping - actual C bindings may use different patterns
+    /// typedef enum {
+    ///     DEALLOC_OK = 0, 
+    ///     DEALLOC_INVALID_POINTER = 1,
+    ///     DEALLOC_SIZE_MISMATCH = 2,
+    ///     DEALLOC_MEMORY_CORRUPTION = 3
+    /// } dealloc_result_t;
+    /// dealloc_result_t deallocate(uint32_t ptr, uint32_t size);
     /// ```
     /// 
-    /// ## Memory Safety:
-    /// - Pointer must be from a previous allocate() call
-    /// - Size must exactly match the allocated size
-    /// - Double-free and use-after-free are undefined behavior
-    /// - Freeing null pointer (0) is safe and ignored
-    deallocate: func(ptr: u32, size: u64);
+    /// **Note**: WIT `result<(), allocation-error>` maps to C enum/error codes. Actual binding patterns vary by generator.
+    /// 
+    /// ## Enhanced Memory Safety with Result:
+    /// - **Validation**: Returns allocation-error instead of silent corruption
+    /// - **Double-free Detection**: `invalid-pointer` error for already-freed memory
+    /// - **Size Validation**: `size-mismatch` error if size doesn't match original allocation
+    /// - **Multi-language Safety**: Error bubbling works cleanly in Go, Rust, etc.
+    /// - **Debugging**: Specific error variants help identify memory management bugs
+    /// 
+    /// ## Error Cases:
+    /// - `invalid-pointer(ptr)`: Pointer not from allocate() or already freed
+    /// - `size-mismatch(expected)`: Size doesn't match, returns expected size
+    /// - `memory-corruption`: Internal allocator state corrupted
+    /// - **Success**: Freeing null pointer (0) returns Ok(()) safely
+    deallocate: func(ptr: u32, size: u32) -> result<(), allocation-error>;
+    
+    /// Runtime compliance and tooling support
+    
+    /// Structured version information for programmatic compatibility checks
+    record interface-version {
+        /// Major version - incremented for breaking changes
+        major: u32,
+        /// Minor version - incremented for backward-compatible additions
+        minor: u32,
+        /// Patch version - incremented for backward-compatible fixes
+        patch: u32,
+    }
+    
+    /// Get component interface version for runtime compliance checks
+    /// 
+    /// Returns the WIT interface version this component implements as structured data.
+    /// Enables efficient programmatic compatibility verification without string parsing.
+    /// 
+    /// ## Version Semantics:
+    /// - **Breaking Changes**: Major version increments (1.x.x → 2.x.x)
+    /// - **Compatible Additions**: Minor version increments (1.0.x → 1.1.x)
+    /// - **Compatible Fixes**: Patch version increments (1.0.0 → 1.0.1)
+    /// 
+    /// ## Multi-Language Benefits:
+    /// - **C Hosts**: Direct u32 comparison without strcmp overhead
+    /// - **Rust Hosts**: Clean destructuring `let {major, minor, patch} = version()`
+    /// - **Go Hosts**: Native struct comparison without version parsing
+    /// - **Performance**: No atoi/string parsing in performance-critical loads
+    /// 
+    /// ## Usage Patterns:
+    /// - **Host Verification**: `if version().major > 1 { return incompatible; }`
+    /// - **Feature Detection**: `if version().minor >= 2 { use_new_feature(); }`
+    /// - **Debugging**: Log structured version data for clear diagnostics
+    /// - **Tooling Integration**: Automated compatibility matrices
+    /// 
+    /// ## Example Returns:
+    /// - `{major: 1u32, minor: 0u32, patch: 0u32}` - Current interface version
+    /// - `{major: 1u32, minor: 1u32, patch: 0u32}` - Added optional features (backward compatible)
+    /// - `{major: 2u32, minor: 0u32, patch: 0u32}` - Breaking changes (requires host updates)
+    version: func() -> interface-version;
 }
 
 /// World definition for DAGwood WASM components

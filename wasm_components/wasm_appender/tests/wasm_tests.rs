@@ -15,7 +15,7 @@ impl WasmTestRunner {
         
         if !Path::new(&wasm_path).exists() {
             return Err(format!(
-                "WASM module not found at {}. Run 'make build' first to compile the module.",
+                "WASM module not found at {}. Run 'make wasm-build' at the repository root, or 'make -C wasm_components build-wasm_appender' to compile the module.",
                 wasm_path
             ).into());
         }
@@ -96,6 +96,72 @@ impl WasmFunctions {
             memory,
         })
     }
+    
+    /// Run the complete process workflow: allocate → process → read output → deallocate
+    /// 
+    /// This eliminates the repeated sequence across tests and centralizes memory handling.
+    /// Returns None for empty input (null pointer case), otherwise returns the processed string.
+    fn run_process(&self, store: &mut Store<()>, input: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
+        // Handle empty input case - call process with null pointer
+        if input.is_empty() {
+            // Allocate space for output length
+            let output_len_ptr = self.allocate.call(&mut *store, 4)?;
+            
+            // Call process with empty string (null pointer, 0 length)
+            let output_ptr = self.process.call(&mut *store, (0, 0, output_len_ptr))?;
+            
+            // Read the output length
+            let output_len = {
+                let memory_data = self.memory.data(&mut *store);
+                read_i32_le(memory_data, output_len_ptr as usize)?
+            };
+            
+            // Clean up output length pointer
+            self.deallocate.call(&mut *store, (output_len_ptr, 4))?;
+            
+            // Empty input should return null pointer and 0 length
+            if output_ptr == 0 && output_len == 0 {
+                return Ok(None);
+            } else {
+                return Err("Expected null pointer and 0 length for empty input".into());
+            }
+        }
+        
+        // Normal processing for non-empty input
+        // Allocate and write input to WASM memory
+        let (input_ptr, input_len) = write_input_to_memory(&mut *store, &self.memory, input, &self.allocate)?;
+        
+        // Allocate space for output length
+        let output_len_ptr = self.allocate.call(&mut *store, 4)?;
+        
+        // Call the process function
+        let output_ptr = self.process.call(&mut *store, (input_ptr, input_len, output_len_ptr))?;
+        
+        // Read the output length
+        let output_len = {
+            let memory_data = self.memory.data(&mut *store);
+            read_i32_le(memory_data, output_len_ptr as usize)?
+        };
+        
+        // Validate output
+        if output_ptr == 0 {
+            return Err("Process returned null pointer for non-empty input".into());
+        }
+        
+        // Read the output string
+        let output_str = {
+            let memory_data = self.memory.data(&mut *store);
+            let output_bytes = &memory_data[output_ptr as usize..(output_ptr as usize + output_len as usize)];
+            std::str::from_utf8(output_bytes)?.to_string()
+        };
+        
+        // Clean up allocated memory
+        self.deallocate.call(&mut *store, (input_ptr, input_len))?;
+        self.deallocate.call(&mut *store, (output_len_ptr, 4))?;
+        self.deallocate.call(&mut *store, (output_ptr, output_len))?;
+        
+        Ok(Some(output_str))
+    }
 }
 
 /// Comprehensive WASM integration tests
@@ -131,46 +197,12 @@ fn test_wasm_process_short_string() {
         let input = "hello";
         let expected_output = format!("{}{}", input, APPEND_STRING);
         
-        // Allocate and write input to WASM memory
-        let (input_ptr, input_len) = write_input_to_memory(&mut *store, &wasm_funcs.memory, input, &wasm_funcs.allocate)
-            .expect("Should be able to write input to memory");
-        
-        // Allocate space for output length
-        let output_len_ptr = wasm_funcs.allocate.call(&mut *store, 4)
-            .expect("Should be able to allocate output length memory");
-        
-        // Call the process function
-        let output_ptr = wasm_funcs.process.call(&mut *store, (input_ptr, input_len, output_len_ptr))
+        // Use the centralized process helper
+        let result = wasm_funcs.run_process(&mut *store, input)
             .expect("Process function should execute successfully");
         
-        // Read the output length
-        let output_len = {
-            let memory_data = wasm_funcs.memory.data(&mut *store);
-            read_i32_le(memory_data, output_len_ptr as usize)
-                .expect("Should be able to read output length from valid memory location")
-        };
-        
-        assert_ne!(output_ptr, 0, "Process should return non-null pointer");
-        assert_eq!(output_len, expected_output.len() as i32, "Output length should match expected");
-        
-        // Read the output string
-        let output_str = {
-            let memory_data = wasm_funcs.memory.data(&mut *store);
-            let output_bytes = &memory_data[output_ptr as usize..(output_ptr as usize + output_len as usize)];
-            std::str::from_utf8(output_bytes)
-                .expect("Output should be valid UTF-8")
-                .to_string()
-        };
-        
+        let output_str = result.expect("Should get output for non-empty input");
         assert_eq!(output_str, expected_output, "Output should match expected result");
-        
-        // Clean up allocated memory
-        wasm_funcs.deallocate.call(&mut *store, (input_ptr, input_len))
-            .expect("Should be able to deallocate input memory");
-        wasm_funcs.deallocate.call(&mut *store, (output_len_ptr, 4))
-            .expect("Should be able to deallocate output length memory");
-        wasm_funcs.deallocate.call(&mut *store, (output_ptr, output_len))
-            .expect("Should be able to deallocate output memory");
         
         println!("✅ WASM process function works correctly: '{}' -> '{}'", input, output_str);
         Ok(())
@@ -187,40 +219,11 @@ fn test_wasm_process_longer_string() {
         let input = "hello world";
         let expected_output = format!("{}{}", input, APPEND_STRING);
         
-        // Allocate and write input to WASM memory
-        let (input_ptr, input_len) = write_input_to_memory(&mut *store, &wasm_funcs.memory, input, &wasm_funcs.allocate)?;
+        // Use the centralized process helper
+        let result = wasm_funcs.run_process(&mut *store, input)?;
         
-        // Allocate space for output length
-        let output_len_ptr = wasm_funcs.allocate.call(&mut *store, 4)?; // i32 = 4 bytes
-        
-        // Call the process function
-        let output_ptr = wasm_funcs.process.call(&mut *store, (input_ptr, input_len, output_len_ptr))?;
-        
-        // Read the output length
-        let output_len = {
-            let memory_data = wasm_funcs.memory.data(&mut *store);
-            read_i32_le(memory_data, output_len_ptr as usize)
-                .map_err(|e| format!("Failed to read output length: {}", e))?
-        };
-        
-        assert_ne!(output_ptr, 0, "Process should return non-null pointer");
-        assert_eq!(output_len, expected_output.len() as i32, "Output length should match expected");
-        
-        // Read the output string
-        let output_str = {
-            let memory_data = wasm_funcs.memory.data(&mut *store);
-            let output_bytes = &memory_data[output_ptr as usize..(output_ptr as usize + output_len as usize)];
-            std::str::from_utf8(output_bytes)
-                .expect("Output should be valid UTF-8")
-                .to_string()
-        };
-        
+        let output_str = result.ok_or("Should get output for non-empty input")?;
         assert_eq!(output_str, expected_output, "Output should match expected result");
-        
-        // Clean up allocated memory
-        wasm_funcs.deallocate.call(&mut *store, (input_ptr, input_len))?;
-        wasm_funcs.deallocate.call(&mut *store, (output_len_ptr, 4))?;
-        wasm_funcs.deallocate.call(&mut *store, (output_ptr, output_len))?;
         
         println!("✅ Process function works correctly: '{}' -> '{}'", input, output_str);
         Ok(())
@@ -236,28 +239,12 @@ fn test_wasm_process_empty_string() {
         let wasm_funcs = WasmFunctions::from_instance(&mut *store, instance)
             .expect("All required functions and memory should be exported");
         
-        // Allocate space for output length (even for empty input)
-        let output_len_ptr = wasm_funcs.allocate.call(&mut *store, 4)
-            .expect("Should be able to allocate output length memory");
-        
-        // Call process with empty string (null pointer, 0 length)
-        let output_ptr = wasm_funcs.process.call(&mut *store, (0, 0, output_len_ptr))
+        // Use the centralized process helper for empty input
+        let result = wasm_funcs.run_process(&mut *store, "")
             .expect("Process function should handle empty input");
         
-        // Read the output length
-        let output_len = {
-            let memory_data = wasm_funcs.memory.data(&mut *store);
-            read_i32_le(memory_data, output_len_ptr as usize)
-                .expect("Should be able to read output length from valid memory location")
-        };
-        
-        // The WASM module returns null pointer for empty input (input_len <= 0)
-        assert_eq!(output_ptr, 0, "Process should return null pointer for empty input");
-        assert_eq!(output_len, 0, "Output length should be 0 for empty input");
-        
-        // Clean up (only the output length pointer, no output to deallocate)
-        wasm_funcs.deallocate.call(&mut *store, (output_len_ptr, 4))
-            .expect("Should be able to deallocate output length memory");
+        // Empty input should return None (null pointer case)
+        assert!(result.is_none(), "Process should return None for empty input");
         
         println!("✅ Empty string processing works correctly: returns null pointer as expected");
         Ok(())

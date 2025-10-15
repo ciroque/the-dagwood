@@ -1,6 +1,9 @@
 use wasmtime::*;
 use std::path::PathBuf;
 
+/// Size of i32 in bytes for output length allocation/deallocation
+const OUTPUT_LEN_SIZE: i32 = 4;
+
 // Test infrastructure moved inline
 struct WasmTestRunner {
     engine: Engine,
@@ -66,8 +69,15 @@ fn write_input_to_memory<T>(
     {
         let memory_data = memory.data_mut(&mut *store);
         let input_bytes = input.as_bytes();
-        memory_data[input_ptr as usize..(input_ptr as usize + input_bytes.len())]
-            .copy_from_slice(input_bytes);
+        let start = input_ptr as usize;
+        let end = start + input_bytes.len();
+        let memory_len = memory_data.len(); // Get length before mutable borrow
+        let target_slice = memory_data.get_mut(start..end)
+            .ok_or_else(|| format!(
+                "Cannot write input at offset {}..{}: would write beyond memory bounds (memory size: {})",
+                start, end, memory_len
+            ))?;
+        target_slice.copy_from_slice(input_bytes);
     }
     
     Ok((input_ptr, input_len))
@@ -106,7 +116,7 @@ impl WasmFunctions {
         // Handle empty input case - call process with null pointer
         if input.is_empty() {
             // Allocate space for output length
-            let output_len_ptr = self.allocate.call(&mut *store, 4)?;
+            let output_len_ptr = self.allocate.call(&mut *store, OUTPUT_LEN_SIZE)?;
             
             // Call process with empty string (null pointer, 0 length)
             let output_ptr = self.process.call(&mut *store, (0, 0, output_len_ptr))?;
@@ -118,7 +128,7 @@ impl WasmFunctions {
             };
             
             // Clean up output length pointer
-            self.deallocate.call(&mut *store, (output_len_ptr, 4))?;
+            self.deallocate.call(&mut *store, (output_len_ptr, OUTPUT_LEN_SIZE))?;
             
             // Empty input should return null pointer and 0 length
             if output_ptr == 0 && output_len == 0 {
@@ -133,7 +143,7 @@ impl WasmFunctions {
         let (input_ptr, input_len) = write_input_to_memory(&mut *store, &self.memory, input, &self.allocate)?;
         
         // Allocate space for output length
-        let output_len_ptr = self.allocate.call(&mut *store, 4)?;
+        let output_len_ptr = self.allocate.call(&mut *store, OUTPUT_LEN_SIZE)?;
         
         // Call the process function
         let output_ptr = self.process.call(&mut *store, (input_ptr, input_len, output_len_ptr))?;
@@ -146,7 +156,7 @@ impl WasmFunctions {
         
         // Clean up input and output_len_ptr immediately (always needed)
         self.deallocate.call(&mut *store, (input_ptr, input_len))?;
-        self.deallocate.call(&mut *store, (output_len_ptr, 4))?;
+        self.deallocate.call(&mut *store, (output_len_ptr, OUTPUT_LEN_SIZE))?;
         
         // Validate output after basic cleanup
         if output_ptr == 0 {

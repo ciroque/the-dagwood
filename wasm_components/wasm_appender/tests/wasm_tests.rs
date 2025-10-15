@@ -144,28 +144,29 @@ impl WasmFunctions {
             read_i32_le(memory_data, output_len_ptr as usize)?
         };
         
-        // Always clean up input and output_len_ptr regardless of success/failure
-        let cleanup_result = (|| {
-            self.deallocate.call(&mut *store, (input_ptr, input_len))?;
-            self.deallocate.call(&mut *store, (output_len_ptr, 4))?;
-            Ok::<(), Box<dyn std::error::Error>>(())
-        })();
+        // Clean up input and output_len_ptr immediately (always needed)
+        self.deallocate.call(&mut *store, (input_ptr, input_len))?;
+        self.deallocate.call(&mut *store, (output_len_ptr, 4))?;
         
-        // Validate output after cleanup is scheduled
+        // Validate output after basic cleanup
         if output_ptr == 0 {
-            cleanup_result?; // Ensure cleanup completed
             return Err("Process returned null pointer for non-empty input".into());
         }
         
         // Read the output string
         let output_str = {
             let memory_data = self.memory.data(&mut *store);
-            let output_bytes = &memory_data[output_ptr as usize..(output_ptr as usize + output_len as usize)];
+            let start = output_ptr as usize;
+            let end = start + output_len as usize;
+            let output_bytes = memory_data.get(start..end)
+                .ok_or_else(|| format!(
+                    "Cannot read output string at offset {}..{}: would read beyond memory bounds (memory size: {})",
+                    start, end, memory_data.len()
+                ))?;
             std::str::from_utf8(output_bytes)?.to_string()
         };
         
-        // Complete cleanup (input and output_len_ptr already cleaned up above)
-        cleanup_result?; // Ensure previous cleanup completed
+        // Clean up output memory
         self.deallocate.call(&mut *store, (output_ptr, output_len))?;
         
         Ok(Some(output_str))

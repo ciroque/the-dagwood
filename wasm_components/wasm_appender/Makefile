@@ -22,7 +22,7 @@ build:
 	fi
 	@echo "🚀 Building WASM module..."
 	@cargo build --target $(WASM_TARGET) --release
-	@echo "📋 Copying artifact to wasm_components/..."
+	@echo "📋 Copying artifact to $(WASM_OUTPUT)..."
 	@cp target/$(WASM_TARGET)/release/$(COMPONENT_NAME).wasm $(WASM_OUTPUT)
 	@WASM_SIZE=$$(wc -c < "$(WASM_OUTPUT)"); \
 	echo "✅ Build complete! $(COMPONENT_NAME).wasm size: $${WASM_SIZE} bytes"
@@ -32,7 +32,7 @@ build:
 	else \
 		echo "💡 Install wabt tools for detailed WASM analysis: apt install wabt"; \
 	fi
-	@echo "🎉 Ready to use: wasm_components/$(COMPONENT_NAME).wasm"
+	@echo "🎉 Ready to use: $(WASM_OUTPUT)"
 
 # --------------------------------
 # 🧪 Test Targets

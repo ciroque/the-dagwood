@@ -130,6 +130,11 @@ impl WasmFunctions {
             // Clean up output length pointer
             self.deallocate.call(&mut *store, (output_len_ptr, OUTPUT_LEN_SIZE))?;
             
+            // Validate output length for empty input case
+            if output_len < 0 {
+                return Err(format!("Invalid negative output length for empty input: {}", output_len).into());
+            }
+            
             // Empty input should return null pointer and 0 length
             if output_ptr == 0 && output_len == 0 {
                 return Ok(None);
@@ -161,6 +166,11 @@ impl WasmFunctions {
         // Validate output after basic cleanup
         if output_ptr == 0 {
             return Err("Process returned null pointer for non-empty input".into());
+        }
+        
+        // Validate output length before casting to usize
+        if output_len < 0 {
+            return Err(format!("Invalid negative output length: {}", output_len).into());
         }
         
         // Read the output string

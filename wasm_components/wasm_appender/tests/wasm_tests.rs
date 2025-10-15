@@ -1,5 +1,5 @@
 use wasmtime::*;
-use std::path::Path;
+use std::path::PathBuf;
 
 // Test infrastructure moved inline
 struct WasmTestRunner {
@@ -11,18 +11,20 @@ impl WasmTestRunner {
     fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
             .map_err(|_| "CARGO_MANIFEST_DIR not set")?;
-        let wasm_path = format!("{}/../wasm_appender.wasm", manifest_dir);
+        let wasm_path = PathBuf::from(manifest_dir)
+            .join("..")
+            .join("wasm_appender.wasm");
         
-        if !Path::new(&wasm_path).exists() {
+        if !wasm_path.exists() {
             return Err(format!(
                 "WASM module not found at {}. Run 'make wasm-build' at the repository root, or 'make -C wasm_components build-wasm_appender' to compile the module.",
-                wasm_path
+                wasm_path.display()
             ).into());
         }
         
         let engine = Engine::default();
         let module = Module::from_file(&engine, &wasm_path)
-            .map_err(|e| format!("Failed to load WASM module from {}: {}", wasm_path, e))?;
+            .map_err(|e| format!("Failed to load WASM module from {}: {}", wasm_path.display(), e))?;
         
         Ok(Self { engine, module })
     }
@@ -38,19 +40,18 @@ impl WasmTestRunner {
 }
 
 fn read_i32_le(memory_data: &[u8], ptr: usize) -> Result<i32, Box<dyn std::error::Error>> {
-    if ptr + 3 >= memory_data.len() {
-        return Err(format!(
+    // Use safe slice access to avoid manual arithmetic and make intent explicit
+    let bytes = memory_data.get(ptr..ptr + 4)
+        .ok_or_else(|| format!(
             "Cannot read i32 at offset {}: would read beyond memory bounds (memory size: {})",
             ptr, memory_data.len()
-        ).into());
-    }
+        ))?;
     
-    Ok(i32::from_le_bytes([
-        memory_data[ptr],
-        memory_data[ptr + 1],
-        memory_data[ptr + 2],
-        memory_data[ptr + 3],
-    ]))
+    // Convert slice to array safely
+    let byte_array: [u8; 4] = bytes.try_into()
+        .map_err(|_| "Failed to convert slice to 4-byte array")?;
+    
+    Ok(i32::from_le_bytes(byte_array))
 }
 
 fn write_input_to_memory<T>(
@@ -143,8 +144,16 @@ impl WasmFunctions {
             read_i32_le(memory_data, output_len_ptr as usize)?
         };
         
-        // Validate output
+        // Always clean up input and output_len_ptr regardless of success/failure
+        let cleanup_result = (|| {
+            self.deallocate.call(&mut *store, (input_ptr, input_len))?;
+            self.deallocate.call(&mut *store, (output_len_ptr, 4))?;
+            Ok::<(), Box<dyn std::error::Error>>(())
+        })();
+        
+        // Validate output after cleanup is scheduled
         if output_ptr == 0 {
+            cleanup_result?; // Ensure cleanup completed
             return Err("Process returned null pointer for non-empty input".into());
         }
         
@@ -155,9 +164,8 @@ impl WasmFunctions {
             std::str::from_utf8(output_bytes)?.to_string()
         };
         
-        // Clean up allocated memory
-        self.deallocate.call(&mut *store, (input_ptr, input_len))?;
-        self.deallocate.call(&mut *store, (output_len_ptr, 4))?;
+        // Complete cleanup (input and output_len_ptr already cleaned up above)
+        cleanup_result?; // Ensure previous cleanup completed
         self.deallocate.call(&mut *store, (output_ptr, output_len))?;
         
         Ok(Some(output_str))

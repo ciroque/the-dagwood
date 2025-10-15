@@ -72,6 +72,32 @@ fn write_input_to_memory<T>(
     Ok((input_ptr, input_len))
 }
 
+/// WASM function handles for easier test access
+struct WasmFunctions {
+    process: wasmtime::TypedFunc<(i32, i32, i32), i32>,
+    allocate: wasmtime::TypedFunc<i32, i32>,
+    deallocate: wasmtime::TypedFunc<(i32, i32), ()>,
+    memory: Memory,
+}
+
+impl WasmFunctions {
+    /// Extract all required WASM function handles from an instance
+    fn from_instance(store: &mut Store<()>, instance: &Instance) -> Result<Self, Box<dyn std::error::Error>> {
+        let process = instance.get_typed_func::<(i32, i32, i32), i32>(&mut *store, "process")?;
+        let allocate = instance.get_typed_func::<i32, i32>(&mut *store, "allocate")?;
+        let deallocate = instance.get_typed_func::<(i32, i32), ()>(&mut *store, "deallocate")?;
+        let memory = instance.get_memory(&mut *store, "memory")
+            .ok_or("WASM module should export memory")?;
+        
+        Ok(Self {
+            process,
+            allocate,
+            deallocate,
+            memory,
+        })
+    }
+}
+
 /// Comprehensive WASM integration tests
 /// 
 /// This test suite validates the WASM module behavior in a proper WASM runtime context,
@@ -85,14 +111,8 @@ fn test_wasm_module_loads_and_exports() {
     
     runner.run_test(|store, instance| {
         // Verify the module exports the expected functions
-        let _process = instance.get_typed_func::<(i32, i32, i32), i32>(&mut *store, "process")
-            .expect("process function should be exported");
-        let _allocate = instance.get_typed_func::<i32, i32>(&mut *store, "allocate")
-            .expect("allocate function should be exported");
-        let _deallocate = instance.get_typed_func::<(i32, i32), ()>(&mut *store, "deallocate")
-            .expect("deallocate function should be exported");
-        let _memory = instance.get_memory(&mut *store, "memory")
-            .expect("memory should be exported");
+        let _wasm_funcs = WasmFunctions::from_instance(&mut *store, instance)
+            .expect("All required functions and memory should be exported");
         
         println!("✅ All expected functions and memory are exported");
         Ok(())
@@ -105,33 +125,27 @@ fn test_wasm_process_short_string() {
     
     runner.run_test(|store, instance| {
         // Get function handles
-        let process = instance.get_typed_func::<(i32, i32, i32), i32>(&mut *store, "process")
-            .expect("process function should be exported");
-        let allocate = instance.get_typed_func::<i32, i32>(&mut *store, "allocate")
-            .expect("allocate function should be exported");
-        let deallocate = instance.get_typed_func::<(i32, i32), ()>(&mut *store, "deallocate")
-            .expect("deallocate function should be exported");
-        let memory = instance.get_memory(&mut *store, "memory")
-            .expect("memory should be exported");
+        let wasm_funcs = WasmFunctions::from_instance(&mut *store, instance)
+            .expect("All required functions and memory should be exported");
         
         let input = "hello";
         let expected_output = format!("{}{}", input, APPEND_STRING);
         
         // Allocate and write input to WASM memory
-        let (input_ptr, input_len) = write_input_to_memory(&mut *store, &memory, input, &allocate)
+        let (input_ptr, input_len) = write_input_to_memory(&mut *store, &wasm_funcs.memory, input, &wasm_funcs.allocate)
             .expect("Should be able to write input to memory");
         
         // Allocate space for output length
-        let output_len_ptr = allocate.call(&mut *store, 4)
+        let output_len_ptr = wasm_funcs.allocate.call(&mut *store, 4)
             .expect("Should be able to allocate output length memory");
         
         // Call the process function
-        let output_ptr = process.call(&mut *store, (input_ptr, input_len, output_len_ptr))
+        let output_ptr = wasm_funcs.process.call(&mut *store, (input_ptr, input_len, output_len_ptr))
             .expect("Process function should execute successfully");
         
         // Read the output length
         let output_len = {
-            let memory_data = memory.data(&mut *store);
+            let memory_data = wasm_funcs.memory.data(&mut *store);
             read_i32_le(memory_data, output_len_ptr as usize)
                 .expect("Should be able to read output length from valid memory location")
         };
@@ -141,7 +155,7 @@ fn test_wasm_process_short_string() {
         
         // Read the output string
         let output_str = {
-            let memory_data = memory.data(&mut *store);
+            let memory_data = wasm_funcs.memory.data(&mut *store);
             let output_bytes = &memory_data[output_ptr as usize..(output_ptr as usize + output_len as usize)];
             std::str::from_utf8(output_bytes)
                 .expect("Output should be valid UTF-8")
@@ -151,11 +165,11 @@ fn test_wasm_process_short_string() {
         assert_eq!(output_str, expected_output, "Output should match expected result");
         
         // Clean up allocated memory
-        deallocate.call(&mut *store, (input_ptr, input_len))
+        wasm_funcs.deallocate.call(&mut *store, (input_ptr, input_len))
             .expect("Should be able to deallocate input memory");
-        deallocate.call(&mut *store, (output_len_ptr, 4))
+        wasm_funcs.deallocate.call(&mut *store, (output_len_ptr, 4))
             .expect("Should be able to deallocate output length memory");
-        deallocate.call(&mut *store, (output_ptr, output_len))
+        wasm_funcs.deallocate.call(&mut *store, (output_ptr, output_len))
             .expect("Should be able to deallocate output memory");
         
         println!("✅ WASM process function works correctly: '{}' -> '{}'", input, output_str);
@@ -168,27 +182,23 @@ fn test_wasm_process_longer_string() {
     let runner = WasmTestRunner::new().expect("Failed to create WASM test runner");
     
     runner.run_test(|store, instance| {
-        let process = instance.get_typed_func::<(i32, i32, i32), i32>(&mut *store, "process")?;
-        let allocate = instance.get_typed_func::<i32, i32>(&mut *store, "allocate")?;
-        let deallocate = instance.get_typed_func::<(i32, i32), ()>(&mut *store, "deallocate")?;
-        let memory = instance.get_memory(&mut *store, "memory")
-            .expect("WASM module should export memory");
+        let wasm_funcs = WasmFunctions::from_instance(&mut *store, instance)?;
         
         let input = "hello world";
         let expected_output = format!("{}{}", input, APPEND_STRING);
         
         // Allocate and write input to WASM memory
-        let (input_ptr, input_len) = write_input_to_memory(&mut *store, &memory, input, &allocate)?;
+        let (input_ptr, input_len) = write_input_to_memory(&mut *store, &wasm_funcs.memory, input, &wasm_funcs.allocate)?;
         
         // Allocate space for output length
-        let output_len_ptr = allocate.call(&mut *store, 4)?; // i32 = 4 bytes
+        let output_len_ptr = wasm_funcs.allocate.call(&mut *store, 4)?; // i32 = 4 bytes
         
         // Call the process function
-        let output_ptr = process.call(&mut *store, (input_ptr, input_len, output_len_ptr))?;
+        let output_ptr = wasm_funcs.process.call(&mut *store, (input_ptr, input_len, output_len_ptr))?;
         
         // Read the output length
         let output_len = {
-            let memory_data = memory.data(&mut *store);
+            let memory_data = wasm_funcs.memory.data(&mut *store);
             read_i32_le(memory_data, output_len_ptr as usize)
                 .map_err(|e| format!("Failed to read output length: {}", e))?
         };
@@ -198,7 +208,7 @@ fn test_wasm_process_longer_string() {
         
         // Read the output string
         let output_str = {
-            let memory_data = memory.data(&mut *store);
+            let memory_data = wasm_funcs.memory.data(&mut *store);
             let output_bytes = &memory_data[output_ptr as usize..(output_ptr as usize + output_len as usize)];
             std::str::from_utf8(output_bytes)
                 .expect("Output should be valid UTF-8")
@@ -208,9 +218,9 @@ fn test_wasm_process_longer_string() {
         assert_eq!(output_str, expected_output, "Output should match expected result");
         
         // Clean up allocated memory
-        deallocate.call(&mut *store, (input_ptr, input_len))?;
-        deallocate.call(&mut *store, (output_len_ptr, 4))?;
-        deallocate.call(&mut *store, (output_ptr, output_len))?;
+        wasm_funcs.deallocate.call(&mut *store, (input_ptr, input_len))?;
+        wasm_funcs.deallocate.call(&mut *store, (output_len_ptr, 4))?;
+        wasm_funcs.deallocate.call(&mut *store, (output_ptr, output_len))?;
         
         println!("✅ Process function works correctly: '{}' -> '{}'", input, output_str);
         Ok(())
@@ -223,26 +233,20 @@ fn test_wasm_process_empty_string() {
     
     runner.run_test(|store, instance| {
         // Get function handles
-        let process = instance.get_typed_func::<(i32, i32, i32), i32>(&mut *store, "process")
-            .expect("process function should be exported");
-        let allocate = instance.get_typed_func::<i32, i32>(&mut *store, "allocate")
-            .expect("allocate function should be exported");
-        let deallocate = instance.get_typed_func::<(i32, i32), ()>(&mut *store, "deallocate")
-            .expect("deallocate function should be exported");
-        let memory = instance.get_memory(&mut *store, "memory")
-            .expect("memory should be exported");
+        let wasm_funcs = WasmFunctions::from_instance(&mut *store, instance)
+            .expect("All required functions and memory should be exported");
         
         // Allocate space for output length (even for empty input)
-        let output_len_ptr = allocate.call(&mut *store, 4)
+        let output_len_ptr = wasm_funcs.allocate.call(&mut *store, 4)
             .expect("Should be able to allocate output length memory");
         
         // Call process with empty string (null pointer, 0 length)
-        let output_ptr = process.call(&mut *store, (0, 0, output_len_ptr))
+        let output_ptr = wasm_funcs.process.call(&mut *store, (0, 0, output_len_ptr))
             .expect("Process function should handle empty input");
         
         // Read the output length
         let output_len = {
-            let memory_data = memory.data(&mut *store);
+            let memory_data = wasm_funcs.memory.data(&mut *store);
             read_i32_le(memory_data, output_len_ptr as usize)
                 .expect("Should be able to read output length from valid memory location")
         };
@@ -252,7 +256,7 @@ fn test_wasm_process_empty_string() {
         assert_eq!(output_len, 0, "Output length should be 0 for empty input");
         
         // Clean up (only the output length pointer, no output to deallocate)
-        deallocate.call(&mut *store, (output_len_ptr, 4))
+        wasm_funcs.deallocate.call(&mut *store, (output_len_ptr, 4))
             .expect("Should be able to deallocate output length memory");
         
         println!("✅ Empty string processing works correctly: returns null pointer as expected");

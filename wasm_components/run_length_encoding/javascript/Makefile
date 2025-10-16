@@ -1,9 +1,9 @@
 # ================================
-# RLE AssemblyScript Component Makefile
+# RLE JavaScript WIT Component Makefile
 # ================================
 
 SHELL := /bin/bash
-COMPONENT_NAME := rle_assemblyscript
+COMPONENT_NAME := rle_js
 WASM_OUTPUT := ../../$(COMPONENT_NAME).wasm
 BUILD_DIR := build
 NODE_MODULES := node_modules
@@ -15,22 +15,23 @@ NODE_MODULES := node_modules
 # --------------------------------
 
 build: $(NODE_MODULES)
-	@echo "📦 Building AssemblyScript RLE WASM Component..."
+	@echo "📦 Building JavaScript WIT Component (RLE)..."
 	@mkdir -p $(BUILD_DIR)
-	@echo "🚀 Compiling AssemblyScript to WebAssembly..."
+	@echo "🚀 Componentizing JavaScript with jco..."
 	@npm run build
 	@if [ -f "$(BUILD_DIR)/$(COMPONENT_NAME).wasm" ]; then \
-		echo "✅ Compilation successful!"; \
+		echo "✅ WIT Component created successfully!"; \
 		echo "📦 Output: $(BUILD_DIR)/$(COMPONENT_NAME).wasm"; \
 		size=$$(wc -c < "$(BUILD_DIR)/$(COMPONENT_NAME).wasm" 2>/dev/null || echo "0"); \
 		echo "📏 Size: $$size bytes"; \
 		echo ""; \
-		echo "🎯 DAGwood integration ready!"; \
-		echo "📦 Copying WASM module to: wasm_components/$(COMPONENT_NAME).wasm"; \
+		echo "🎯 DAGwood WIT Component ready!"; \
+		echo "📦 Copying WASM component to: wasm_components/$(COMPONENT_NAME).wasm"; \
 		cp $(BUILD_DIR)/$(COMPONENT_NAME).wasm $(WASM_OUTPUT); \
 		echo "   Configure processor with: module: wasm_components/$(COMPONENT_NAME).wasm"; \
+		echo "   Executor: WitNodeExecutor"; \
 	else \
-		echo "❌ Compilation failed - no WASM output found"; \
+		echo "❌ Componentization failed - no WASM output found"; \
 		exit 1; \
 	fi
 
@@ -86,22 +87,27 @@ info:
 
 help:
 	@echo ""
-	@echo "AssemblyScript RLE Component Makefile"
+	@echo "JavaScript WIT Component RLE Makefile"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  build    - Compile AssemblyScript to WASM and copy to wasm_components/"
+	@echo "  build    - Componentize JavaScript to WIT Component and copy to wasm_components/"
 	@echo "  test     - Run test suite"
 	@echo "  clean    - Remove build artifacts and dependencies"
 	@echo "  info     - Show component information"
 	@echo "  help     - Show this help message"
 	@echo ""
 	@echo "Dependencies:"
-	@echo "  - Node.js (for AssemblyScript compiler)"
+	@echo "  - Node.js 22.12.0+ (for jco componentize)"
 	@echo "  - npm (for package management)"
 	@echo ""
 	@echo "First time setup:"
-	@echo "  1. make build    # Installs deps and builds"
+	@echo "  1. make build    # Installs deps and creates WIT Component"
 	@echo "  2. make test     # Verifies RLE logic works"
+	@echo ""
+	@echo "This creates a proper WIT Component that:"
+	@echo "  - Implements dagwood:component/processing-node interface"
+	@echo "  - Works with WitNodeExecutor (Component Model)"
+	@echo "  - Is language-agnostic and composable"
 	@echo ""
 
 .PHONY: build test clean info help

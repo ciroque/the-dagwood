@@ -8,8 +8,15 @@ rust = "1.87.0"
 # Grain language for functional programming components
 grain = "0.7.1"
 
-# Node.js for AssemblyScript WASM components
+# Node.js for JavaScript WASM components
 nodejs = "22.12.0"
+
+# WebAssembly runtime
+wasmtime = "37.0"
+
+# Note: wasm-tools should be installed via cargo:
+#   cargo install wasm-tools
+# (No asdf/mise plugin available)
 
 # Optional: Environment variables that should be set when entering this directory
 [env]

@@ -163,5 +163,4 @@ world dagwood-component {
     export processing-node;
     
     /// No imports by default, see the 'WASI Interface Policy' section above for more details
-    import none;
 }

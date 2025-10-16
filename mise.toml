@@ -1,0 +1,23 @@
+# mise-en-place configuration for The DAGwood project
+# This replaces the .tool-versions file with a more feature-rich TOML format
+
+[tools]
+# Rust toolchain for core development and WASM components
+rust = "1.87.0"
+
+# Grain language for functional programming components
+grain = "0.7.1"
+
+# Optional: Environment variables that should be set when entering this directory
+[env]
+# Uncomment and customize as needed:
+# RUST_LOG = "debug"
+# CARGO_TARGET_DIR = "target"
+
+# Optional: Tasks that can be run with `mise run <task>`
+[tasks]
+# Uncomment and customize as needed:
+# build = "cargo build --release"
+# test = "cargo test"
+# wasm-build = "make wasm-build"
+# clean = "make clean"

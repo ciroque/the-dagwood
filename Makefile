@@ -75,15 +75,67 @@ licenses:
 
 wasm-build:
 	@echo "==> Building all WASM components..."
-	@$(MAKE) -C wasm_components build-all
+	@MAKEFILES=$$(find wasm_components -name 'Makefile' | sort); \
+	if [ -z "$$MAKEFILES" ]; then \
+		echo "⚠️  No WASM component Makefiles found"; \
+		exit 0; \
+	fi; \
+	passed=0; failed=0; \
+	for makefile in $$MAKEFILES; do \
+		dir=$$(dirname $$makefile); \
+		echo ""; \
+		echo "🔨 Building: $$dir"; \
+		if $(MAKE) -C $$dir build 2>&1; then \
+			echo "✅ Built: $$dir"; \
+			passed=$$((passed + 1)); \
+		else \
+			echo "❌ Build failed: $$dir"; \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	echo ""; \
+	echo "📊 Build Summary: ✅ $$passed passed, ❌ $$failed failed"; \
+	[ $$failed -eq 0 ] && echo "🎉 All builds passed!" || exit 1
 
 wasm-test:
-	@echo "==> Running WASM component tests..."
-	@$(MAKE) -C wasm_components test-all
+	@echo "==> Testing all WASM components..."
+	@MAKEFILES=$$(find wasm_components -name 'Makefile' | sort); \
+	if [ -z "$$MAKEFILES" ]; then \
+		echo "⚠️  No WASM component Makefiles found"; \
+		exit 0; \
+	fi; \
+	passed=0; failed=0; \
+	for makefile in $$MAKEFILES; do \
+		dir=$$(dirname $$makefile); \
+		echo ""; \
+		echo "🧪 Testing: $$dir"; \
+		if $(MAKE) -C $$dir test 2>&1; then \
+			echo "✅ Tests passed: $$dir"; \
+			passed=$$((passed + 1)); \
+		else \
+			echo "❌ Tests failed: $$dir"; \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	echo ""; \
+	echo "📊 Test Summary: ✅ $$passed passed, ❌ $$failed failed"; \
+	[ $$failed -eq 0 ] && echo "🎉 All tests passed!" || exit 1
 
 wasm-clean:
-	@echo "==> Cleaning WASM build artifacts..."
-	@$(MAKE) -C wasm_components clean-all
+	@echo "==> Cleaning all WASM components..."
+	@MAKEFILES=$$(find wasm_components -name 'Makefile' | sort); \
+	if [ -z "$$MAKEFILES" ]; then \
+		echo "⚠️  No WASM component Makefiles found"; \
+		exit 0; \
+	fi; \
+	for makefile in $$MAKEFILES; do \
+		dir=$$(dirname $$makefile); \
+		echo "🧹 Cleaning: $$dir"; \
+		$(MAKE) -C $$dir clean 2>&1 || true; \
+	done; \
+	echo "🧹 Cleaning WASM artifacts..."; \
+	rm -f wasm_components/*.wasm; \
+	echo "✅ Clean complete"
 
 # --------------------------------
 # 🧩 Utility Targets

@@ -5,6 +5,11 @@
  * for run-length encoding of text data.
  * 
  * Encodes consecutive characters: "aaabbc" -> "3a2b1c"
+ * 
+ * Uses the new list-based WIT interface:
+ *   process: func(input: list<u8>) -> result<list<u8>, processing-error>
+ * 
+ * componentize-js handles all memory management automatically!
  */
 
 /**
@@ -44,114 +49,48 @@ function encodeRLE(input) {
   return result;
 }
 
-// Memory management for componentize-js
-let memory;
-let heap = new Uint8Array(1024 * 64); // 64KB initial heap
-let heapPointer = 0;
-
-/**
- * Allocate memory in the WASM linear memory space
- * 
- * @param {bigint} size - Size to allocate in bytes
- * @returns {{tag: string, val: number} | {tag: string, val: {tag: string, val: bigint}}} 
- *          Success with pointer or error
- */
-function allocate(size) {
-  const sizeNum = Number(size);
-  
-  if (sizeNum === 0 || sizeNum > 1024 * 1024) {
-    return { tag: 'err', val: { tag: 'invalid-size', val: size } };
-  }
-
-  // Ensure we have enough space
-  if (heapPointer + sizeNum > heap.length) {
-    // Grow heap
-    const newSize = Math.max(heap.length * 2, heapPointer + sizeNum);
-    const newHeap = new Uint8Array(newSize);
-    newHeap.set(heap);
-    heap = newHeap;
-  }
-
-  const ptr = heapPointer;
-  heapPointer += sizeNum;
-
-  return { tag: 'ok', val: ptr };
-}
-
-/**
- * Deallocate memory (currently a no-op, relies on GC)
- * 
- * @param {number} ptr - Pointer to deallocate
- * @param {bigint} size - Size of allocation
- */
-function deallocate(ptr, size) {
-  // Simple bump allocator - deallocation is a no-op
-  // In production, you'd implement a proper allocator
-}
-
 /**
  * Process input data with RLE encoding
  * 
- * @param {number} inputPtr - Pointer to input data
- * @param {bigint} inputLen - Length of input data
- * @param {number} outputLenPtr - Pointer to write output length
- * @returns {{tag: string, val: number} | {tag: string, val: {tag: string, val: string}}}
- *          Success with output pointer or error
+ * @param {Uint8Array} input - Input bytes (componentize-js provides this)
+ * @returns {{tag: 'ok', val: Uint8Array} | {tag: 'err', val: {tag: string, val: string}}}
+ *          WIT result type
  */
-function process(inputPtr, inputLen, outputLenPtr) {
+function process(input) {
   try {
-    const inputLenNum = Number(inputLen);
-
-    // Read input data from heap
-    const inputBytes = heap.slice(inputPtr, inputPtr + inputLenNum);
-    const inputText = new TextDecoder().decode(inputBytes);
+    console.log('[RLE] Input received:', input);
+    console.log('[RLE] Input length:', input ? input.length : 'null');
+    
+    // Decode input bytes to string
+    const inputText = new TextDecoder().decode(input);
+    console.log('[RLE] Decoded input text:', inputText);
 
     // Perform RLE encoding
     const outputText = encodeRLE(inputText);
+    console.log('[RLE] Encoded output text:', outputText);
 
-    // Encode output as UTF-8
-    const outputBytes = new TextEncoder().encode(outputText);
-    const outputLen = outputBytes.length;
+    // Encode output as UTF-8 bytes - convert to Array for WIT list<u8>
+    const outputBytes = Array.from(new TextEncoder().encode(outputText));
+    console.log('[RLE] Output bytes length:', outputBytes.length);
 
-    // Allocate memory for output
-    const allocResult = allocate(BigInt(outputLen));
-    if (allocResult.tag === 'err') {
-      return { 
-        tag: 'err', 
-        val: { 
-          tag: 'processing-failed', 
-          val: 'Failed to allocate output memory' 
-        } 
-      };
-    }
-
-    const outputPtr = allocResult.val;
-
-    // Write output data to heap
-    heap.set(outputBytes, outputPtr);
-
-    // Write output length to the provided pointer
-    const outputLenBytes = new Uint8Array(8);
-    new DataView(outputLenBytes.buffer).setBigUint64(0, BigInt(outputLen), true);
-    heap.set(outputLenBytes, outputLenPtr);
-
-    return { tag: 'ok', val: outputPtr };
+    // Return success with output bytes
+    return { tag: 'ok', val: outputBytes };
 
   } catch (error) {
+    console.error('[RLE] Error:', error);
+    // Return error with processing-failed variant
     return { 
       tag: 'err', 
       val: { 
         tag: 'processing-failed', 
-        val: error.message || 'Unknown error' 
+        val: error.message || 'Unknown error during RLE encoding' 
       } 
     };
   }
 }
 
 // Export the processing-node interface
-// The WIT interface name "processing-node" becomes "processingNode" in JavaScript
+// WIT "processing-node" interface becomes "processingNode" in JavaScript (camelCase)
 export const processingNode = {
-  process,
-  allocate,
-  deallocate
+  process
 };

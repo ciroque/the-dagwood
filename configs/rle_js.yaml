@@ -6,7 +6,7 @@ executor_options:
 processors:
   - id: run_length_encoder
     type: wasm
-    module: wasm_components/rle_assemblyscript.wasm
+    module: wasm_components/rle_js.wasm
     depends_on:
     options:
       intent: analyze

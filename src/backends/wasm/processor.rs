@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 use crate::backends::wasm::error::WasmResult;
-use crate::backends::wasm::module_loader::WasmModuleLoader;
+use crate::backends::wasm::factory::create_executor;
+use crate::backends::wasm::detector::wasm_encoding;
+use crate::backends::wasm::loader::load_wasm_bytes;
 use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
-use crate::backends::wasm::processing_node_factory::ProcessingNodeFactory;
 use crate::proto::processor_v1::{
     processor_response::Outcome, ErrorDetail, PipelineMetadata, ProcessorMetadata,
     ProcessorRequest, ProcessorResponse,
@@ -27,9 +28,11 @@ pub struct WasmProcessor {
 
 impl WasmProcessor {
     pub fn new(processor_id: String, module_path: String) -> WasmResult<Self> {
-        let loaded_module = WasmModuleLoader::load_module(&module_path)?;
-        let executor = ProcessingNodeFactory::create_executor(loaded_module)
-            .map_err(|e| WasmResult::<()>::Err(e.into()).unwrap_err())?;
+        // ADR-17: New clean 3-step flow
+        let bytes = load_wasm_bytes(&module_path)?;
+        let encoding = wasm_encoding(&bytes)
+            .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
+        let executor = create_executor(&bytes, encoding)?.into();
 
         Ok(Self {
             processor_id,
@@ -67,9 +70,11 @@ impl WasmProcessor {
             ProcessorIntent::Transform
         };
 
-        let loaded_module = WasmModuleLoader::load_module(module_path)?;
-        let executor = ProcessingNodeFactory::create_executor(loaded_module)
-            .map_err(|e| crate::backends::wasm::WasmError::ProcessorError(e.to_string()))?;
+        // ADR-17: New clean 3-step flow
+        let bytes = load_wasm_bytes(module_path)?;
+        let encoding = wasm_encoding(&bytes)
+            .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
+        let executor = create_executor(&bytes, encoding)?.into();
 
         Ok(Self {
             processor_id: config.id.clone(),

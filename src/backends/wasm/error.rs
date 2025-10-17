@@ -4,8 +4,18 @@
 use std::time::Duration;
 use thiserror::Error;
 
+pub const WASM_UNSUPPORTED_ENCODING: &str = "Unsupported WASM binary: Legacy Preview 1 Component Model detected. \
+Please upgrade to modern Component Model (binary version 2+) or use classic WASM.";
+
+
 #[derive(Error, Debug)]
 pub enum WasmError {
+    #[error("Invalid WASM binary: {0}")]
+    InvalidWasmBinary(String),
+
+    #[error("Unknown WASM encoding: {0}")]
+    UnknownEncoding(String),
+
     #[error("Memory error: {0}")]
     MemoryError(String),
 
@@ -41,6 +51,12 @@ pub enum WasmError {
 
     #[error("Processor error: {0}")]
     ProcessorError(String),
+
+    #[error("Unsupported encoding: {0}")]
+    UnsupportedEncoding(String),
+
+    #[error("WASM parser error: {0}")]
+    ParserError(#[from] wasmparser::BinaryReaderError),
 }
 
 pub type WasmResult<T> = Result<T, WasmError>;

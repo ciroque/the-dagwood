@@ -3,19 +3,34 @@
 
 pub mod bindings;
 pub mod capability_manager;
-pub mod component_detector;
+pub mod detector;
+pub mod factory;
+pub mod loader;
 mod error;
 pub mod executors;
-pub mod module_loader;
 pub mod processing_node;
 pub mod processing_node_factory;
 pub mod processor;
 
+// Legacy modules (will be deprecated)
+pub mod module_loader;
+
 pub use error::{WasmError, WasmResult};
 
-pub use component_detector::WasmComponentDetector;
+// New clean API (ADR-17)
+pub use detector::{wasm_encoding, WasmEncoding};
+pub use factory::create_executor;
+pub use loader::load_wasm_bytes;
+
+// Executors
 pub use executors::{CStyleNodeExecutor, ComponentNodeExecutor, WasiNodeExecutor, WitNodeExecutor};
-pub use module_loader::{ComponentType, ImportType, LoadedModule, ModuleImport, WasmArtifact, WasmModuleLoader};
+
+// Processing node traits and types
 pub use processing_node::{ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor};
-pub use processing_node_factory::ProcessingNodeFactory;
+
+// Processor
 pub use processor::WasmProcessor;
+
+// Legacy exports (for backwards compatibility during transition)
+// pub use component_detector::WasmComponentDetector;
+pub use module_loader::{ComponentType, ImportType, LoadedModule, ModuleImport, WasmArtifact};

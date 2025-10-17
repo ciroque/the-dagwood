@@ -4,47 +4,91 @@
 use super::super::{
     bindings::DagwoodComponent,
     processing_node::{ComponentExecutionError, ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
-    LoadedModule, WasmArtifact,
 };
 use std::sync::Arc;
-use wasmtime::component::Linker;
-use wasmtime::Store;
+use wasmtime::component::{Component, Linker, ResourceTable};
+use wasmtime::{Engine, Store};
+use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
+use wasmtime_wasi_http::{WasiHttpCtx, WasiHttpView};
 
 pub struct WitNodeExecutor {
-    loaded_module: Arc<LoadedModule>,
+    component: Arc<Component>,
+    engine: Arc<Engine>,
 }
 
 impl WitNodeExecutor {
-    pub fn new(loaded_module: LoadedModule) -> Result<Self, ProcessingNodeError> {
+    pub fn new(component: Component, engine: Engine) -> Result<Self, ProcessingNodeError> {
         Ok(Self {
-            loaded_module: Arc::new(loaded_module),
+            component: Arc::new(component),
+            engine: Arc::new(engine),
         })
+    }
+}
+
+struct Ctx {
+    wasi: WasiCtx,
+    table: ResourceTable,
+    http: WasiHttpCtx,
+}
+
+impl WasiView for Ctx  {
+    fn ctx(&mut self) -> WasiCtxView<'_>  {
+        WasiCtxView {
+            ctx: &mut self.wasi,
+            table: &mut self.table
+        }
+    }
+}
+
+impl WasiHttpView for Ctx {
+    fn ctx(&mut self) -> &mut WasiHttpCtx {
+        &mut self.http
+    }
+
+    fn table(&mut self) -> &mut ResourceTable {
+        &mut self.table
     }
 }
 
 impl ProcessingNodeExecutor for WitNodeExecutor {
     fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
-        // Extract the Component from the WasmArtifact
-        let component = match &self.loaded_module.artifact {
-            WasmArtifact::Component(c) => c,
-            WasmArtifact::Module(_) => {
-                return Err(ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::InstantiationFailed(
-                        "Expected WIT Component, got core WASM module".to_string(),
-                    ),
-                ));
-            }
+        // Create WASI context
+        let wasi_ctx = WasiCtxBuilder::new()
+            .inherit_stdio()
+            .args(&["dagwood-component"])
+            .build();
+
+        let store_data = Ctx { 
+            wasi: wasi_ctx, 
+            table: ResourceTable::new(),
+            http: WasiHttpCtx::new(),
         };
+        let mut store = Store::new(&self.engine, store_data);
 
-        // Create a store
-        let mut store = Store::new(&self.loaded_module.engine, ());
-
-        // Create linker for the component
-        let linker = Linker::new(&self.loaded_module.engine);
+        // Add all WASI interfaces for JavaScript components built with jco
+        let mut linker = Linker::new(&self.engine);
+        
+        // Add complete WASI support (CLI, filesystem, etc.)
+        wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
+            .map_err(|e| ProcessingNodeError::ComponentError(
+                ComponentExecutionError::InstantiationFailed(format!(
+                    "Failed to add WASI to linker: {}",
+                    e
+                ))
+            ))?;
+        
+        // Add HTTP support (only HTTP-specific interfaces, no overlap)
+        wasmtime_wasi_http::add_only_http_to_linker_sync(&mut linker)
+            .map_err(|e| ProcessingNodeError::ComponentError(
+                ComponentExecutionError::InstantiationFailed(format!(
+                    "Failed to add WASI HTTP to linker: {}",
+                    e
+                ))
+            ))?;
 
         // Instantiate using wit-bindgen generated bindings
         // This handles all the WIT interface setup automatically!
-        let bindings = DagwoodComponent::instantiate(&mut store, component, &linker)
+        let bindings = DagwoodComponent::instantiate(&mut store, &self.component, &linker)
             .map_err(|e| {
                 ProcessingNodeError::ComponentError(
                     ComponentExecutionError::InstantiationFailed(format!(
@@ -99,31 +143,52 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
 
     fn execution_metadata(&self) -> ExecutionMetadata {
         ExecutionMetadata {
-            module_path: self.loaded_module.module_path.clone(),
+            module_path: "".to_string(), // Path no longer stored in executor
             artifact_type: self.artifact_type().to_string(),
-            import_count: self.loaded_module.imports.len(),
+            import_count: 0, // Import tracking removed
             capabilities: self.capabilities(),
         }
     }
 }
 
 /// Test helper function to load a WIT component from a filepath and execute it
-/// This is a convenience wrapper around WasmModuleLoader and execute()
+/// Uses the new ADR-17 flow
 #[cfg(test)]
 pub fn test_with_file<P: AsRef<std::path::Path>>(
     filepath: P,
     input: &[u8],
 ) -> Result<Vec<u8>, ProcessingNodeError> {
-    use super::super::WasmModuleLoader;
+    use super::super::{load_wasm_bytes, wasm_encoding};
+    use wasmtime::component::Component;
+    use wasmtime::Engine;
     
-    // Load the module from the filepath
-    let loaded_module = WasmModuleLoader::load_module(filepath)
+    // ADR-17 flow
+    let bytes = load_wasm_bytes(filepath)
         .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
     
-    // Create the executor
-    let executor = WitNodeExecutor::new(loaded_module)?;
+    let encoding = wasm_encoding(&bytes)
+        .map_err(|e| ProcessingNodeError::ValidationError(e.to_string()))?;
     
-    // Execute using the real implementation
+    if !encoding.is_component_model() {
+        return Err(ProcessingNodeError::ValidationError(
+            "Expected Component Model component".to_string()
+        ));
+    }
+    
+    // Create engine with component model support
+    let mut config = wasmtime::Config::new();
+    config.wasm_component_model(true);
+    let engine = Engine::new(&config)
+        .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
+    
+    // Parse component
+    let component = Component::new(&engine, &bytes)
+        .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
+    
+    // Create executor
+    let executor = WitNodeExecutor::new(component, engine)?;
+    
+    // Execute
     executor.execute(input)
 }
 

@@ -50,7 +50,7 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
         // Get the processing-node interface functions
         // Note: WIT functions use Result<T, E> which maps to result<ok, err> in WIT
         // The actual type depends on the WIT interface definition
-        let process_func = instance
+        let _process_func = instance
             .get_typed_func::<(u32, u64, u32), (Result<u32, ()>,)>(&mut store, "dagwood:component/processing-node#process")
             .map_err(|e| {
                 ProcessingNodeError::ComponentError(
@@ -72,7 +72,7 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
                 )
             })?;
 
-        let deallocate_func = instance
+        let _deallocate_func = instance
             .get_typed_func::<(u32, u64), ()>(&mut store, "dagwood:component/processing-node#deallocate")
             .map_err(|e| {
                 ProcessingNodeError::ComponentError(
@@ -96,7 +96,7 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
                 )
             })?;
         
-        let input_ptr = input_ptr_result.map_err(|_| {
+        let _input_ptr = input_ptr_result.map_err(|_| {
             ProcessingNodeError::ComponentError(
                 ComponentExecutionError::MemoryAllocationFailed(
                     "Allocate function returned error".to_string(),
@@ -104,79 +104,28 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
             )
         })?;
 
-        // TODO: Write input data to WASM memory at input_ptr
-        // This requires accessing the component's memory and writing the bytes
-        // For now, we'll skip this step
-
-        // Allocate memory for output length pointer
-        let (output_len_ptr_result,) = allocate_func
-            .call(&mut store, (8,)) // u64 size
-            .map_err(|e| {
-                ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::MemoryAllocationFailed(format!(
-                        "Failed to allocate output length pointer: {}",
-                        e
-                    )),
-                )
-            })?;
+        // Component Model memory access requires using wit-bindgen
+        // or manual canonical ABI implementation
+        //
+        // TODO: Implement proper Component Model memory access using one of:
+        // 1. wit-bindgen generated bindings with proper memory functions
+        // 2. Manual implementation of canonical ABI memory transfer  
+        // 3. Access underlying core module memory through Component API
+        //
+        // For reference, the complete flow would be:
+        // 1. Write input bytes to memory at input_ptr
+        // 2. Allocate output_len_ptr and call process function
+        // 3. Read output length from output_len_ptr
+        // 4. Read output bytes from output_ptr
+        // 5. Deallocate all allocated memory
         
-        let output_len_ptr = output_len_ptr_result.map_err(|_| {
-            ProcessingNodeError::ComponentError(
-                ComponentExecutionError::MemoryAllocationFailed(
-                    "Allocate function returned error for output length".to_string(),
-                ),
-            )
-        })?;
-
-        // Call the process function
-        let (output_ptr_result,) = process_func
-            .call(&mut store, (input_ptr, input_len, output_len_ptr))
-            .map_err(|e| {
-                ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::FunctionCallFailed(format!(
-                        "Process function failed: {}",
-                        e
-                    )),
-                )
-            })?;
-        
-        let _output_ptr = output_ptr_result.map_err(|_| {
-            ProcessingNodeError::ComponentError(
-                ComponentExecutionError::FunctionCallFailed(
-                    "Process function returned error".to_string(),
-                ),
-            )
-        })?;
-
-        // TODO: Read output length from memory at output_len_ptr
-        // TODO: Read output data from memory at _output_ptr
-        // For now, return empty vector as placeholder
-        let output = Vec::new();
-
-        // Clean up allocated memory
-        deallocate_func
-            .call(&mut store, (input_ptr, input_len))
-            .map_err(|e| {
-                ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::FunctionCallFailed(format!(
-                        "Failed to deallocate input memory: {}",
-                        e
-                    )),
-                )
-            })?;
-
-        deallocate_func
-            .call(&mut store, (output_len_ptr, 8))
-            .map_err(|e| {
-                ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::FunctionCallFailed(format!(
-                        "Failed to deallocate output length pointer: {}",
-                        e
-                    )),
-                )
-            })?;
-
-        Ok(output)
+        Err(ProcessingNodeError::ComponentError(
+            ComponentExecutionError::MemoryAccessFailed(
+                "Component Model memory access not yet implemented. \
+                 This requires wit-bindgen or manual canonical ABI implementation."
+                    .to_string(),
+            ),
+        ))
     }
 
     fn artifact_type(&self) -> &'static str {

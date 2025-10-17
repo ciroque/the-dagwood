@@ -44,6 +44,8 @@ pub enum ComponentExecutionError {
     FunctionCallFailed(String),
 
     MemoryAllocationFailed(String),
+
+    MemoryAccessFailed(String),
 }
 
 #[derive(Debug)]
@@ -99,6 +101,9 @@ impl fmt::Display for ComponentExecutionError {
             }
             ComponentExecutionError::MemoryAllocationFailed(msg) => {
                 write!(f, "Component memory allocation failed: {}", msg)
+            }
+            ComponentExecutionError::MemoryAccessFailed(msg) => {
+                write!(f, "Component memory access failed: {}", msg)
             }
         }
     }

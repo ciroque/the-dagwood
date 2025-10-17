@@ -1,6 +1,7 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
+pub mod bindings;
 pub mod capability_manager;
 pub mod component_detector;
 mod error;

@@ -46,3 +46,4 @@ wat = "1.0"
 [build-dependencies]
 tonic-build = "0.11"
 prost-build = "0.12"
+wit-bindgen = "0.30"

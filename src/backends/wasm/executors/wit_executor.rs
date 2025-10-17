@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::super::{
+    bindings::DagwoodComponent,
     processing_node::{ComponentExecutionError, ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
     LoadedModule, WasmArtifact,
 };
@@ -38,94 +39,54 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
         // Create a store
         let mut store = Store::new(&self.loaded_module.engine, ());
 
-        // Instantiate the component
-        let instance = Linker::new(&self.loaded_module.engine)
-            .instantiate(&mut store, component)
-            .map_err(|e| {
-                ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::InstantiationFailed(e.to_string()),
-                )
-            })?;
+        // Create linker for the component
+        let linker = Linker::new(&self.loaded_module.engine);
 
-        // Get the processing-node interface functions
-        // Note: WIT functions use Result<T, E> which maps to result<ok, err> in WIT
-        // The actual type depends on the WIT interface definition
-        let _process_func = instance
-            .get_typed_func::<(u32, u64, u32), (Result<u32, ()>,)>(&mut store, "dagwood:component/processing-node#process")
+        // Instantiate using wit-bindgen generated bindings
+        // This handles all the WIT interface setup automatically!
+        let bindings = DagwoodComponent::instantiate(&mut store, component, &linker)
             .map_err(|e| {
                 ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::InterfaceNotFound(format!(
-                        "Failed to get process function: {}",
+                    ComponentExecutionError::InstantiationFailed(format!(
+                        "Failed to instantiate component: {}",
                         e
                     )),
                 )
             })?;
 
-        let allocate_func = instance
-            .get_typed_func::<(u64,), (Result<u32, ()>,)>(&mut store, "dagwood:component/processing-node#allocate")
+        // Call the process function using wit-bindgen's generated API
+        // This automatically handles ALL memory management via canonical ABI!
+        let result = bindings
+            .dagwood_component_processing_node()
+            .call_process(&mut store, input)
             .map_err(|e| {
                 ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::InterfaceNotFound(format!(
-                        "Failed to get allocate function: {}",
+                    ComponentExecutionError::FunctionCallFailed(format!(
+                        "Component instantiation/call failed: {}",
                         e
                     )),
                 )
             })?;
 
-        let _deallocate_func = instance
-            .get_typed_func::<(u32, u64), ()>(&mut store, "dagwood:component/processing-node#deallocate")
-            .map_err(|e| {
-                ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::InterfaceNotFound(format!(
-                        "Failed to get deallocate function: {}",
-                        e
-                    )),
-                )
-            })?;
-
-        // Allocate memory for input
-        let input_len = input.len() as u64;
-        let (input_ptr_result,) = allocate_func
-            .call(&mut store, (input_len,))
-            .map_err(|e| {
-                ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::MemoryAllocationFailed(format!(
-                        "Failed to allocate input memory: {}",
-                        e
-                    )),
-                )
-            })?;
-        
-        let _input_ptr = input_ptr_result.map_err(|_| {
+        // Handle the WIT-level Result<list<u8>, processing-error>
+        let output = result.map_err(|processing_error| {
             ProcessingNodeError::ComponentError(
-                ComponentExecutionError::MemoryAllocationFailed(
-                    "Allocate function returned error".to_string(),
-                ),
+                ComponentExecutionError::FunctionCallFailed(format!(
+                    "Component process() returned error: {:?}",
+                    processing_error
+                )),
             )
         })?;
 
-        // Component Model memory access requires using wit-bindgen
-        // or manual canonical ABI implementation
-        //
-        // TODO: Implement proper Component Model memory access using one of:
-        // 1. wit-bindgen generated bindings with proper memory functions
-        // 2. Manual implementation of canonical ABI memory transfer  
-        // 3. Access underlying core module memory through Component API
-        //
-        // For reference, the complete flow would be:
-        // 1. Write input bytes to memory at input_ptr
-        // 2. Allocate output_len_ptr and call process function
-        // 3. Read output length from output_len_ptr
-        // 4. Read output bytes from output_ptr
-        // 5. Deallocate all allocated memory
-        
-        Err(ProcessingNodeError::ComponentError(
-            ComponentExecutionError::MemoryAccessFailed(
-                "Component Model memory access not yet implemented. \
-                 This requires wit-bindgen or manual canonical ABI implementation."
-                    .to_string(),
-            ),
-        ))
+        // That's it! wit-bindgen handled:
+        // - Memory allocation
+        // - Writing input bytes to component memory
+        // - Calling the process function
+        // - Reading output bytes from component memory
+        // - Memory deallocation
+        // All through the canonical ABI!
+
+        Ok(output)
     }
 
     fn artifact_type(&self) -> &'static str {
@@ -172,21 +133,18 @@ mod tests {
 
     #[test]
     fn test_wit_executor_with_rle_js() {
-        // This test will fail until we complete the memory read/write implementation
-        // For now, it just verifies the structure compiles
         let result = test_with_file(
-            "wasm_components/rle_js.wasm",
+            "/data/development/projects/the-dagwood/wasm_components/rle_js.wasm",
             b"test input",
         );
         
-        // We expect it to fail because memory operations aren't implemented yet
         match result {
-            Ok(_output) => {
-                // When fully implemented, we can validate the output
-                println!("Execution succeeded (unexpected at this stage)");
+            Ok(output) => {
+                println!("RLE JS output: {:?}", String::from_utf8_lossy(&output));
             }
             Err(e) => {
-                println!("Expected error (memory operations not yet implemented): {:?}", e);
+                println!("Error: {:?}", e);
+                panic!("Test failed: {:?}", e);
             }
         }
     }

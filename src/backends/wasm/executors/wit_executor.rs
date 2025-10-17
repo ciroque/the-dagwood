@@ -132,6 +132,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "This is intended to be run manually for now"]
     fn test_wit_executor_with_rle_js() {
         let result = test_with_file(
             "/data/development/projects/the-dagwood/wasm_components/rle_js.wasm",

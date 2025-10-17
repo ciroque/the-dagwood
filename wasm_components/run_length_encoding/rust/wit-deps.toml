@@ -1,0 +1,21 @@
+# WIT Dependencies for run_length_encoding component
+# This component implements the DAGwood processing-node interface v1.0.0
+
+[dependencies]
+dagwood-processor = { path = "../../../wit/versions/v1.0.0" }
+
+[metadata]
+component-name = "run_length_encoding"
+wit-version = "v1.0.0"
+generated-date = "2025-10-17T15:14:00Z"
+description = "RLE encoding WASM component using Component Model interface"
+
+[compatibility]
+dagwood-runtime = ">= 0.1.0"
+wit-bindgen = ">= 0.30"
+
+[features]
+# Component-specific features
+text-processing = true
+structured-errors = true
+component-model = true

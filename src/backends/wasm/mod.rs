@@ -13,8 +13,8 @@ pub mod processor;
 pub use error::{WasmError, WasmResult};
 
 pub use component_detector::WasmComponentDetector;
-pub use executors::{CStyleNodeExecutor, ComponentNodeExecutor, WasiNodeExecutor};
-pub use module_loader::{ComponentType, ImportType, LoadedModule, ModuleImport, WasmModuleLoader};
+pub use executors::{CStyleNodeExecutor, ComponentNodeExecutor, WasiNodeExecutor, WitNodeExecutor};
+pub use module_loader::{ComponentType, ImportType, LoadedModule, ModuleImport, WasmArtifact, WasmModuleLoader};
 pub use processing_node::{ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor};
 pub use processing_node_factory::ProcessingNodeFactory;
 pub use processor::WasmProcessor;

@@ -12,7 +12,7 @@ processors:
 
   - id: wasm_hello_wasm
     type: wasm
-    module: wasm_components/hello.wasm
+    module: wasm_components/wasm_appender.wasm
     depends_on:
       - input_processor
     options:

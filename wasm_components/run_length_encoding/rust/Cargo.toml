@@ -1,0 +1,22 @@
+[package]
+name = "run_length_encoding"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.30"
+
+[dev-dependencies]
+wasmtime = "37.0"
+
+[profile.release]
+# Optimize for size since WASM modules should be small
+opt-level = "s"
+lto = true
+panic = "abort"
+
+[package.metadata.component]
+package = "dagwood:component"

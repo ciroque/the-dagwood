@@ -1,0 +1,15 @@
+{
+  "name": "rle-javascript-wit",
+  "version": "1.0.0",
+  "description": "Run-Length Encoding WIT Component in JavaScript",
+  "type": "module",
+  "scripts": {
+    "build": "jco componentize src/rle.js --wit ../../../wit/versions/v1.0.0 --world-name dagwood-component --out build/rle_js.wasm",
+    "test": "node --test test/rle.test.js"
+  },
+  "devDependencies": {
+    "@bytecodealliance/jco": "^1.4.0",
+    "@bytecodealliance/componentize-js": "^0.10.0"
+  },
+  "dependencies": {}
+}

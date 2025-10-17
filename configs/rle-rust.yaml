@@ -1,0 +1,11 @@
+strategy: reactive
+failure_strategy: fail_fast
+executor_options:
+  max_concurrency: 2
+
+processors:
+  # Grain RLE processor - showcases functional programming in WASM
+  - id: rle_rust
+    type: wasm
+    module: wasm_components/rle_rust.wasm
+    depends_on: []

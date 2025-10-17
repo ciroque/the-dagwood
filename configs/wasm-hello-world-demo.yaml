@@ -18,6 +18,14 @@ processors:
     options:
       intent: transform
 
+  - id: run_length_encoder
+    type: wasm
+    module: wasm_components/rle_assemblyscript.wasm
+    depends_on:
+      - wasm_hello_wasm
+    options:
+      intent: analyze
+
   - id: final_processor
     type: local
     processor: reverse_text

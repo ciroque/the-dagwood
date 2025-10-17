@@ -1,0 +1,122 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
+//! WASM executor factory
+//!
+//! This module orchestrates the creation of appropriate executor implementations
+//! based on WASM encoding type. It handles engine creation, module/component
+//! instantiation, and executor wrapping.
+
+use crate::backends::wasm::capability_manager::create_engine;
+use crate::backends::wasm::detector::WasmEncoding;
+use crate::backends::wasm::error::{WasmError, WasmResult, WASM_UNSUPPORTED_ENCODING};
+use crate::backends::wasm::executors::{CStyleNodeExecutor, WitNodeExecutor};
+use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
+use wasmtime::component::Component;
+use wasmtime::Module;
+
+/// Creates the appropriate executor based on WASM encoding type
+/// 
+/// This function orchestrates the complete executor creation flow:
+/// 1. Creates an appropriately configured engine via `create_engine()`
+/// 2. Instantiates the WASM binary as either a Module or Component
+/// 3. Wraps it in the appropriate executor implementation
+/// 
+/// # Arguments
+/// * `bytes` - The WASM binary bytes (from `load_wasm_bytes()`)
+/// * `encoding` - The detected encoding type (from `wasm_encoding()`)
+/// 
+/// # Returns
+/// * `Ok(Box<dyn ProcessingNodeExecutor>)` - Executor ready for use
+/// * `Err(WasmError)` - If engine creation, parsing, or executor creation fails
+/// 
+/// # Executor Types
+/// - **ComponentModel** → `WitNodeExecutor` (modern Component Model)
+/// - **Classic** → `CStyleNodeExecutor` (legacy core WASM modules)
+/// 
+pub fn create_executor(
+    bytes: &[u8],
+    encoding: WasmEncoding,
+) -> WasmResult<Box<dyn ProcessingNodeExecutor>> {
+    let engine = create_engine(encoding)?;
+    match encoding {
+        WasmEncoding::ComponentModel => {
+            tracing::debug!("Creating WitNodeExecutor for Component Model component");
+            
+            let component = Component::new(&engine, bytes)
+                .map_err(|e| WasmError::ModuleError(format!(
+                    "Failed to parse Component Model component: {}",
+                    e
+                )))?;
+
+            let executor = WitNodeExecutor::new(component, engine)?;
+            Ok(Box::new(executor))
+        }
+        WasmEncoding::Classic => {
+            tracing::debug!("Creating CStyleNodeExecutor for classic WASM module");
+            
+            let module = Module::new(&engine, bytes)
+                .map_err(|e| WasmError::ModuleError(format!(
+                    "Failed to parse classic WASM module: {}",
+                    e
+                )))?;
+
+            let executor = CStyleNodeExecutor::new(module, engine)?;
+            Ok(Box::new(executor))
+        }
+        WasmEncoding::Preview1 => {
+            Err(WasmError::UnsupportedEncoding(WASM_UNSUPPORTED_ENCODING.to_string()))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Helper to create minimal valid WASM module
+    fn create_minimal_wasm_module() -> Vec<u8> {
+        wat::parse_str(
+            r#"
+            (module
+                (func (export "process") (param i32 i32) (result i32)
+                    i32.const 0
+                )
+                (memory (export "memory") 1)
+            )
+            "#,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_create_classic_executor() {
+        let wasm_bytes = create_minimal_wasm_module();
+        let result = create_executor(&wasm_bytes, WasmEncoding::Classic);
+        
+        assert!(
+            result.is_ok(),
+            "Should create CStyleNodeExecutor for classic module"
+        );
+    }
+
+    #[test]
+    fn test_invalid_wasm_bytes() {
+        let invalid_bytes = b"not a valid wasm module";
+        let result = create_executor(invalid_bytes, WasmEncoding::Classic);
+        
+        assert!(result.is_err(), "Should fail with invalid WASM bytes");
+        
+        if let Err(WasmError::ModuleError(msg)) = result {
+            assert!(
+                msg.contains("Failed to parse"),
+                "Error should mention parsing failure"
+            );
+        } else {
+            panic!("Expected ModuleError");
+        }
+    }
+
+    // Note: Component Model test would require a real .wasm component file
+    // which we'll add once we have test fixtures
+}

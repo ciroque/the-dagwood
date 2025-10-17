@@ -3,44 +3,37 @@
 
 use std::sync::Arc;
 
-use super::super::{
-    processing_node::{ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
-    LoadedModule,
+use super::super::processing_node::{
+    ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor,
 };
-use crate::backends::wasm::module_loader::WasmArtifact;
 use wasmtime::*;
 
 pub struct CStyleNodeExecutor {
-    loaded_module: Arc<LoadedModule>,
+    module: Arc<Module>,
+    engine: Arc<Engine>,
 }
 
 impl CStyleNodeExecutor {
-    pub fn new(loaded_module: LoadedModule) -> Result<Self, ProcessingNodeError> {
+    pub fn new(module: Module, engine: Engine) -> Result<Self, ProcessingNodeError> {
         Ok(Self {
-            loaded_module: Arc::new(loaded_module),
+            module: Arc::new(module),
+            engine: Arc::new(engine),
         })
     }
 }
 
 impl ProcessingNodeExecutor for CStyleNodeExecutor {
     fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
-        let mut store = Store::new(&self.loaded_module.engine, ());
+        let mut store = Store::new(&self.engine, ());
 
         store
             .set_fuel(100_000_000)
             .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
 
-        match &self.loaded_module.artifact {
-            WasmArtifact::Module(module) => {
-                let instance = Instance::new(&mut store, module, &[])
-                    .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
+        let instance = Instance::new(&mut store, &self.module, &[])
+            .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
 
-                self.execute_c_style_process(&mut store, &instance, input)
-            }
-            WasmArtifact::Component(_) => Err(ProcessingNodeError::ValidationError(
-                "C-style executor received WIT component".to_string(),
-            )),
-        }
+        self.execute_c_style_process(&mut store, &instance, input)
     }
 
     fn artifact_type(&self) -> &'static str {
@@ -57,9 +50,9 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
 
     fn execution_metadata(&self) -> ExecutionMetadata {
         ExecutionMetadata {
-            module_path: self.loaded_module.module_path.clone(),
+            module_path: "".to_string(), // Path no longer stored in executor
             artifact_type: self.artifact_type().to_string(),
-            import_count: self.loaded_module.imports.len(),
+            import_count: 0, // Import tracking removed (will be added back via factory if needed)
             capabilities: self.capabilities(),
         }
     }
@@ -222,9 +215,8 @@ impl CStyleNodeExecutor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::backends::wasm::module_loader::WasmModuleLoader;
     use std::path::Path;
+    use crate::backends::wasm::create_executor;
 
     #[test]
     fn test_cstyle_executor_with_wasm_appender() {
@@ -237,13 +229,13 @@ mod tests {
             return;
         }
 
-        // Load the WASM module
-        let loaded_module =
-            WasmModuleLoader::load_module(wasm_path).expect("Failed to load wasm_appender module");
+        // Load the WASM module using the new ADR-17 flow
+        use crate::backends::wasm::{load_wasm_bytes, wasm_encoding};
 
-        // Create the executor
-        let executor =
-            CStyleNodeExecutor::new(loaded_module).expect("Failed to create CStyleNodeExecutor");
+        let bytes = load_wasm_bytes(wasm_path).expect("Failed to load wasm_appender module");
+        let encoding = wasm_encoding(&bytes).expect("Failed to detect encoding");
+        let executor = create_executor(&bytes, encoding)
+            .expect("Failed to create CStyleNodeExecutor");
 
         // Test input
         let input = b"hello";

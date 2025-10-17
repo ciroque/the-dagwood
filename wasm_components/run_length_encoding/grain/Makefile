@@ -5,7 +5,7 @@
 SHELL := /bin/bash
 COMPONENT_NAME := rle_grain
 GRAIN_SOURCE := src/main.gr
-WASM_OUTPUT := ../$(COMPONENT_NAME).wasm
+WASM_OUTPUT := ../../$(COMPONENT_NAME).wasm
 TARGET_DIR := target
 TEST_FILE := test_rle.gr
 

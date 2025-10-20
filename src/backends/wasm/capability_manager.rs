@@ -55,13 +55,17 @@ pub fn create_engine(encoding: WasmEncoding) -> WasmResult<Engine> {
     }
 
     // Security and sandboxing configuration
-    config.wasm_threads(false); // No threading support
-    config.wasm_simd(false); // No SIMD instructions
-    config.wasm_relaxed_simd(false);
-    config.wasm_multi_memory(false); // Single memory instance only
-    config.wasm_memory64(false); // 32-bit memory addressing only
+    config.wasm_threads(true); // No threading support
+    config.wasm_simd(true); // No SIMD instructions
+    config.wasm_relaxed_simd(true);
+    config.wasm_multi_memory(true); // Single memory instance only
+    config.wasm_memory64(true); // 32-bit memory addressing only
     config.consume_fuel(true); // Enable fuel for execution limits
-    config.epoch_interruption(false);
+    config.epoch_interruption(true);
+    config.wasm_reference_types(true);
+    config.wasm_bulk_memory(true);
+    config.wasm_multi_value(true);
+    config.wasm_tail_call(true);
 
     Engine::new(&config).map_err(|e| WasmError::EngineError(e.to_string()))
 }

@@ -1,0 +1,46 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
+/// Extended WIT for DAGwood WASM Component with WASI Support
+///
+/// This WIT file extends the `dagwood:component@1.0.0` package to include
+/// minimal WASI interfaces required for proper execution in a Wasmtime host.
+/// It maintains the sandboxing and security model of the original while
+/// ensuring compatibility with dynamic memory allocation needs (e.g., cabi_realloc).
+///
+/// ## Purpose
+///
+/// The original dagwood-component world avoids WASI imports for maximum sandboxing.
+/// However, components using dynamic types (list<u8>) require memory allocation
+/// support, which may fail in Wasmtime without explicit WASI interfaces.
+/// This WIT file adds `wasi:cli/environment` to provide minimal environment access.
+///
+/// ## Architecture
+///
+/// ```
+/// DAGwood Runtime
+///       ↓
+/// WasmProcessor (Rust) ← implements Processor trait
+///       ↓
+/// WitNodeExecutor ← uses wit-bindgen generated bindings
+///       ↓
+/// WASM Component ← exports process(list<u8>) -> result<list<u8>, processing-error>
+///                ← imports wasi:cli/environment for memory allocation
+/// ```
+///
+/// ## WASI Interface Policy
+///
+/// - Imports `wasi:cli/environment` for minimal environment access (e.g., memory allocation).
+/// - No filesystem, network, or other dangerous capabilities are included.
+/// - Components remain fully sandboxed with memory isolation and resource limits.
+
+package dagwood:rle-component@1.0.0;
+
+/// Use the standard dagwood-component world from the base package
+/// This includes the processing-node interface with process function
+world rle-component {
+    /// Export the processing-node interface (implements the DAGwood component contract)
+    export dagwood:component/processing-node@1.0.0;
+    
+    /// No imports for maximum sandboxing - WASI can be added later if needed
+}

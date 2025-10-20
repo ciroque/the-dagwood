@@ -1,5 +1,5 @@
 [package]
-name = "run_length_encoding"
+name = "run-length-encoding"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,10 +7,13 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-wit-bindgen = "0.30"
+wit-bindgen = "0.30.0"
+wit-bindgen-rt = "0.30.0"
 
 [dev-dependencies]
-wasmtime = "37.0"
+wasmtime = { version = "25.0", features = ["component-model"] }
+wit-component = "0.240"
+anyhow = "1.0"
 
 [profile.release]
 # Optimize for size since WASM modules should be small
@@ -19,4 +22,12 @@ lto = true
 panic = "abort"
 
 [package.metadata.component]
-package = "dagwood:component"
+package = "dagwood:rle-component"
+
+[package.metadata.component.target]
+path = "wit"
+world = "rle-component"
+
+[package.metadata.component.target.dependencies]
+"dagwood:component" = { path = "../../../wit/versions/v1.0.0" }  # Directory containing dagwood-component.wit
+# WASI is auto-fetched from the registry

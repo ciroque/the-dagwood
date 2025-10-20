@@ -4,7 +4,7 @@
 
 SHELL := /bin/bash
 COMPONENT_NAME := run_length_encoding
-WASM_TARGET := wasm32-unknown-unknown
+WASM_TARGET := wasm32-wasip2
 WASM_OUTPUT := ../../rle_rust.wasm
 
 .DEFAULT_GOAL := help
@@ -15,20 +15,27 @@ WASM_OUTPUT := ../../rle_rust.wasm
 
 build:
 	@echo "🔨 Building $(COMPONENT_NAME) component..."
-	@echo "📦 Checking cargo-component..."
-	@if ! cargo component --version &> /dev/null; then \
-		echo "📥 Installing cargo-component..."; \
-		cargo install cargo-component; \
+	@echo "📦 Checking wasm32-wasip2 target..."
+	@if ! rustup target list | grep -q "wasm32-wasip2 (installed)"; then \
+		echo "📥 Installing wasm32-wasip2 target..."; \
+		rustup target add wasm32-wasip2; \
+	fi
+	@echo "🧹 Ensuring clean WIT dependencies..."
+	@if command -v wit-deps &> /dev/null; then \
+		wit-deps; \
+	else \
+		echo "⚠️  wit-deps not found, install with: cargo install wit-deps-cli"; \
+		exit 1; \
 	fi
 	@echo "🚀 Building WASM component..."
-	@cargo component build --release
+	@cargo build --release --target $(WASM_TARGET)
 	@echo "📋 Copying artifact to $(WASM_OUTPUT)..."
-	@cp target/wasm32-wasip1/release/$(COMPONENT_NAME).wasm $(WASM_OUTPUT)
+	@cp target/$(WASM_TARGET)/release/$(COMPONENT_NAME).wasm $(WASM_OUTPUT)
 	@WASM_SIZE=$$(wc -c < "$(WASM_OUTPUT)"); \
 	echo "✅ Build complete! $(COMPONENT_NAME).wasm size: $${WASM_SIZE} bytes"
 	@if command -v wasm-tools &> /dev/null; then \
 		echo "📊 WASM component info:"; \
-		wasm-tools component wit $(WASM_OUTPUT) 2>/dev/null || echo "  (Component Model format)"; \
+		wasm-tools component wit $(WASM_OUTPUT) 2>/dev/null | head -20 || echo "  (Component Model format)"; \
 	else \
 		echo "💡 Install wasm-tools for component analysis: cargo install wasm-tools"; \
 	fi
@@ -85,10 +92,10 @@ lint:
 info:
 	@echo "📊 $(COMPONENT_NAME) Component Info:"
 	@echo "  Language: Rust"
-	@echo "  Target: $(WASM_TARGET)"
+	@echo "  Target: $(WASM_TARGET) (Component Model)"
 	@echo "  Output: $(WASM_OUTPUT)"
 	@if [ -f "$(WASM_OUTPUT)" ]; then \
-		WASM_SIZE=$$(stat -c%s "$(WASM_OUTPUT)"); \
+		WASM_SIZE=$$(wc -c < "$(WASM_OUTPUT)"); \
 		echo "  Size: $${WASM_SIZE} bytes"; \
 	else \
 		echo "  Status: Not built"; \

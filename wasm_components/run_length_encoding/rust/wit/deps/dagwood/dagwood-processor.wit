@@ -1,0 +1,133 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
+/// DAGwood WASM Component Interface
+/// 
+/// This WIT file defines the WebAssembly Interface Types (WIT) specification
+/// for DAGwood WASM components. These are low-level WASM modules that export
+/// specific functions for data processing within the DAGwood pipeline system.
+/// 
+/// ## Architecture Overview
+/// 
+/// ```
+/// DAGwood Runtime
+///       ↓
+/// WasmProcessor (Rust) ← implements Processor trait
+///       ↓
+/// WitNodeExecutor ← uses wit-bindgen generated bindings
+///       ↓
+/// WASM Component ← exports process(list<u8>) -> result<list<u8>, processing-error>
+/// ```
+/// 
+/// The WASM component is a pure Component Model module with no knowledge of DAGwood's
+/// Processor trait. wit-bindgen generates the host-side bindings that handle all
+/// memory transfer via the canonical ABI. The WasmProcessor bridges between
+/// DAGwood's Processor trait and the Component Model interface.
+/// 
+/// ## Component Model Interface
+/// 
+/// This WIT specification defines the modern Component Model interface:
+/// - `process(input: list<u8>) -> result<list<u8>, processing-error>`
+/// 
+/// ## Key Features
+/// 
+/// - **Automatic Memory Management**: wit-bindgen handles all memory transfer via canonical ABI
+/// - **Type Safety**: Proper error handling with typed error variants
+/// - **Simple API**: Component authors work with native types (Vec<u8> in Rust, Uint8Array in JS)
+/// - **No Manual Memory**: No allocate/deallocate functions needed
+/// 
+/// ## Note on C-Style Components
+/// 
+/// DAGwood also supports legacy C-style WASM modules via `CStyleNodeExecutor`.
+/// Those use raw function exports (`process`, `allocate`, `deallocate`).
+/// This WIT file is only for modern Component Model components.
+/// 
+/// ## Security Model
+/// 
+/// - **Complete Sandboxing**: By default, there is no access to host filesystem, network, or system calls; see the WASI Interface Policy for more details
+/// - **Memory Isolation**: Components operate within bounded WASM linear memory
+/// - **Resource Limits**: Execution time and memory consumption are bounded
+/// - **Input Validation**: All inputs are validated before processing
+/// 
+/// ## WASI Interface Policy
+/// 
+/// - **Root Interface**: This core WIT does not import any WASI interfaces
+/// - **Component-Specific WASI**: Individual processor nodes may include their own WITs with WASI interfaces
+/// - **DAGwood Support**: DAGwood will attempt to honor component-specific WASI requirements
+
+package dagwood:component@1.0.0;
+
+/// WASM Component Model interface for data processing
+/// 
+/// This interface defines the contract for WASM components that process
+/// data within DAGwood pipelines. Components are simple, stateless
+/// processors that transform input data to output data.
+/// 
+/// ## Component Model Advantages
+/// 
+/// This uses the modern Component Model interface with automatic memory management:
+/// - No manual allocate/deallocate functions needed
+/// - wit-bindgen handles all memory transfer automatically
+/// - Type-safe with proper error handling
+/// - Clean, simple API for component implementors
+interface processing-node {
+    /// Data processing errors
+    variant processing-error {
+        /// Invalid input data (malformed UTF-8, wrong format, etc.)
+        invalid-input(string),
+        /// Processing logic failed (algorithm error, computation failure)
+        processing-failed(string),
+        /// Input too large for component to handle
+        input-too-large(u64),
+    }
+    
+    /// Main data processing function
+    /// 
+    /// Processes input bytes and returns output bytes.
+    /// wit-bindgen automatically handles memory allocation and transfer.
+    /// 
+    /// ## Parameters:
+    /// - `input`: Input data as a byte list
+    /// 
+    /// ## Returns:
+    /// - `ok`: Output data as a byte list
+    /// - `err`: Processing error with details
+    /// 
+    /// ## Memory Management:
+    /// Completely handled by wit-bindgen! No manual memory management required.
+    /// The canonical ABI transfers data between host and component automatically.
+    /// 
+    /// ## Example Implementation (Rust):
+    /// ```rust
+    /// fn process(input: Vec<u8>) -> Result<Vec<u8>, ProcessingError> {
+    ///     // Your processing logic here
+    ///     Ok(output)
+    /// }
+    /// ```
+    /// 
+    /// ## Example Implementation (JavaScript/ComponentizeJS):
+    /// ```javascript
+    /// export function process(input) {
+    ///     // Your processing logic here
+    ///     return output;
+    /// }
+    /// ```
+    process: func(input: list<u8>) -> result<list<u8>, processing-error>;
+}
+
+/// World definition for DAGwood WASM components
+/// 
+/// This world defines the complete interface that DAGwood WASM components
+/// must implement. It includes only the processing-node interface with no imports,
+/// ensuring complete sandboxing and security isolation.
+world dagwood-component {
+    /// Export the processing-node interface
+    /// 
+    /// WASM components must export the processing-node interface with its single function:
+    /// - process: Main data processing logic (takes list<u8>, returns result<list<u8>, processing-error>)
+    /// 
+    /// Memory management is handled automatically by the Component Model canonical ABI.
+    export processing-node;
+    
+    /// No imports by default, see the 'WASI Interface Policy' section above for more details
+}

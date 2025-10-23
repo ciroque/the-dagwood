@@ -6,10 +6,9 @@ use super::super::{
     processing_node::{ComponentExecutionError, ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
 };
 use std::sync::Arc;
-use wasmtime::component::{Component, Linker, ResourceTable};
+use wasmtime::component::{Component, Linker};
 use wasmtime::{Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
-use wasmtime_wasi_http::{WasiHttpCtx, WasiHttpView};
 
 pub struct WitNodeExecutor {
     component: Arc<Component>,
@@ -27,26 +26,15 @@ impl WitNodeExecutor {
 
 struct Ctx {
     wasi: WasiCtx,
-    table: ResourceTable,
-    http: WasiHttpCtx,
+    table: wasmtime::component::ResourceTable,
 }
 
-impl WasiView for Ctx  {
-    fn ctx(&mut self) -> WasiCtxView<'_>  {
+impl WasiView for Ctx {
+    fn ctx(&mut self) -> WasiCtxView<'_> {
         WasiCtxView {
             ctx: &mut self.wasi,
-            table: &mut self.table
+            table: &mut self.table,
         }
-    }
-}
-
-impl WasiHttpView for Ctx {
-    fn ctx(&mut self) -> &mut WasiHttpCtx {
-        &mut self.http
-    }
-
-    fn table(&mut self) -> &mut ResourceTable {
-        &mut self.table
     }
 }
 
@@ -58,17 +46,17 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
             .args(&["dagwood-component"])
             .build();
 
-        let store_data = Ctx { 
-            wasi: wasi_ctx, 
-            table: ResourceTable::new(),
-            http: WasiHttpCtx::new(),
+        let store_data = Ctx {
+            wasi: wasi_ctx,
+            table: wasmtime::component::ResourceTable::new(),
         };
         let mut store = Store::new(&self.engine, store_data);
 
-        // Add all WASI interfaces for JavaScript components built with jco
-        let mut linker = Linker::new(&self.engine);
+        // Add all WASI interfaces
+        let mut linker = Linker::<Ctx>::new(&self.engine);
         
-        // // Add complete WASI support (CLI, filesystem, etc.)
+        // Add WASI Preview 2 interfaces
+        // This automatically provides cabi_realloc - no manual implementation needed!
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
             .map_err(|e| ProcessingNodeError::ComponentError(
                 ComponentExecutionError::InstantiationFailed(format!(
@@ -76,37 +64,6 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
                     e
                 ))
             ))?;
-        //
-        // // Add HTTP support (only HTTP-specific interfaces, no overlap)
-        // wasmtime_wasi_http::add_only_http_to_linker_sync(&mut linker)
-        //     .map_err(|e| ProcessingNodeError::ComponentError(
-        //         ComponentExecutionError::InstantiationFailed(format!(
-        //             "Failed to add WASI HTTP to linker: {}",
-        //             e
-        //         ))
-        //     ))?;
-
-
-
-
-
-
-
-
-        linker
-            .root()
-            .func_wrap(
-                "memory-allocator:cabi-realloc",
-                |_: wasmtime::StoreContextMut<Ctx>, (_old_ptr, _old_size, _new_size): (u32, u32, u32)| {
-                    // No-op: return () for testing
-                    Ok(())
-                },
-            )
-            .map_err(|e| format!("Failed to add cabi-realloc: {}", e))?;
-
-
-
-
 
 
         // Instantiate using wit-bindgen generated bindings
@@ -157,11 +114,11 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
     }
 
     fn artifact_type(&self) -> &'static str {
-        "WIT Component (JavaScript)"
+        "WIT Component"
     }
 
     fn capabilities(&self) -> Vec<String> {
-        vec!["javascript".to_string()]
+        vec![]
     }
 
     fn execution_metadata(&self) -> ExecutionMetadata {
@@ -230,6 +187,27 @@ mod tests {
         match result {
             Ok(output) => {
                 println!("RLE JS output: {:?}", String::from_utf8_lossy(&output));
+            }
+            Err(e) => {
+                println!("Error: {:?}", e);
+                panic!("Test failed: {:?}", e);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "Run manually to test RLE Rust component"]
+    fn test_wit_executor_with_rle_rust() {
+        let result = test_with_file(
+            "/data/development/projects/the-dagwood/wasm_components/rle_rust.wasm",
+            b"aaabbc",
+        );
+        
+        match result {
+            Ok(output) => {
+                let output_str = String::from_utf8_lossy(&output);
+                println!("RLE Rust output: {:?}", output_str);
+                assert_eq!(output_str, "3a2b1c", "Expected RLE encoding of 'aaabbc' to be '3a2b1c'");
             }
             Err(e) => {
                 println!("Error: {:?}", e);

@@ -13,61 +13,58 @@ use wasmtime::*;
 
 /// Creates a Wasmtime engine configured for the given WASM encoding type
 /// 
-/// The engine is configured with security-focused defaults and encoding-specific
-/// features:
+/// Each encoding type gets its own specific configuration:
 /// 
 /// **Component Model engines:**
-/// - `wasm_component_model(true)` - Enable Component Model support
+/// - Minimal config: just `wasm_component_model(true)`
+/// - WASI Preview 2 handles everything else automatically
 /// 
 /// **Classic module engines:**
-/// - `wasm_component_model(false)` - Disable Component Model (not needed)
-/// 
-/// **All engines:**
-/// - `consume_fuel(true)` - Enable fuel consumption for timeout support
-/// - Disabled features: threads, SIMD, multi-memory, memory64
+/// - Security-focused configuration with sandboxing features
+/// - Fuel consumption for execution limits
 /// 
 /// # Arguments
 /// * `encoding` - The WASM encoding type detected by `wasm_encoding()`
 /// 
 /// # Returns
 /// * `Ok(Engine)` - Configured Wasmtime engine
-/// * `Err(WasmError)` - If engine creation fails
+/// * `Err(WasmError)` - If engine creation fails or encoding is unsupported
 /// 
 /// # Future
 /// This function will be extended to support security configurations for
 /// WASI import validation and per-component capability restrictions.
 pub fn create_engine(encoding: WasmEncoding) -> WasmResult<Engine> {
-    let mut config = Config::new();
-
-    // Configure Component Model support based on encoding
     match encoding {
         WasmEncoding::ComponentModel => {
-            config.wasm_component_model(true);
             tracing::debug!("Creating engine with Component Model support");
+            let mut config = Config::new();
+            config.wasm_component_model(true);
+            Engine::new(&config).map_err(|e| WasmError::EngineError(e.to_string()))
         }
         WasmEncoding::Classic => {
-            config.wasm_component_model(false);
             tracing::debug!("Creating engine for classic WASM module");
+            let mut config = Config::new();
+            config.wasm_component_model(false);
+            
+            // Security and sandboxing configuration for classic modules
+            config.wasm_threads(true);
+            config.wasm_simd(true);
+            config.wasm_relaxed_simd(true);
+            config.wasm_multi_memory(true);
+            config.wasm_memory64(true);
+            config.consume_fuel(true);
+            config.epoch_interruption(true);
+            config.wasm_reference_types(true);
+            config.wasm_bulk_memory(true);
+            config.wasm_multi_value(true);
+            config.wasm_tail_call(true);
+            
+            Engine::new(&config).map_err(|e| WasmError::EngineError(e.to_string()))
         }
         WasmEncoding::Preview1 => {
-            return Err(WasmError::UnsupportedEncoding(WASM_UNSUPPORTED_ENCODING.to_string()));
+            Err(WasmError::UnsupportedEncoding(WASM_UNSUPPORTED_ENCODING.to_string()))
         }
     }
-
-    // Security and sandboxing configuration
-    config.wasm_threads(true); // No threading support
-    config.wasm_simd(true); // No SIMD instructions
-    config.wasm_relaxed_simd(true);
-    config.wasm_multi_memory(true); // Single memory instance only
-    config.wasm_memory64(true); // 32-bit memory addressing only
-    config.consume_fuel(true); // Enable fuel for execution limits
-    config.epoch_interruption(true);
-    config.wasm_reference_types(true);
-    config.wasm_bulk_memory(true);
-    config.wasm_multi_value(true);
-    config.wasm_tail_call(true);
-
-    Engine::new(&config).map_err(|e| WasmError::EngineError(e.to_string()))
 }
 
 // Future: WASI validation and security policy enforcement will be added here

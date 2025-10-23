@@ -34,8 +34,8 @@ base64 = "0.21"
 # WASM runtime for sandboxed execution
 wasmtime = { version = "37.0", features = ["cranelift", "async", "component-model"] }
 wasmtime-wasi = "37.0"
-wasmtime-wasi-http = "37.0"  # For JavaScript components built with jco
-wasmparser = "0.219"  # For spec-compliant WASM binary detection
+wasmtime-wasi-http = "37.0"
+wasmparser = "0.219"
 
 # Logging / tracing
 tracing = "0.1"

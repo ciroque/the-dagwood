@@ -30,7 +30,7 @@ processors:
 
   - id: process_b_wasm
     type: wasm
-    module: wasm_components/hello.wasm
+    module: wasm_components/wasm_appender.wasm
     depends_on: [input_b]
     options:
       intent: transform
@@ -48,6 +48,11 @@ processors:
     processor: word_frequency_analyzer
     depends_on: [process_b_wasm]
     options: {}
+
+  - id: rle_rust
+    type: wasm
+    module: /data/development/projects/the-dagwood/wasm_components/rle_rust.wasm
+    depends_on: [analyze_b]
 
   # Convergence: combine all results
   - id: final_merge

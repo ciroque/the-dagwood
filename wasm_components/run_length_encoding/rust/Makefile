@@ -6,6 +6,7 @@ SHELL := /bin/bash
 COMPONENT_NAME := run_length_encoding
 WASM_TARGET := wasm32-wasip2
 WASM_OUTPUT := ../../rle_rust.wasm
+RUNNER_OUTPUT := ../../rle-runner
 
 .DEFAULT_GOAL := help
 
@@ -27,7 +28,7 @@ build:
 		echo "⚠️  wit-deps not found, install with: cargo install wit-deps-cli"; \
 	fi
 	@echo "🚀 Building WASM component..."
-	@cargo component build --release --target $(WASM_TARGET)
+	@cargo component build --release --target $(WASM_TARGET) --lib
 	@echo "📋 Copying artifact to $(WASM_OUTPUT)..."
 	@cp target/$(WASM_TARGET)/release/$(COMPONENT_NAME).wasm $(WASM_OUTPUT)
 	@WASM_SIZE=$$(wc -c < "$(WASM_OUTPUT)"); \
@@ -57,24 +58,24 @@ build-runner:
 		exit 1; \
 	fi
 	@echo "🚀 Building WASM component..."
-	@cargo component build --release --target wasm32-wasip2
-	@echo "📋 Copying component artifact to wasm_components/..."
-	@cp target/wasm32-wasip2/release/rle_rust.wasm /data/development/projects/the-dagwood/wasm_components/rle_rust.wasm
-	@WASM_SIZE=$$(wc -c < "/data/development/projects/the-dagwood/wasm_components/rle_rust.wasm"); \
-	echo "✅ Component build complete! rle_rust.wasm size: $${WASM_SIZE} bytes"
+	@cargo component build --release --target $(WASM_TARGET)
+	@echo "📋 Copying component artifact to $(WASM_OUTPUT)..."
+	@cp target/$(WASM_TARGET)/release/$(COMPONENT_NAME).wasm $(WASM_OUTPUT)
+	@WASM_SIZE=$$(wc -c < "$(WASM_OUTPUT)"); \
+	echo "✅ Component build complete! $(COMPONENT_NAME).wasm size: $${WASM_SIZE} bytes"
 	@if command -v wasm-tools &> /dev/null; then \
 		echo "📊 WASM component info:"; \
-		wasm-tools component wit /data/development/projects/the-dagwood/wasm_components/rle_rust.wasm 2>/dev/null | head -20 || echo "  (Component Model format)"; \
+		wasm-tools component wit $(WASM_OUTPUT) 2>/dev/null | head -20 || echo "  (Component Model format)"; \
 	else \
 		echo "💡 Install wasm-tools for component analysis: cargo install wasm-tools"; \
 	fi
 	@echo "🚀 Building runner binary..."
 	@cargo build --release --bin rle-runner
-	@echo "📋 Copying runner binary to target/release/..."
-	@cp target/release/rle-runner /data/development/projects/the-dagwood/wasm_components/rle-runner
-	@RUNNER_SIZE=$$(wc -c < "/data/development/projects/the-dagwood/wasm_components/rle-runner"); \
+	@echo "📋 Copying runner binary to $(RUNNER_OUTPUT)..."
+	@cp target/release/rle-runner $(RUNNER_OUTPUT)
+	@RUNNER_SIZE=$$(wc -c < "$(RUNNER_OUTPUT)"); \
 	echo "✅ Runner build complete! rle-runner size: $${RUNNER_SIZE} bytes"
-	@echo "🎉 Ready to use: /data/development/projects/the-dagwood/wasm_components/rle_rust.wasm and rle-runner"
+	@echo "🎉 Ready to use: $(WASM_OUTPUT) and $(RUNNER_OUTPUT)"
 # --------------------------------
 # 🧪 Test Targets
 # --------------------------------

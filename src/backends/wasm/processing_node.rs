@@ -35,6 +35,12 @@ pub enum ProcessingNodeError {
     RuntimeError(String),
 }
 
+impl From<std::string::String> for ProcessingNodeError {
+    fn from(error: String) -> Self {
+        ProcessingNodeError::RuntimeError(error)
+    }
+}
+
 #[derive(Debug)]
 pub enum ComponentExecutionError {
     InstantiationFailed(String),
@@ -44,6 +50,8 @@ pub enum ComponentExecutionError {
     FunctionCallFailed(String),
 
     MemoryAllocationFailed(String),
+
+    MemoryAccessFailed(String),
 }
 
 #[derive(Debug)]
@@ -99,6 +107,9 @@ impl fmt::Display for ComponentExecutionError {
             }
             ComponentExecutionError::MemoryAllocationFailed(msg) => {
                 write!(f, "Component memory allocation failed: {}", msg)
+            }
+            ComponentExecutionError::MemoryAccessFailed(msg) => {
+                write!(f, "Component memory access failed: {}", msg)
             }
         }
     }

@@ -1,2 +1,4 @@
 rust 1.87.0
 grain 0.7.1
+nodejs 22.12.0
+wasmtime v37.0.2

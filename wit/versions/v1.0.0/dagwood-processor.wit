@@ -14,27 +14,33 @@
 ///       ↓
 /// WasmProcessor (Rust) ← implements Processor trait
 ///       ↓
-/// WASM Component ← exports process(), allocate(), deallocate()
+/// WitNodeExecutor ← uses wit-bindgen generated bindings
+///       ↓
+/// WASM Component ← exports process(list<u8>) -> result<list<u8>, processing-error>
 /// ```
 /// 
-/// The WASM component is a pure WASM module with no knowledge of DAGwood's
-/// Processor trait. The WasmProcessor in the DAGwood runtime handles the
-/// bridge between the Rust ecosystem and the WASM component.
+/// The WASM component is a pure Component Model module with no knowledge of DAGwood's
+/// Processor trait. wit-bindgen generates the host-side bindings that handle all
+/// memory transfer via the canonical ABI. The WasmProcessor bridges between
+/// DAGwood's Processor trait and the Component Model interface.
 /// 
-/// ## Current Interface (C-style exports)
+/// ## Component Model Interface
 /// 
-/// WASM components currently export three C-style functions:
-/// - `process(input_ptr, input_len, output_len_ptr) -> output_ptr`
-/// - `allocate(size) -> ptr`
-/// - `deallocate(ptr, size)`
+/// This WIT specification defines the modern Component Model interface:
+/// - `process(input: list<u8>) -> result<list<u8>, processing-error>`
 /// 
-/// ## This WIT Specification
+/// ## Key Features
 /// 
-/// This WIT file provides a formal specification of the current interface:
-/// - Documents the existing contract for implementors
-/// - Enables tooling and binding generation
-/// - Provides foundation for Component Model migration
-/// - Maintains exact compatibility with current C-style exports
+/// - **Automatic Memory Management**: wit-bindgen handles all memory transfer via canonical ABI
+/// - **Type Safety**: Proper error handling with typed error variants
+/// - **Simple API**: Component authors work with native types (Vec<u8> in Rust, Uint8Array in JS)
+/// - **No Manual Memory**: No allocate/deallocate functions needed
+/// 
+/// ## Note on C-Style Components
+/// 
+/// DAGwood also supports legacy C-style WASM modules via `CStyleNodeExecutor`.
+/// Those use raw function exports (`process`, `allocate`, `deallocate`).
+/// This WIT file is only for modern Component Model components.
 /// 
 /// ## Security Model
 /// 
@@ -51,22 +57,20 @@
 
 package dagwood:component@1.0.0;
 
-/// Low-level WASM component interface for data processing
+/// WASM Component Model interface for data processing
 /// 
 /// This interface defines the contract for WASM components that process
 /// data within DAGwood pipelines. Components are simple, stateless
 /// processors that transform input data to output data.
+/// 
+/// ## Component Model Advantages
+/// 
+/// This uses the modern Component Model interface with automatic memory management:
+/// - No manual allocate/deallocate functions needed
+/// - wit-bindgen handles all memory transfer automatically
+/// - Type-safe with proper error handling
+/// - Clean, simple API for component implementors
 interface processing-node {
-    /// Memory allocation errors
-    variant allocation-error {
-        /// Out of memory - cannot allocate requested size
-        out-of-memory,
-        /// Invalid size - zero or excessively large allocation request
-        invalid-size(u64),
-        /// Memory corruption - internal allocator state is corrupted
-        memory-corruption,
-    }
-    
     /// Data processing errors
     variant processing-error {
         /// Invalid input data (malformed UTF-8, wrong format, etc.)
@@ -79,73 +83,37 @@ interface processing-node {
     
     /// Main data processing function
     /// 
-    /// Processes input data and returns a pointer to output data.
-    /// This is a low-level interface that works directly with WASM linear memory.
-    /// 
-    /// ## Current C-style equivalent:
-    /// ```c
-    /// uint8_t* process(const uint8_t* input_ptr, size_t input_len, size_t* output_len);
-    /// ```
+    /// Processes input bytes and returns output bytes.
+    /// wit-bindgen automatically handles memory allocation and transfer.
     /// 
     /// ## Parameters:
-    /// - `input-ptr`: Pointer to input data in WASM linear memory
-    /// - `input-len`: Length of input data in bytes
-    /// - `output-len-ptr`: Pointer to where output length should be written
+    /// - `input`: Input data as a byte list
     /// 
     /// ## Returns:
-    /// - Pointer to allocated output data in WASM linear memory
-    /// - Returns 0 (null) on error
-    /// - Caller must call deallocate() to free the returned memory
+    /// - `ok`: Output data as a byte list
+    /// - `err`: Processing error with details
     /// 
     /// ## Memory Management:
-    /// 1. Host calls allocate() to get memory for input data
-    /// 2. Host writes input data to allocated memory
-    /// 3. Host calls allocate() to get memory for output length parameter
-    /// 4. Host calls process() with pointers to input and output length
-    /// 5. Component writes output length to output_len_ptr
-    /// 6. Component returns pointer to allocated output data
-    /// 7. Host reads output data and calls deallocate() for cleanup
-    process: func(input-ptr: u32, input-len: u64, output-len-ptr: u32) -> result<u32, processing-error>;
-    
-    /// Allocate memory in WASM linear memory
+    /// Completely handled by wit-bindgen! No manual memory management required.
+    /// The canonical ABI transfers data between host and component automatically.
     /// 
-    /// Allocates a block of memory of the specified size and returns
-    /// a pointer to the allocated memory. Used by the host to allocate
-    /// memory for input data before calling process().
-    /// 
-    /// ## Current C-style equivalent:
-    /// ```c
-    /// void* allocate(size_t size);
+    /// ## Example Implementation (Rust):
+    /// ```rust,ignore
+    /// fn process(input: Vec<u8>) -> Result<Vec<u8>, ProcessingError> {
+    ///     // Your processing logic here
+    ///     let output = input; // Example: echo input
+    ///     Ok(output)
+    /// }
     /// ```
     /// 
-    /// ## Usage Pattern:
-    /// 1. Host calls allocate(input_size) to get memory for input
-    /// 2. Host writes input data to allocated memory
-    /// 3. Host calls process() with pointer to allocated memory
-    /// 4. Host calls deallocate() to free memory after processing
-    /// 
-    /// ## Memory Safety:
-    /// - Returns allocation-error on failure instead of null pointer
-    /// - Allocated memory is uninitialized
-    /// - Caller must call deallocate() to prevent memory leaks
-    allocate: func(size: u64) -> result<u32, allocation-error>;
-    
-    /// Deallocate memory in WASM linear memory
-    /// 
-    /// Frees a block of memory that was previously allocated by allocate().
-    /// The pointer and size must exactly match a previous allocation.
-    /// 
-    /// ## Current C-style equivalent:
-    /// ```c
-    /// void deallocate(void* ptr, size_t size);
+    /// ## Example Implementation (JavaScript/ComponentizeJS):
+    /// ```javascript
+    /// export function process(input) {
+    ///     // Your processing logic here
+    ///     return output;
+    /// }
     /// ```
-    /// 
-    /// ## Memory Safety:
-    /// - Pointer must be from a previous allocate() call
-    /// - Size must exactly match the allocated size
-    /// - Double-free and use-after-free are undefined behavior
-    /// - Freeing null pointer (0) is safe and ignored
-    deallocate: func(ptr: u32, size: u64);
+    process: func(input: list<u8>) -> result<list<u8>, processing-error>;
 }
 
 /// World definition for DAGwood WASM components
@@ -156,12 +124,11 @@ interface processing-node {
 world dagwood-component {
     /// Export the processing-node interface
     /// 
-    /// WASM components must export all functions in the processing-node interface:
-    /// - process: Main data processing logic
-    /// - allocate: Memory allocation for host-component communication
-    /// - deallocate: Memory deallocation for cleanup
+    /// WASM components must export the processing-node interface with its single function:
+    /// - process: Main data processing logic (takes list<u8>, returns result<list<u8>, processing-error>)
+    /// 
+    /// Memory management is handled automatically by the Component Model canonical ABI.
     export processing-node;
     
     /// No imports by default, see the 'WASI Interface Policy' section above for more details
-    import none;
 }

@@ -23,7 +23,7 @@ pub use factory::create_executor;
 pub use loader::load_wasm_bytes;
 
 // Executors
-pub use executors::{CStyleNodeExecutor, ComponentNodeExecutor, WasiNodeExecutor, WitNodeExecutor};
+pub use executors::{CStyleNodeExecutor, WitNodeExecutor};
 
 // Processing node traits and types
 pub use processing_node::{ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor};

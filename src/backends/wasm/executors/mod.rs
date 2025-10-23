@@ -6,12 +6,8 @@
 //! This module contains the concrete implementations of the `ProcessingNodeExecutor`
 //! trait for different types of WASM artifacts.
 
-mod component_executor;
 mod cstyle_executor;
-mod wasi_executor;
 mod wit_executor;
 
-pub use component_executor::ComponentNodeExecutor;
 pub use cstyle_executor::CStyleNodeExecutor;
-pub use wasi_executor::WasiNodeExecutor;
 pub use wit_executor::WitNodeExecutor;

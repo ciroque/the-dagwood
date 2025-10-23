@@ -18,7 +18,7 @@ processors:
   # WASM processor provides sandboxed execution
   - id: wasm_hello_world
     type: wasm
-    module: wasm_components/hello.wasm
+    module: wasm_components/wasm_appender.wasm
     depends_on: [prepare_input]
     options:
       intent: transform

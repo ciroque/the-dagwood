@@ -45,20 +45,7 @@ pub fn create_engine(encoding: WasmEncoding) -> WasmResult<Engine> {
             tracing::debug!("Creating engine for classic WASM module");
             let mut config = Config::new();
             config.wasm_component_model(false);
-            
-            // Security and sandboxing configuration for classic modules
-            config.wasm_threads(true);
-            config.wasm_simd(true);
-            config.wasm_relaxed_simd(true);
-            config.wasm_multi_memory(true);
-            config.wasm_memory64(true);
-            config.consume_fuel(true);
-            config.epoch_interruption(true);
-            config.wasm_reference_types(true);
-            config.wasm_bulk_memory(true);
-            config.wasm_multi_value(true);
-            config.wasm_tail_call(true);
-            
+            config.consume_fuel(true); // Enable fuel for execution limits
             Engine::new(&config).map_err(|e| WasmError::EngineError(e.to_string()))
         }
         WasmEncoding::Preview1 => {

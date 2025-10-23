@@ -9,56 +9,56 @@ executor_options:
 
 processors:
   # Entry points: multiple input processors
-  - id: input_a
+  - id: to-upper-case
     type: local
     processor: change_text_case_upper
     depends_on: []
     options: {}
 
-  - id: input_b
+  - id: to-lower-case
     type: local
     processor: change_text_case_lower
     depends_on: []
     options: {}
 
   # Processing layer: mix of local and WASM
-  - id: process_a
+  - id: reverse-text
     type: local
     processor: reverse_text
-    depends_on: [input_a]
+    depends_on: [to-upper-case]
     options: {}
 
-  - id: process_b_wasm
+  - id: append-wasm
     type: wasm
     module: wasm_components/wasm_appender.wasm
-    depends_on: [input_b]
+    depends_on: [to-lower-case]
     options:
       intent: transform
 
   # Analysis layer: parallel analysis of both paths
-  - id: analyze_a
+  - id: count-tokens
     type: local
     processor: token_counter
-    depends_on: [process_a]
+    depends_on: [reverse-text]
     options:
       count_type: "characters"
 
-  - id: analyze_b
+  - id: analyze-word-frequencies
     type: local
     processor: word_frequency_analyzer
-    depends_on: [process_b_wasm]
+    depends_on: [append-wasm]
     options: {}
 
-  - id: rle_rust
+  - id: run-length-encode-Rust
     type: wasm
     module: /data/development/projects/the-dagwood/wasm_components/rle_rust.wasm
-    depends_on: [analyze_b]
+    depends_on: [analyze-word-frequencies, analyze-word-frequencies]
 
   # Convergence: combine all results
   - id: final_merge
     type: local
     processor: prefix_suffix_adder
-    depends_on: [analyze_a, analyze_b]
+    depends_on: [run-length-encode-Rust]
     options:
       prefix: "🔄 Multi-type Result: "
       suffix: " [COMPLETE]"

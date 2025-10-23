@@ -6,14 +6,22 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib"]
 
+[[bin]]
+name = "rle-runner"
+path = "main.rs"
+
 [dependencies]
-wit-bindgen = "0.30.0"
-wit-bindgen-rt = "0.30.0"
+wit-bindgen = "0.44.0"
+wit-bindgen-rt = "0.44.0"
+
+# Binary-only dependencies (for the runner)
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+wasmtime = { version = "38.0", features = ["component-model"] }
+wasmtime-wasi = "38.0"
+anyhow = "1.0"
 
 [dev-dependencies]
-wasmtime = { version = "25.0", features = ["component-model"] }
 wit-component = "0.240"
-anyhow = "1.0"
 
 [profile.release]
 # Optimize for size since WASM modules should be small
@@ -25,7 +33,7 @@ panic = "abort"
 package = "dagwood:rle-component"
 
 [package.metadata.component.target]
-path = "wit"
+path = "wit/world.wit"
 world = "rle-component"
 
 [package.metadata.component.target.dependencies]

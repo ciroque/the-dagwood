@@ -68,7 +68,7 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
         // Add all WASI interfaces for JavaScript components built with jco
         let mut linker = Linker::new(&self.engine);
         
-        // Add complete WASI support (CLI, filesystem, etc.)
+        // // Add complete WASI support (CLI, filesystem, etc.)
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
             .map_err(|e| ProcessingNodeError::ComponentError(
                 ComponentExecutionError::InstantiationFailed(format!(
@@ -76,15 +76,38 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
                     e
                 ))
             ))?;
-        
-        // Add HTTP support (only HTTP-specific interfaces, no overlap)
-        wasmtime_wasi_http::add_only_http_to_linker_sync(&mut linker)
-            .map_err(|e| ProcessingNodeError::ComponentError(
-                ComponentExecutionError::InstantiationFailed(format!(
-                    "Failed to add WASI HTTP to linker: {}",
-                    e
-                ))
-            ))?;
+        //
+        // // Add HTTP support (only HTTP-specific interfaces, no overlap)
+        // wasmtime_wasi_http::add_only_http_to_linker_sync(&mut linker)
+        //     .map_err(|e| ProcessingNodeError::ComponentError(
+        //         ComponentExecutionError::InstantiationFailed(format!(
+        //             "Failed to add WASI HTTP to linker: {}",
+        //             e
+        //         ))
+        //     ))?;
+
+
+
+
+
+
+
+
+        linker
+            .root()
+            .func_wrap(
+                "memory-allocator:cabi-realloc",
+                |_: wasmtime::StoreContextMut<Ctx>, (_old_ptr, _old_size, _new_size): (u32, u32, u32)| {
+                    // No-op: return () for testing
+                    Ok(())
+                },
+            )
+            .map_err(|e| format!("Failed to add cabi-realloc: {}", e))?;
+
+
+
+
+
 
         // Instantiate using wit-bindgen generated bindings
         // This handles all the WIT interface setup automatically!

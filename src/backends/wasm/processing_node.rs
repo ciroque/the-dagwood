@@ -35,6 +35,12 @@ pub enum ProcessingNodeError {
     RuntimeError(String),
 }
 
+impl From<std::string::String> for ProcessingNodeError {
+    fn from(error: String) -> Self {
+        ProcessingNodeError::RuntimeError(error)
+    }
+}
+
 #[derive(Debug)]
 pub enum ComponentExecutionError {
     InstantiationFailed(String),

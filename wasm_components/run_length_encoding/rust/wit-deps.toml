@@ -1,8 +1,0 @@
-# WIT Dependencies for run_length_encoding component
-
-[dependencies]
-# DAGwood processor interface
-"dagwood:component" = { path = "../../../wit/versions/v1.0.0" }
-
-# WASI CLI interfaces for minimal environment support
-"wasi:cli" = "0.2.0"

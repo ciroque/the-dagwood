@@ -2,5 +2,19 @@
 
 dagwood = { path = "../../../../wit/versions/v1.0.0" }
 
-# WASI CLI interfaces for minimal environment support
-"wasi:cli" = "0.2.0"
+# Add WASI imports here when needed:
+# 1. Uncomment dependency below
+# 2. Add s matching import to wit/dagwood-extended-component.wit
+# 3. Use in Rust code via bindings::wasi::*
+#
+# Example workflow for environment access:
+# Step 1: "wasi:cli" = "0.2.0"
+# Step 2: import wasi:cli/environment@0.2.0;  (in WIT file)
+# Step 3: use bindings::wasi::cli::environment;  (in Rust code)
+#        environment::get_environment().get("MY_VAR")
+#
+# Available WASI packages:
+# "wasi:cli" = "0.2.0"        # Environment vars, args
+# "wasi:io" = "0.2.0"         # Streams, stdin/stdout
+# "wasi:filesystem" = "0.2.0" # File operations
+

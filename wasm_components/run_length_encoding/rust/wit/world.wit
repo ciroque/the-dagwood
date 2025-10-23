@@ -28,19 +28,15 @@
 ///                ← imports wasi:cli/environment for memory allocation
 /// ```
 ///
-/// ## WASI Interface Policy
-///
-/// - Imports `wasi:cli/environment` for minimal environment access (e.g., memory allocation).
-/// - No filesystem, network, or other dangerous capabilities are included.
-/// - Components remain fully sandboxed with memory isolation and resource limits.
 
 package dagwood:rle-component@1.0.0;
 
-/// Use the standard dagwood-component world from the base package
-/// This includes the processing-node interface with process function
+/// RLE Component world for WASI Preview 2
+/// 
+/// This world exports the DAGwood processing interface.
+/// Memory management (cabi_realloc) is automatically provided by the
+/// wasm32-wasip2 target toolchain - no explicit import needed.
 world rle-component {
     /// Export the processing-node interface (implements the DAGwood component contract)
     export dagwood:component/processing-node@1.0.0;
-    
-    /// No imports for maximum sandboxing - WASI can be added later if needed
 }

@@ -71,7 +71,6 @@ pub fn create_executor(
 mod tests {
     use super::*;
 
-    // Helper to create minimal valid WASM module
     fn create_minimal_wasm_module() -> Vec<u8> {
         wat::parse_str(
             r#"
@@ -113,7 +112,4 @@ mod tests {
             panic!("Expected ModuleError");
         }
     }
-
-    // Note: Component Model test would require a real .wasm component file
-    // which we'll add once we have test fixtures
 }

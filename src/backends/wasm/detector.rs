@@ -89,8 +89,6 @@ mod tests {
         let empty: &[u8] = &[];
         let result = wasm_encoding(empty);
         assert!(result.is_err());
-        // wasmparser may return different error messages for empty input
-        // Just verify it returns an error
     }
 
     #[test]
@@ -108,10 +106,4 @@ mod tests {
         assert!(WasmEncoding::Classic.is_classic());
         assert!(!WasmEncoding::Classic.is_component_model());
     }
-
-    // Note: Tests with real WASM binaries would go here
-    // We'll need test fixtures for:
-    // - Modern Component Model component
-    // - Classic core WASM module
-    // - Legacy Preview 1 component (to verify rejection)
 }

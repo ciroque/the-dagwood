@@ -168,7 +168,6 @@ impl From<WasmError> for ProcessingNodeError {
     }
 }
 
-// Convert ProcessingNodeError to WasmError for better error handling
 impl From<ProcessingNodeError> for WasmError {
     fn from(error: ProcessingNodeError) -> Self {
         WasmError::ProcessorError(error.to_string())

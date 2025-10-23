@@ -28,7 +28,6 @@ pub struct WasmProcessor {
 
 impl WasmProcessor {
     pub fn new(processor_id: String, module_path: String) -> WasmResult<Self> {
-        // ADR-17: New clean 3-step flow
         let bytes = load_wasm_bytes(&module_path)?;
         let encoding = wasm_encoding(&bytes)
             .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
@@ -70,7 +69,6 @@ impl WasmProcessor {
             ProcessorIntent::Transform
         };
 
-        // ADR-17: New clean 3-step flow
         let bytes = load_wasm_bytes(module_path)?;
         let encoding = wasm_encoding(&bytes)
             .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
@@ -94,7 +92,6 @@ impl WasmProcessor {
             self.executor.artifact_type()
         );
 
-        // Execute using the ProcessingNodeExecutor
         match self.executor.execute(input) {
             Ok(output) => {
                 tracing::debug!(
@@ -130,10 +127,8 @@ impl Processor for WasmProcessor {
     async fn process(&self, request: ProcessorRequest) -> ProcessorResponse {
         let input = request.payload;
 
-        // Execute WASM module using orchestrated components
         match self.execute_wasm(&input) {
             Ok(output) => {
-                // Create successful response with metadata
                 let mut processor_metadata_map = HashMap::new();
                 processor_metadata_map
                     .insert("processor_id".to_string(), self.processor_id.clone());

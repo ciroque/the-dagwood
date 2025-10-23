@@ -86,7 +86,6 @@ mod tests {
         assert!(result.is_err());
 
         if let Err(WasmError::IoError(_)) = result {
-            // Expected
         } else {
             panic!("Expected IoError for nonexistent file");
         }

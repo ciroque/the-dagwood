@@ -27,7 +27,4 @@ impl ProcessingNodeFactory {
 }
 
 #[cfg(test)]
-mod tests {
-    // Tests removed - ProcessingNodeFactory is deprecated
-    // See factory.rs tests for new ADR-17 implementation tests
-}
+mod tests {}

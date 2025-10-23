@@ -4,12 +4,12 @@
 //! WASM executor factory
 //!
 //! This module orchestrates the creation of appropriate executor implementations
-//! based on WASM encoding type. It handles engine creation, module/component
+//! based on the WASM encoding type. It handles engine creation, module/component
 //! instantiation, and executor wrapping.
 
 use crate::backends::wasm::capability_manager::create_engine;
 use crate::backends::wasm::detector::WasmEncoding;
-use crate::backends::wasm::error::{WasmError, WasmResult, WASM_UNSUPPORTED_ENCODING};
+use crate::backends::wasm::error::{WasmError, WasmResult};
 use crate::backends::wasm::executors::{CStyleNodeExecutor, WitNodeExecutor};
 use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
 use wasmtime::component::Component;
@@ -63,9 +63,6 @@ pub fn create_executor(
 
             let executor = CStyleNodeExecutor::new(module, engine)?;
             Ok(Box::new(executor))
-        }
-        WasmEncoding::Preview1 => {
-            Err(WasmError::UnsupportedEncoding(WASM_UNSUPPORTED_ENCODING.to_string()))
         }
     }
 }

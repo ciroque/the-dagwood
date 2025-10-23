@@ -4,7 +4,7 @@
 
 # Add WASI imports here when needed:
 # 1. Uncomment dependency below
-# 2. Add s matching import to wit/dagwood-extended-component.wit
+# 2. Add a matching import to wit/dagwood-extended-component.wit
 # 3. Use in Rust code via bindings::wasi::*
 #
 # Example workflow for environment access:

@@ -8,7 +8,7 @@
 //! WASI import validation and security policy enforcement.
 
 use crate::backends::wasm::detector::WasmEncoding;
-use crate::backends::wasm::error::{WasmError, WasmResult, WASM_UNSUPPORTED_ENCODING};
+use crate::backends::wasm::error::{WasmError, WasmResult};
 use wasmtime::*;
 
 /// Creates a Wasmtime engine configured for the given WASM encoding type
@@ -47,9 +47,6 @@ pub fn create_engine(encoding: WasmEncoding) -> WasmResult<Engine> {
             config.wasm_component_model(false);
             config.consume_fuel(true); // Enable fuel for execution limits
             Engine::new(&config).map_err(|e| WasmError::EngineError(e.to_string()))
-        }
-        WasmEncoding::Preview1 => {
-            Err(WasmError::UnsupportedEncoding(WASM_UNSUPPORTED_ENCODING.to_string()))
         }
     }
 }

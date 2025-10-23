@@ -10,19 +10,17 @@ use crate::backends::wasm::error::{WasmError, WASM_UNSUPPORTED_ENCODING};
 
 use wasmparser::{Encoding, Parser, Payload};
 
-/// Represents WebAssembly binary encodings
+/// Represents supported WebAssembly binary encodings
 /// 
 /// - `ComponentModel`: Modern Component Model (binary version 2+)
 /// - `Classic`: Core WebAssembly modules (version 1, no component indicators)
 /// 
-/// Legacy Preview 1 components (version 1 + "component" custom section) are
-/// explicitly rejected with an error.
+/// Note: Legacy Preview 1 components (version 1 + "component" custom section) are
+/// not represented here as they are unsupported and rejected with an error.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum WasmEncoding {
     /// Modern Component Model (binary version 2+)
     ComponentModel,
-    Preview1,
     /// Classic core WASM module (version 1, no component section)
     Classic,
 }

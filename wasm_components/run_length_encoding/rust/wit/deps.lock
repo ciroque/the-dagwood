@@ -1,4 +1,4 @@
-[dagwood]
+["dagwood:component"]
 path = "../../../../wit/versions/v1.0.0"
 sha256 = "0bcbe38d9cdc507f602e1fc6b6e006dd7dd577f8c082344b8b5b0a68fd67f0dc"
 sha512 = "a6eea1d95c2a4b4c6d93e2519767836e9b056c8bf50a19f80646701ad58ddc7c09fb6c1aac673c60547111041ffa5b3a8905c334a4d983586edabf0e5f70955c"

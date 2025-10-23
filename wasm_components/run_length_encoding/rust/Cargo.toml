@@ -18,6 +18,7 @@ wit-bindgen-rt = "0.44.0"
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 wasmtime = { version = "38.0", features = ["component-model"] }
 wasmtime-wasi = "38.0"
+wasmtime-wasi-http = "38.0"
 anyhow = "1.0"
 
 [dev-dependencies]

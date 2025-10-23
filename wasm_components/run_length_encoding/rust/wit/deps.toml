@@ -1,6 +1,6 @@
 # WIT Dependencies for run_length_encoding component
 
-dagwood = { path = "../../../../wit/versions/v1.0.0" }
+"dagwood:component" = { path = "../../../../wit/versions/v1.0.0" }
 
 # Add WASI imports here when needed:
 # 1. Uncomment dependency below

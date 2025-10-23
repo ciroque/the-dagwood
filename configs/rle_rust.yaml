@@ -6,5 +6,5 @@ executor_options:
 processors:
   - id: rle_rust
     type: wasm
-    module: /data/development/projects/the-dagwood/wasm_components/rle_rust.wasm
+    module: ./wasm_components/rle_rust.wasm
     depends_on: []

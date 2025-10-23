@@ -51,8 +51,8 @@ processors:
 
   - id: run-length-encode-Rust
     type: wasm
-    module: /data/development/projects/the-dagwood/wasm_components/rle_rust.wasm
-    depends_on: [analyze-word-frequencies, analyze-word-frequencies]
+    module: ./wasm_components/rle_rust.wasm
+    depends_on: [analyze-word-frequencies]
 
   # Convergence: combine all results
   - id: final_merge

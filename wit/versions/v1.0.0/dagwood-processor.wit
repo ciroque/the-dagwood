@@ -98,9 +98,10 @@ interface processing-node {
     /// The canonical ABI transfers data between host and component automatically.
     /// 
     /// ## Example Implementation (Rust):
-    /// ```rust
+    /// ```rust,ignore
     /// fn process(input: Vec<u8>) -> Result<Vec<u8>, ProcessingError> {
     ///     // Your processing logic here
+    ///     let output = input; // Example: echo input
     ///     Ok(output)
     /// }
     /// ```

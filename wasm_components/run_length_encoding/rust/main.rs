@@ -54,7 +54,7 @@ fn main() -> Result<(), String> {
         .map_err(|e| format!("Failed to instantiate component: {}", e))?;
 
     // Test input
-    let input = b"aaabbc";
+    let input = b"aaaaaaaaaaaaaaabbczzzzzzzzzzzzzzzzzzzz";
     let result = bindings
         .dagwood_component_processing_node()
         .call_process(&mut store, input)

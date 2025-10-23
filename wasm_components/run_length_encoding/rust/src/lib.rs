@@ -44,31 +44,12 @@ fn run_length_encode(input: &str) -> String {
             count += 1;
         }
 
-        // Manually append count as string
-        result.push_str(itoa(count));
+        result.push_str(&count.to_string());
         result.push(current_char);
         i += count;
     }
 
     result
-}
-
-// Convert number to string manually to avoid format!
-fn itoa(n: usize) -> &'static str {
-    match n {
-        0 => "0",
-        1 => "1",
-        2 => "2",
-        3 => "3",
-        4 => "4",
-        5 => "5",
-        6 => "6",
-        7 => "7",
-        8 => "8",
-        9 => "9",
-        10 => "10",
-        _ => "10+", // Simplified; extend for larger numbers if needed
-    }
 }
 
 bindings::export!(Component with_types_in bindings);

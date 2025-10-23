@@ -40,7 +40,6 @@ impl WasiView for Ctx {
 
 impl ProcessingNodeExecutor for WitNodeExecutor {
     fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
-        // Create WASI context
         let wasi_ctx = WasiCtxBuilder::new()
             .inherit_stdio()
             .args(&["dagwood-component"])
@@ -52,11 +51,8 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
         };
         let mut store = Store::new(&self.engine, store_data);
 
-        // Add all WASI interfaces
         let mut linker = Linker::<Ctx>::new(&self.engine);
         
-        // Add WASI Preview 2 interfaces
-        // This automatically provides cabi_realloc - no manual implementation needed!
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
             .map_err(|e| ProcessingNodeError::ComponentError(
                 ComponentExecutionError::InstantiationFailed(format!(
@@ -65,9 +61,6 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
                 ))
             ))?;
 
-
-        // Instantiate using wit-bindgen generated bindings
-        // This handles all the WIT interface setup automatically!
         let bindings = DagwoodComponent::instantiate(&mut store, &self.component, &linker)
             .map_err(|e| {
                 ProcessingNodeError::ComponentError(
@@ -78,8 +71,6 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
                 )
             })?;
 
-        // Call the process function using wit-bindgen's generated API
-        // This automatically handles ALL memory management via canonical ABI!
         let result = bindings
             .dagwood_component_processing_node()
             .call_process(&mut store, input)
@@ -92,7 +83,6 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
                 )
             })?;
 
-        // Handle the WIT-level Result<list<u8>, processing-error>
         let output = result.map_err(|processing_error| {
             ProcessingNodeError::ComponentError(
                 ComponentExecutionError::FunctionCallFailed(format!(
@@ -101,14 +91,6 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
                 )),
             )
         })?;
-
-        // That's it! wit-bindgen handled:
-        // - Memory allocation
-        // - Writing input bytes to component memory
-        // - Calling the process function
-        // - Reading output bytes from component memory
-        // - Memory deallocation
-        // All through the canonical ABI!
 
         Ok(output)
     }
@@ -123,9 +105,9 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
 
     fn execution_metadata(&self) -> ExecutionMetadata {
         ExecutionMetadata {
-            module_path: "".to_string(), // Path no longer stored in executor
+            module_path: "".to_string(),
             artifact_type: self.artifact_type().to_string(),
-            import_count: 0, // Import tracking removed
+            import_count: 0,
             capabilities: self.capabilities(),
         }
     }

@@ -54,16 +54,12 @@ mod tests {
     fn create_mock_component_loaded_module() -> LoadedModule {
         let engine = Engine::default();
 
-        // Create a minimal valid WASM module that implements the expected interface
-        // This module takes a string input and returns it with a "processed: " prefix
         let wasm_bytes = wat::parse_str(r#"
             (module
                 (memory (export "memory") 1)
                 
-                ;; Simple bump allocator
                 (global $heap (mut i32) (i32.const 8))
                 
-                ;; Allocate memory of given size
                 (func $alloc (export "alloc") (param $size i32) (result i32)
                     (local $ptr i32)
                     global.get $heap
@@ -74,74 +70,67 @@ mod tests {
                     local.get $ptr
                 )
                 
-                ;; Process function - takes input pointer and length, returns (output_ptr, output_len)
                 (func $process (export "process") (param $input_ptr i32) (param $input_len i32) (result i32 i32)
                     (local $output_ptr i32)
                     (local $i i32)
                     
-                    ;; Allocate space for output (input_len + 11 for "processed: ")
                     local.get $input_len
-                    i32.const 11  ;; Length of "processed: "
+                    i32.const 11
                     i32.add
                     call $alloc
                     local.set $output_ptr
                     
-                    ;; Write "processed: " prefix
                     local.get $output_ptr
-                    i32.const 112 ;; 'p'
+                    i32.const 112
                     i32.store8 offset=0
                     local.get $output_ptr
-                    i32.const 114 ;; 'r'
+                    i32.const 114
                     i32.store8 offset=1
                     local.get $output_ptr
-                    i32.const 111 ;; 'o'
+                    i32.const 111
                     i32.store8 offset=2
                     local.get $output_ptr
-                    i32.const 99  ;; 'c'
+                    i32.const 99
                     i32.store8 offset=3
                     local.get $output_ptr
-                    i32.const 101 ;; 'e'
+                    i32.const 101
                     i32.store8 offset=4
                     local.get $output_ptr
-                    i32.const 115 ;; 's'
+                    i32.const 115
                     i32.store8 offset=5
                     local.get $output_ptr
-                    i32.const 115 ;; 's'
+                    i32.const 115
                     i32.store8 offset=6
                     local.get $output_ptr
-                    i32.const 101 ;; 'e'
+                    i32.const 101
                     i32.store8 offset=7
                     local.get $output_ptr
-                    i32.const 100 ;; 'd'
+                    i32.const 100
                     i32.store8 offset=8
                     local.get $output_ptr
-                    i32.const 58  ;; ':'
+                    i32.const 58
                     i32.store8 offset=9
                     local.get $output_ptr
-                    i32.const 32  ;; ' '
+                    i32.const 32
                     i32.store8 offset=10
                     
-                    ;; Copy input to output (after prefix)
                     (loop $loop
                         (local.get $i)
                         local.get $input_len
                         i32.lt_s
                         if
-                            ;; Load byte from input
                             local.get $input_ptr
                             local.get $i
                             i32.add
                             i32.load8_u
                             
-                            ;; Store byte in output (after prefix)
                             local.get $output_ptr
                             local.get $i
-                            i32.const 11  ;; Length of "processed: "
+                            i32.const 11
                             i32.add
                             i32.add
                             i32.store8
                             
-                            ;; Increment counter
                             local.get $i
                             i32.const 1
                             i32.add
@@ -150,7 +139,6 @@ mod tests {
                         end
                     )
                     
-                    ;; Return output pointer and length (input_len + 11 for "processed: ")
                     local.get $output_ptr
                     local.get $input_len
                     i32.const 11
@@ -182,7 +170,6 @@ mod tests {
 
     #[test]
     fn test_component_executor_validation_error() {
-        // Test with a core module instead of a component
         let engine = Engine::default();
         let wasm_bytes = wat::parse_str(
             r#"
@@ -203,7 +190,7 @@ mod tests {
         };
 
         let result = ComponentNodeExecutor::new(loaded_module);
-        assert!(result.is_ok()); // No-op executor doesn't validate
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -216,7 +203,6 @@ mod tests {
 
         match result {
             Ok(output_bytes) => {
-                // No-op executor returns empty vector
                 assert_eq!(output_bytes, Vec::<u8>::new());
             }
             Err(e) => {

@@ -8,14 +8,14 @@
 //! instantiation, and executor wrapping.
 
 use crate::backends::wasm::capability_manager::create_engine;
-use crate::backends::wasm::detector::WasmEncoding;
+use crate::backends::wasm::detector::ComponentType;
 use crate::backends::wasm::error::{WasmError, WasmResult};
 use crate::backends::wasm::executors::{CStyleNodeExecutor, WitNodeExecutor};
 use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
 use wasmtime::component::Component;
 use wasmtime::Module;
 
-/// Creates the appropriate executor based on WASM encoding type
+/// Creates the appropriate executor based on WASM component type
 ///
 /// This function orchestrates the complete executor creation flow:
 /// 1. Creates an appropriately configured engine via `create_engine()`
@@ -24,23 +24,23 @@ use wasmtime::Module;
 ///
 /// # Arguments
 /// * `bytes` - The WASM binary bytes (from `load_wasm_bytes()`)
-/// * `encoding` - The detected encoding type (from `wasm_encoding()`)
+/// * `component_type` - The detected component type (from `detect_component_type()`)
 ///
 /// # Returns
 /// * `Ok(Box<dyn ProcessingNodeExecutor>)` - Executor ready for use
 /// * `Err(WasmError)` - If engine creation, parsing, or executor creation fails
 ///
 /// # Executor Types
-/// - **ComponentModel** → `WitNodeExecutor` (modern Component Model)
-/// - **Classic** → `CStyleNodeExecutor` (legacy core WASM modules)
+/// - **Wit** → `WitNodeExecutor` (modern Component Model with WIT interface)
+/// - **CStyle** → `CStyleNodeExecutor` (classic core WASM modules with C-style interface)
 ///
 pub fn create_executor(
     bytes: &[u8],
-    encoding: WasmEncoding,
+    component_type: ComponentType,
 ) -> WasmResult<Box<dyn ProcessingNodeExecutor>> {
-    let engine = create_engine(encoding)?;
-    match encoding {
-        WasmEncoding::ComponentModel => {
+    let engine = create_engine(component_type)?;
+    match component_type {
+        ComponentType::Wit => {
             tracing::debug!("Creating WitNodeExecutor for Component Model component");
 
             let component = Component::new(&engine, bytes).map_err(|e| {
@@ -50,7 +50,7 @@ pub fn create_executor(
             let executor = WitNodeExecutor::new(component, engine)?;
             Ok(Box::new(executor))
         }
-        WasmEncoding::Classic => {
+        ComponentType::CStyle => {
             tracing::debug!("Creating CStyleNodeExecutor for classic WASM module");
 
             let module = Module::new(&engine, bytes).map_err(|e| {
@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn test_create_classic_executor() {
         let wasm_bytes = create_minimal_wasm_module();
-        let result = create_executor(&wasm_bytes, WasmEncoding::Classic);
+        let result = create_executor(&wasm_bytes, ComponentType::CStyle);
 
         assert!(
             result.is_ok(),
@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn test_invalid_wasm_bytes() {
         let invalid_bytes = b"not a valid wasm module";
-        let result = create_executor(invalid_bytes, WasmEncoding::Classic);
+        let result = create_executor(invalid_bytes, ComponentType::CStyle);
 
         assert!(result.is_err(), "Should fail with invalid WASM bytes");
 

@@ -15,7 +15,7 @@
 //!                          ↓
 //!                  load_wasm_bytes()
 //!                          ↓
-//!                  wasm_encoding()
+//!                  detect_component_type()
 //!                          ↓
 //!                  create_executor()
 //!                          ↓
@@ -103,7 +103,7 @@
 //! # }
 //! ```
 
-use crate::backends::wasm::detector::wasm_encoding;
+use crate::backends::wasm::detector::detect_component_type;
 use crate::backends::wasm::error::WasmResult;
 use crate::backends::wasm::factory::create_executor;
 use crate::backends::wasm::loader::load_wasm_bytes;
@@ -173,9 +173,9 @@ impl WasmProcessor {
     /// ```
     pub fn new(processor_id: String, module_path: String) -> WasmResult<Self> {
         let bytes = load_wasm_bytes(&module_path)?;
-        let encoding = wasm_encoding(&bytes)
+        let component_type = detect_component_type(&bytes)
             .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
-        let executor = create_executor(&bytes, encoding)?.into();
+        let executor = create_executor(&bytes, component_type)?.into();
 
         Ok(Self {
             processor_id,
@@ -254,9 +254,9 @@ impl WasmProcessor {
         };
 
         let bytes = load_wasm_bytes(module_path)?;
-        let encoding = wasm_encoding(&bytes)
+        let component_type = detect_component_type(&bytes)
             .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
-        let executor = create_executor(&bytes, encoding)?.into();
+        let executor = create_executor(&bytes, component_type)?.into();
 
         Ok(Self {
             processor_id: config.id.clone(),

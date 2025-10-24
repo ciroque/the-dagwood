@@ -177,12 +177,14 @@ impl Display for ExecutionStarted<'_> {
 /// # Example
 /// ```
 /// use the_dagwood::observability::messages::wasm::ExecutionCompleted;
+/// use std::time::Duration;
 ///
 /// let msg = ExecutionCompleted {
 ///     module_path: "wasm_modules/hello_world.wasm",
 ///     executor_type: "CStyleNodeExecutor",
 ///     input_size: 1024,
 ///     output_size: 1050,
+///     duration: Duration::from_millis(5),
 /// };
 ///
 /// tracing::info!("{}", msg);
@@ -192,14 +194,15 @@ pub struct ExecutionCompleted<'a> {
     pub executor_type: &'a str,
     pub input_size: usize,
     pub output_size: usize,
+    pub duration: std::time::Duration,
 }
 
 impl Display for ExecutionCompleted<'_> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
-            "WASM execution successful for '{}' using {}: input={} bytes, output={} bytes",
-            self.module_path, self.executor_type, self.input_size, self.output_size
+            "WASM execution successful for '{}' using {}: input={} bytes, output={} bytes, duration={:?}",
+            self.module_path, self.executor_type, self.input_size, self.output_size, self.duration
         )
     }
 }

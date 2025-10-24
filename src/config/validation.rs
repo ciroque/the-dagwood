@@ -121,6 +121,7 @@
 
 use crate::config::Config;
 use crate::errors::ValidationError;
+use crate::observability::messages::validation::DiamondPatternDetected;
 use std::collections::{HashMap, HashSet};
 
 /// Validates a configuration's dependency graph for structural integrity and executability.
@@ -227,7 +228,13 @@ pub fn validate_dependency_graph(config: &Config) -> Result<(), Vec<ValidationEr
             // For now, we'll log warnings but not fail validation
             // In the future, this could be configurable (strict vs permissive mode)
             for warning in diamond_warnings {
-                eprintln!("Warning: {}", warning);
+                if let ValidationError::DiamondPatternWarning { convergence_processor, parallel_paths } = &warning {
+                    let msg = DiamondPatternDetected {
+                        convergence_processor,
+                        parallel_path_count: parallel_paths.len(),
+                    };
+                    tracing::warn!("{}", msg);
+                }
             }
         }
     }

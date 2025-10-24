@@ -3,7 +3,9 @@
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
+use crate::observability::messages::processor::{ProcessorExecutionStarted, ProcessorExecutionCompleted, ProcessorExecutionFailed};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::{ErrorDetail, ProcessorRequest, ProcessorResponse};
 use crate::traits::processor::{Processor, ProcessorIntent};
@@ -88,9 +90,28 @@ impl ChangeTextCaseProcessor {
 #[async_trait]
 impl Processor for ChangeTextCaseProcessor {
     async fn process(&self, req: ProcessorRequest) -> ProcessorResponse {
+        let start = Instant::now();
+        let input_size = req.payload.len();
+        
+        tracing::info!(
+            "{}",
+            ProcessorExecutionStarted {
+                processor_id: self.name(),
+                input_size,
+            }
+        );
+
         let input = match String::from_utf8(req.payload) {
             Ok(text) => text,
             Err(e) => {
+                let error = std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid UTF-8 input: {}", e));
+                tracing::error!(
+                    "{}",
+                    ProcessorExecutionFailed {
+                        processor_id: self.name(),
+                        error: &error,
+                    }
+                );
                 return ProcessorResponse {
                     outcome: Some(Outcome::Error(ErrorDetail {
                         code: 400,
@@ -163,6 +184,14 @@ impl Processor for ChangeTextCaseProcessor {
                     .join(" ")
             }
             CaseType::Custom(custom_type) => {
+                let error = std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Unsupported custom case type: {}", custom_type));
+                tracing::error!(
+                    "{}",
+                    ProcessorExecutionFailed {
+                        processor_id: self.name(),
+                        error: &error,
+                    }
+                );
                 return ProcessorResponse {
                     outcome: Some(Outcome::Error(ErrorDetail {
                         code: 400,
@@ -173,8 +202,22 @@ impl Processor for ChangeTextCaseProcessor {
             }
         };
 
+        let output_bytes = result.into_bytes();
+        let output_size = output_bytes.len();
+        let duration = start.elapsed();
+        
+        tracing::info!(
+            "{}",
+            ProcessorExecutionCompleted {
+                processor_id: self.name(),
+                input_size,
+                output_size,
+                duration,
+            }
+        );
+
         ProcessorResponse {
-            outcome: Some(Outcome::NextPayload(result.into_bytes())),
+            outcome: Some(Outcome::NextPayload(output_bytes)),
             metadata: None,
         }
     }

@@ -19,28 +19,49 @@ const MAX_WASM_SIZE: usize = 16 * 1024 * 1024;
 /// doesn't exceed the maximum allowed size. It does not parse or validate the
 /// WASM format itself - use `wasm_encoding()` for that.
 ///
-/// # Arguments
 /// * `path` - Path to the WASM file
 ///
 /// # Returns
 /// * `Ok(Vec<u8>)` - The WASM binary bytes
 /// * `Err(WasmError)` - If file cannot be read or size exceeds limit
 pub fn load_wasm_bytes<P: AsRef<Path>>(path: P) -> WasmResult<Vec<u8>> {
+    use crate::observability::messages::wasm::{ModuleLoaded, ModuleLoadFailed};
+
     let path = path.as_ref();
-    let bytes = std::fs::read(path).map_err(WasmError::IoError)?;
+    let bytes = std::fs::read(path).map_err(|e| {
+        let error = WasmError::IoError(e);
+        tracing::error!(
+            "{}",
+            ModuleLoadFailed {
+                module_path: &path.display().to_string(),
+                error: &error,
+            }
+        );
+        error
+    })?;
 
     if bytes.len() > MAX_WASM_SIZE {
-        return Err(WasmError::ValidationError(format!(
+        let error = WasmError::ValidationError(format!(
             "WASM file too large: {} bytes (max: {} bytes)",
             bytes.len(),
             MAX_WASM_SIZE
-        )));
+        ));
+        tracing::error!(
+            "{}",
+            ModuleLoadFailed {
+                module_path: &path.display().to_string(),
+                error: &error,
+            }
+        );
+        return Err(error);
     }
 
-    tracing::debug!(
-        "Loaded WASM file: {} ({} bytes)",
-        path.display(),
-        bytes.len()
+    tracing::info!(
+        "{}",
+        ModuleLoaded {
+            module_path: &path.display().to_string(),
+            size_bytes: bytes.len(),
+        }
     );
 
     Ok(bytes)
@@ -57,7 +78,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new().unwrap();
         let test_data = b"test wasm data";
         temp_file.write_all(test_data).unwrap();
-
+        
         let result = load_wasm_bytes(temp_file.path());
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), test_data);

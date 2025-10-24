@@ -169,10 +169,12 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::Mutex;
 
 use crate::config::{DependencyGraph, EntryPoints, ProcessorMap};
 use crate::errors::{ExecutionError, FailureStrategy};
+use crate::observability::messages::engine::{ExecutionStarted, ExecutionCompleted, ExecutionFailed};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::{PipelineMetadata, ProcessorRequest, ProcessorResponse};
 use crate::traits::executor::DagExecutor;
@@ -393,13 +395,33 @@ impl DagExecutor for WorkQueueExecutor {
         pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
     ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
+        let execution_start = Instant::now();
+        
+        // Log execution start
+        tracing::info!(
+            "{}",
+            ExecutionStarted {
+                strategy: "WorkQueue",
+                processor_count: processors.len(),
+                max_concurrency: self.max_concurrency,
+            }
+        );
+
         // === PHASE 1: VALIDATION AND SETUP ===
 
         // Validate all processors referenced in the dependency graph actually exist in the registry
         // This prevents runtime errors when trying to execute non-existent processors
         for processor_id in graph.keys() {
             if !processors.contains_key(processor_id) {
-                return Err(ExecutionError::ProcessorNotFound(processor_id.clone()));
+                let error = ExecutionError::ProcessorNotFound(processor_id.clone());
+                tracing::error!(
+                    "{}",
+                    ExecutionFailed {
+                        strategy: "WorkQueue",
+                        error: &error,
+                    }
+                );
+                return Err(error);
             }
         }
 
@@ -411,8 +433,18 @@ impl DagExecutor for WorkQueueExecutor {
         // (execution order) together for efficiency. Topological ranks are crucial for the canonical
         // payload architecture - they determine which Transform processor's payload takes precedence
         let (dependency_counts, topological_ranks) = graph.dependency_counts_and_ranks()
-            .ok_or_else(|| ExecutionError::InternalError {
-                message: "Internal consistency error: dependency graph contains cycles (should have been caught during config validation)".into() 
+            .ok_or_else(|| {
+                let error = ExecutionError::InternalError {
+                    message: "Internal consistency error: dependency graph contains cycles (should have been caught during config validation)".into() 
+                };
+                tracing::error!(
+                    "{}",
+                    ExecutionFailed {
+                        strategy: "WorkQueue",
+                        error: &error,
+                    }
+                );
+                error
             })?;
 
         // === PHASE 2: WORK QUEUE INITIALIZATION ===
@@ -789,6 +821,18 @@ impl DagExecutor for WorkQueueExecutor {
         // All processors have completed successfully - extract the final results
         let final_results = results_mutex.lock().await;
         let final_pipeline_metadata = pipeline_metadata_mutex.lock().await;
+        
+        // Log successful completion
+        let execution_duration = execution_start.elapsed();
+        tracing::info!(
+            "{}",
+            ExecutionCompleted {
+                strategy: "WorkQueue",
+                processor_count: processors.len(),
+                duration: execution_duration,
+            }
+        );
+        
         Ok((final_results.clone(), final_pipeline_metadata.clone()))
     }
 }

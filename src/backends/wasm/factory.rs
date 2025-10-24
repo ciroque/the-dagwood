@@ -34,38 +34,44 @@ use wasmtime::Module;
 /// # Executor Types
 /// - **Wit** → `WitNodeExecutor` (modern Component Model with WIT interface)
 /// - **CStyle** → `CStyleNodeExecutor` (classic core WASM modules with C-style interface)
-///
 pub fn create_executor(
     bytes: &[u8],
     component_type: ComponentType,
     fuel_level: u64,
 ) -> WasmResult<Box<dyn ProcessingNodeExecutor>> {
+    use crate::observability::messages::wasm::ExecutorCreated;
+
     let engine = create_engine(component_type)?;
     match component_type {
         ComponentType::Wit => {
-            tracing::debug!(
-                "Creating WitNodeExecutor for Component Model component with fuel_level={}",
-                fuel_level
-            );
-
             let component = Component::new(&engine, bytes).map_err(|e| {
                 WasmError::ModuleError(format!("Failed to parse Component Model component: {}", e))
             })?;
 
             let executor = WitNodeExecutor::new(component, engine, fuel_level)?;
+            tracing::info!(
+                "{}",
+                ExecutorCreated {
+                    executor_type: "WitNodeExecutor",
+                    fuel_level,
+                }
+            );
+
             Ok(Box::new(executor))
         }
         ComponentType::CStyle => {
-            tracing::debug!(
-                "Creating CStyleNodeExecutor for classic WASM module with fuel_level={}",
-                fuel_level
-            );
-
             let module = Module::new(&engine, bytes).map_err(|e| {
                 WasmError::ModuleError(format!("Failed to parse classic WASM module: {}", e))
             })?;
 
             let executor = CStyleNodeExecutor::new(module, engine, fuel_level)?;
+            tracing::info!(
+                "{}",
+                ExecutorCreated {
+                    executor_type: "CStyleNodeExecutor",
+                    fuel_level,
+                }
+            );
             Ok(Box::new(executor))
         }
     }
@@ -82,7 +88,6 @@ mod tests {
                 (func (export "process") (param i32 i32) (result i32)
                     i32.const 0
                 )
-                (memory (export "memory") 1)
             )
             "#,
         )

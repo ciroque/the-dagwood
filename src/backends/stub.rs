@@ -1,7 +1,11 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
-//! Stub processor implementations for testing DAG executors and failure scenarios.
+//! Test-only stub processor implementations for testing DAG executors and failure scenarios.
+//!
+//! **IMPORTANT**: This module is only available in test builds (`#[cfg(test)]`).
+//! Stub processors are NOT available in production builds and should never be used
+//! as fallbacks for unimplemented backends.
 //!
 //! This module provides lightweight processor implementations designed specifically for
 //! testing executor logic, error handling, and edge cases without the overhead of real
@@ -74,7 +78,9 @@
 
 use crate::traits::{processor::ProcessorIntent, Processor};
 
-/// A stub processor implementation for testing DAG structure and dependency resolution.
+/// A test-only stub processor for testing DAG structure and dependency resolution.
+///
+/// **Available only in test builds** - not available in production.
 ///
 /// This processor always succeeds immediately with an empty payload, making it ideal for
 /// testing executor logic without the complexity of real processor implementations.
@@ -124,7 +130,9 @@ impl Processor for StubProcessor {
     }
 }
 
-/// A processor that always fails for testing error handling and failure strategies.
+/// A test-only processor that always fails for testing error handling and failure strategies.
+///
+/// **Available only in test builds** - not available in production.
 ///
 /// This processor simulates processor failures to validate executor error handling,
 /// failure strategies (FailFast, ContinueOnError, BestEffort), and dependent notification.
@@ -180,7 +188,9 @@ impl Processor for FailingProcessor {
     }
 }
 
-/// A processor that returns invalid responses for testing executor robustness.
+/// A test-only processor that returns invalid responses for testing executor robustness.
+///
+/// **Available only in test builds** - not available in production.
 ///
 /// This processor violates the processor protocol by returning responses with no outcome,
 /// allowing validation of executor error handling for malformed responses.

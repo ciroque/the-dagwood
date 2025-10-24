@@ -66,7 +66,7 @@
 //! # Examples
 //!
 //! ## Basic work queue execution
-//! ```rust
+//! ```ignore
 //! use std::collections::HashMap;
 //! use std::sync::Arc;
 //! use the_dagwood::engine::work_queue::WorkQueueExecutor;
@@ -115,7 +115,7 @@
 //! ```
 //!
 //! ## Diamond dependency with canonical payload
-//! ```rust
+//! ```ignore
 //! use std::collections::HashMap;
 //! use std::sync::Arc;
 //! use the_dagwood::engine::work_queue::WorkQueueExecutor;

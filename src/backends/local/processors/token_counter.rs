@@ -3,7 +3,9 @@
 
 use async_trait::async_trait;
 use std::collections::HashMap;
+use std::time::Instant;
 
+use crate::observability::messages::processor::{ProcessorExecutionStarted, ProcessorExecutionCompleted, ProcessorExecutionFailed};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::{
     ErrorDetail, PipelineMetadata, ProcessorMetadata, ProcessorRequest, ProcessorResponse,
@@ -22,9 +24,28 @@ impl TokenCounterProcessor {
 #[async_trait]
 impl Processor for TokenCounterProcessor {
     async fn process(&self, req: ProcessorRequest) -> ProcessorResponse {
+        let start = Instant::now();
+        let input_size = req.payload.len();
+        
+        tracing::info!(
+            "{}",
+            ProcessorExecutionStarted {
+                processor_id: self.name(),
+                input_size,
+            }
+        );
+
         let input = match String::from_utf8(req.payload.clone()) {
             Ok(text) => text,
             Err(e) => {
+                let error = std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid UTF-8 input: {}", e));
+                tracing::error!(
+                    "{}",
+                    ProcessorExecutionFailed {
+                        processor_id: self.name(),
+                        error: &error,
+                    }
+                );
                 return ProcessorResponse {
                     outcome: Some(Outcome::Error(ErrorDetail {
                         code: 400,
@@ -52,6 +73,18 @@ impl Processor for TokenCounterProcessor {
             ProcessorMetadata {
                 metadata: own_metadata,
             },
+        );
+
+        let duration = start.elapsed();
+        
+        tracing::info!(
+            "{}",
+            ProcessorExecutionCompleted {
+                processor_id: self.name(),
+                input_size,
+                output_size: 0, // Analyze processor - no output payload
+                duration,
+            }
         );
 
         ProcessorResponse {

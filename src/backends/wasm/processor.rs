@@ -585,7 +585,7 @@ mod tests {
         if let Err(e) = result {
             let error_msg = e.to_string();
             assert!(
-                error_msg.contains("fuel_level must be a positive number"),
+                error_msg.contains("fuel_level cannot be negative"),
                 "Should have positive number error, got: {}",
                 error_msg
             );

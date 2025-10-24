@@ -14,8 +14,8 @@ mod integration_tests;
 pub use dependency_graph::DependencyGraph;
 pub use entry_points::EntryPoints;
 pub use loader::{
-    load_and_validate_config, load_config, BackendType, Config, ExecutorOptions, ProcessorConfig,
-    Strategy,
+    load_and_validate_config, load_config, BackendType, Config, ExecutorOptions, FuelConfig,
+    ProcessorConfig, Strategy, WasmConfig,
 };
 pub use processor_map::ProcessorMap;
 pub use runtime::RuntimeBuilder;

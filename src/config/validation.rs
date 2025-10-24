@@ -117,7 +117,7 @@
 //! }
 //! ```
 
-use crate::config::Config;
+use crate::config::{Config, WasmConfig};
 use crate::errors::ValidationError;
 use std::collections::{HashMap, HashSet};
 
@@ -681,6 +681,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![],
         };
 
@@ -693,6 +694,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![create_test_processor("a", vec![])],
         };
 
@@ -705,6 +707,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 create_test_processor("a", vec![]),
                 create_test_processor("b", vec!["a"]),
@@ -721,6 +724,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 create_test_processor("a", vec![]),
                 create_test_processor("b", vec!["a"]),
@@ -738,6 +742,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 create_test_processor("a", vec![]),
                 create_test_processor("a", vec![]), // Duplicate
@@ -760,6 +765,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 create_test_processor("a", vec![]),
                 create_test_processor("b", vec!["nonexistent"]),
@@ -782,6 +788,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 create_test_processor("a", vec!["b"]),
                 create_test_processor("b", vec!["a"]),
@@ -804,6 +811,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![create_test_processor("a", vec!["a"])],
         };
 
@@ -823,6 +831,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 create_test_processor("a", vec!["b"]),
                 create_test_processor("b", vec!["c"]),
@@ -847,6 +856,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 create_test_processor("a", vec!["nonexistent"]),
                 create_test_processor("a", vec![]), // Duplicate ID
@@ -866,6 +876,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 create_test_processor("entry", vec![]),
                 create_test_processor("left", vec!["entry"]),
@@ -907,6 +918,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 create_test_processor("a", vec![]),
                 create_test_processor("b", vec!["a"]),
@@ -924,6 +936,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: crate::errors::FailureStrategy::FailFast,
             executor_options: crate::config::ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 create_test_processor("a", vec![]),
                 create_test_processor("b", vec!["a"]),

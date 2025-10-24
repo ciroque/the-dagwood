@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
-use crate::config::BackendType;
+use crate::config::{BackendType, WasmConfig};
 use crate::errors::ProcessorMapError;
 use crate::traits::Processor;
 use std::collections::HashMap;
@@ -210,6 +210,7 @@ mod tests {
                     strategy: Strategy::WorkQueue,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![],
                 },
                 expected_processor_count: 0,
@@ -221,6 +222,7 @@ mod tests {
                     strategy: Strategy::WorkQueue,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![ProcessorConfig {
                         id: "local_proc".to_string(),
                         backend: BackendType::Local,
@@ -240,6 +242,7 @@ mod tests {
                     strategy: Strategy::Level,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![ProcessorConfig {
                         id: "loadable_proc".to_string(),
                         backend: BackendType::Loadable,
@@ -259,6 +262,7 @@ mod tests {
                     strategy: Strategy::Reactive,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![ProcessorConfig {
                         id: "grpc_proc".to_string(),
                         backend: BackendType::Grpc,
@@ -278,6 +282,7 @@ mod tests {
                     strategy: Strategy::Hybrid,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![ProcessorConfig {
                         id: "http_proc".to_string(),
                         backend: BackendType::Http,
@@ -297,6 +302,7 @@ mod tests {
                     strategy: Strategy::WorkQueue,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![ProcessorConfig {
                         id: "wasm_proc".to_string(),
                         backend: BackendType::Wasm,
@@ -316,6 +322,7 @@ mod tests {
                     strategy: Strategy::WorkQueue,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![
                         ProcessorConfig {
                             id: "local1".to_string(),
@@ -355,6 +362,7 @@ mod tests {
                     strategy: Strategy::Level,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![
                         ProcessorConfig {
                             id: "input".to_string(),
@@ -466,6 +474,7 @@ mod tests {
                 strategy: Strategy::WorkQueue,
                 failure_strategy: FailureStrategy::FailFast,
                 executor_options: ExecutorOptions::default(),
+                wasm: WasmConfig::default(),
                 processors: vec![ProcessorConfig {
                     id: format!("processor_{}", i),
                     backend: backend_type.clone(),
@@ -518,6 +527,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: FailureStrategy::FailFast,
             executor_options: ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 ProcessorConfig {
                     id: "duplicate".to_string(),

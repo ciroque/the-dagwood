@@ -7,6 +7,13 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
+/// Default fuel level for WASM execution (100 million instructions)
+const DEFAULT_FUEL_LEVEL: u64 = 100_000_000;
+/// Minimum allowed fuel level (1 million instructions)
+const MIN_FUEL_LEVEL: u64 = 1_000_000;
+/// Maximum allowed fuel level (500 million instructions) - security limit
+const MAX_FUEL_LEVEL: u64 = 500_000_000;
+
 /// Main configuration structure for the DAG execution engine.
 ///
 /// This struct represents the complete configuration for a DAG workflow,
@@ -17,6 +24,7 @@ use std::path::Path;
 /// * `strategy` - The execution strategy to use for the DAG
 /// * `failure_strategy` - How to handle processor failures (optional, defaults to FailFast)
 /// * `executor_options` - Executor-specific configuration options (optional)
+/// * `wasm` - WASM-specific configuration options (optional)
 /// * `processors` - Vector of processor configurations that define the DAG nodes
 ///
 /// # Example
@@ -26,6 +34,10 @@ use std::path::Path;
 /// executor_options:
 ///   max_concurrency: 4
 ///   timeout_seconds: 30
+/// wasm:
+///   fuel:
+///     default: 100000000
+///     maximum: 500000000
 /// processors:
 ///   - id: "processor1"
 ///     type: local
@@ -38,6 +50,8 @@ pub struct Config {
     pub failure_strategy: FailureStrategy,
     #[serde(default)]
     pub executor_options: ExecutorOptions,
+    #[serde(default)]
+    pub wasm: WasmConfig,
     pub processors: Vec<ProcessorConfig>,
 }
 
@@ -87,6 +101,118 @@ impl Default for ExecutorOptions {
             retry_attempts: None,
             batch_size: None,
         }
+    }
+}
+
+/// WASM-specific configuration options.
+///
+/// These options control WASM module execution behavior, including resource limits
+/// and security constraints. All fields are optional and use sensible defaults.
+///
+/// # Fields
+/// * `fuel` - Fuel consumption configuration for execution limits
+///
+/// # Example
+/// ```yaml
+/// wasm:
+///   fuel:
+///     default: 100000000
+///     minimum: 1000000
+///     maximum: 500000000
+/// ```
+#[derive(Debug, Deserialize)]
+pub struct WasmConfig {
+    #[serde(default)]
+    pub fuel: FuelConfig,
+}
+
+impl Default for WasmConfig {
+    fn default() -> Self {
+        Self {
+            fuel: FuelConfig::default(),
+        }
+    }
+}
+
+/// Fuel consumption configuration for WASM execution.
+///
+/// Fuel limits prevent infinite loops and resource exhaustion by limiting the number
+/// of instructions a WASM module can execute. All values are optional and validated
+/// against security bounds.
+///
+/// # Fields
+/// * `default` - Default fuel level for WASM processors (defaults to 100M)
+/// * `minimum` - Minimum allowed fuel level (defaults to 1M)
+/// * `maximum` - Maximum allowed fuel level (defaults to 500M) - security limit
+///
+/// # Security
+/// The maximum fuel level is enforced as a hard security limit to prevent resource
+/// exhaustion attacks. Individual processors cannot exceed this limit.
+///
+/// # Example
+/// ```yaml
+/// fuel:
+///   default: 100000000   # 100 million instructions
+///   minimum: 1000000     # 1 million instructions
+///   maximum: 500000000   # 500 million instructions (hard limit)
+/// ```
+#[derive(Debug, Deserialize)]
+pub struct FuelConfig {
+    pub default: Option<u64>,
+    pub minimum: Option<u64>,
+    pub maximum: Option<u64>,
+}
+
+impl Default for FuelConfig {
+    fn default() -> Self {
+        Self {
+            default: None,
+            minimum: None,
+            maximum: None,
+        }
+    }
+}
+
+impl FuelConfig {
+    /// Get the default fuel level, using built-in default if not configured.
+    pub fn get_default(&self) -> u64 {
+        self.default.unwrap_or(DEFAULT_FUEL_LEVEL)
+    }
+
+    /// Get the minimum fuel level, using built-in default if not configured.
+    pub fn get_minimum(&self) -> u64 {
+        self.minimum.unwrap_or(MIN_FUEL_LEVEL)
+    }
+
+    /// Get the maximum fuel level, using built-in default if not configured.
+    pub fn get_maximum(&self) -> u64 {
+        self.maximum.unwrap_or(MAX_FUEL_LEVEL)
+    }
+
+    /// Validate and clamp a fuel level to configured bounds.
+    ///
+    /// This method ensures that a requested fuel level falls within the configured
+    /// minimum and maximum bounds. If the value is out of bounds, it is clamped
+    /// to the nearest valid value.
+    ///
+    /// # Arguments
+    /// * `requested` - The requested fuel level
+    ///
+    /// # Returns
+    /// The validated fuel level, clamped to [minimum, maximum]
+    ///
+    /// # Example
+    /// ```
+    /// use the_dagwood::config::FuelConfig;
+    ///
+    /// let config = FuelConfig::default();
+    /// let fuel = config.validate_and_clamp(1_000_000_000); // Too high
+    /// assert_eq!(fuel, 500_000_000); // Clamped to maximum
+    /// ```
+    pub fn validate_and_clamp(&self, requested: u64) -> u64 {
+        let min = self.get_minimum();
+        let max = self.get_maximum();
+        requested.clamp(min, max)
     }
 }
 
@@ -312,5 +438,98 @@ processors:
         assert!(processor.options.contains_key("mode"));
         assert!(processor.options.contains_key("timeout"));
         assert!(processor.options.contains_key("enabled"));
+    }
+
+    #[test]
+    fn test_wasm_config_defaults() {
+        let yaml = r#"
+strategy: work_queue
+processors:
+  - id: processor1
+    type: local
+    impl_: SomeProcessor
+"#;
+
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        
+        // Should use built-in defaults
+        assert_eq!(cfg.wasm.fuel.get_default(), 100_000_000);
+        assert_eq!(cfg.wasm.fuel.get_minimum(), 1_000_000);
+        assert_eq!(cfg.wasm.fuel.get_maximum(), 500_000_000);
+    }
+
+    #[test]
+    fn test_wasm_config_custom_values() {
+        let yaml = r#"
+strategy: work_queue
+wasm:
+  fuel:
+    default: 200000000
+    minimum: 5000000
+    maximum: 300000000
+processors:
+  - id: processor1
+    type: local
+    impl_: SomeProcessor
+"#;
+
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        
+        assert_eq!(cfg.wasm.fuel.get_default(), 200_000_000);
+        assert_eq!(cfg.wasm.fuel.get_minimum(), 5_000_000);
+        assert_eq!(cfg.wasm.fuel.get_maximum(), 300_000_000);
+    }
+
+    #[test]
+    fn test_wasm_config_partial_override() {
+        let yaml = r#"
+strategy: work_queue
+wasm:
+  fuel:
+    default: 150000000
+processors:
+  - id: processor1
+    type: local
+    impl_: SomeProcessor
+"#;
+
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        
+        // Custom default, built-in min/max
+        assert_eq!(cfg.wasm.fuel.get_default(), 150_000_000);
+        assert_eq!(cfg.wasm.fuel.get_minimum(), 1_000_000);
+        assert_eq!(cfg.wasm.fuel.get_maximum(), 500_000_000);
+    }
+
+    #[test]
+    fn test_fuel_config_validate_and_clamp() {
+        let config = FuelConfig {
+            default: Some(100_000_000),
+            minimum: Some(10_000_000),
+            maximum: Some(200_000_000),
+        };
+
+        // Within bounds - no change
+        assert_eq!(config.validate_and_clamp(50_000_000), 50_000_000);
+        
+        // Below minimum - clamped to minimum
+        assert_eq!(config.validate_and_clamp(1_000_000), 10_000_000);
+        
+        // Above maximum - clamped to maximum
+        assert_eq!(config.validate_and_clamp(1_000_000_000), 200_000_000);
+        
+        // Exactly at bounds
+        assert_eq!(config.validate_and_clamp(10_000_000), 10_000_000);
+        assert_eq!(config.validate_and_clamp(200_000_000), 200_000_000);
+    }
+
+    #[test]
+    fn test_fuel_config_validate_with_defaults() {
+        let config = FuelConfig::default();
+
+        // Should use built-in constants for validation
+        assert_eq!(config.validate_and_clamp(50_000_000), 50_000_000);
+        assert_eq!(config.validate_and_clamp(100), 1_000_000); // Below min
+        assert_eq!(config.validate_and_clamp(1_000_000_000), 500_000_000); // Above max
     }
 }

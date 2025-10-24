@@ -1,15 +1,24 @@
 # The DAGwood
 
-**The DAGwood** – A high-performance, pluggable workflow orchestration engine that executes Directed Acyclic Graphs (DAGs) of processors. Features multiple execution strategies (reactive, level-by-level, work queue), WASM sandboxing, and a unified processor abstraction.
+**The DAGwood** – A reference implementation for exploring DAG execution strategies and WebAssembly integration in workflow orchestration systems. This project demonstrates multiple execution approaches (reactive, level-by-level, work queue) and showcases secure WASM module/component integration with both classic core modules and modern Component Model components.
+
+## 🎯 Purpose
+
+This is a **learning and reference project** designed to:
+- Explore and compare different DAG execution strategies
+- Demonstrate WebAssembly integration patterns (classic modules and Component Model)
+- Provide practical examples of workflow orchestration architecture
+- Serve as a foundation for understanding trade-offs between execution approaches
+
+**Note**: This is not production-ready software. It's an educational implementation for studying DAG execution and WASM integration patterns.
 
 ## ✨ Features
 
-* **🚀 Multiple Execution Strategies**: Choose between reactive (fastest), level-by-level, or work queue execution
-* **🔒 WASM Sandboxing**: Run processors in secure, isolated WASM environments
-* **⚡ High Performance**: Reactive executor achieves ~300x faster execution than traditional work queues
+* **🚀 Multiple Execution Strategies**: Compare reactive, level-by-level, and work queue execution approaches
+* **🔒 WASM Integration**: Support for both classic WASM modules (C-style) and modern Component Model components
 * **🔧 Config-Driven**: Define entire workflows declaratively via YAML configuration
 * **🎯 Unified Abstraction**: One consistent processor trait across all backends
-* **📊 Rich Metadata**: Comprehensive execution metadata and performance metrics
+* **📊 Rich Metadata**: Comprehensive execution metadata for analysis and debugging
 
 ## 🚀 Quick Start
 
@@ -66,16 +75,18 @@ processors:
 
 ### Execution Strategies
 
-| Strategy | Performance | Use Case | Architecture |
-|----------|-------------|----------|--------------|
-| **Reactive** | ~300x faster | Low-latency, real-time | Event-driven notifications |
-| **Level-by-Level** | ~77x faster | Predictable execution | Topological level batching |
-| **Work Queue** | Baseline | Complex DAGs, production | Dependency counting + priority queue |
+| Strategy | Use Case | Architecture |
+|----------|----------|--------------|
+| **Reactive** | Low-latency, event-driven workflows | Event-driven notifications with async channels |
+| **Level-by-Level** | Predictable, batch-oriented execution | Topological level computation with parallel batches |
+| **Work Queue** | Complex DAGs with dynamic priorities | Dependency counting + priority queue |
 
 ### Processor Backends
 
-* **Local**: In-process Rust processors with high performance
-* **WASM**: Sandboxed execution with wasmtime for security isolation
+* **Local**: In-process Rust processors for native execution
+* **WASM**: Sandboxed execution supporting both classic modules (C-style) and Component Model components
+  - Classic modules: Manual memory management with `allocate`/`deallocate` exports
+  - Component Model: Automatic memory management via canonical ABI
 * **Future**: RPC/gRPC support for distributed processing
 
 ### Key Components
@@ -85,28 +96,15 @@ processors:
 * **Metadata System**: Rich execution context and performance metrics
 * **Validation System**: Comprehensive DAG validation with cycle detection
 
-## 📈 Performance Results
+## 📚 Documentation
 
-**Test Pipeline**: `"hello world"` → uppercase → reverse → add brackets → `"[DLROW OLLEH]"`
+* **[Walkthrough Guide](docs/walkthrough/)**: Comprehensive guide to the project architecture and implementation
+* **[ADRs](docs/adrs/)**: Architectural Decision Records documenting key design choices
+* **[Roadmap](ROADMAP.md)**: Project roadmap and implementation phases
 
-| Strategy | Execution Time | Relative Performance |
-|----------|----------------|---------------------|
-| **Reactive** | 224μs | **~300x faster** ⚡ |
-| **Level-by-Level** | 889μs | ~77x faster |
-| **WorkQueue** | 68.6ms | Baseline |
+## 🛣️ Project Status
 
-*Results demonstrate that simpler architectures can dramatically outperform complex coordination systems.*
-
-## 🛣️ Roadmap
-
-* [x] ✅ Multiple DAG execution strategies (reactive, level-by-level, work queue)
-* [x] ✅ WASM sandboxing with wasmtime integration
-* [x] ✅ Comprehensive validation and error handling
-* [x] ✅ Rich metadata collection and performance metrics
-* [ ] 🔄 RPC/gRPC backend for distributed processing
-* [ ] 🔄 Observability hooks (OpenTelemetry integration)
-* [ ] 🔄 Dynamic strategy selection and A/B testing
-* [ ] 🔄 Machine learning-based runtime optimization
+See [ROADMAP.md](ROADMAP.md) for detailed implementation phases and current status.
 
 ## 📄 License
 

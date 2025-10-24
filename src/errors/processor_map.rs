@@ -1,0 +1,63 @@
+// Copyright (c) 2025 Steve Wagner (ciroque@live.com)
+// SPDX-License-Identifier: MIT
+
+//! Errors for processor map creation and processor instantiation.
+
+use crate::config::BackendType;
+use std::error::Error;
+use std::fmt;
+
+/// Errors that can occur during processor map creation
+#[derive(Debug)]
+pub enum ProcessorMapError {
+    /// A backend type is not yet implemented
+    BackendNotImplemented {
+        processor_id: String,
+        backend: BackendType,
+    },
+
+    /// Failed to create a processor from configuration
+    ProcessorCreationFailed {
+        processor_id: String,
+        backend: BackendType,
+        reason: String,
+    },
+}
+
+impl fmt::Display for ProcessorMapError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ProcessorMapError::BackendNotImplemented {
+                processor_id,
+                backend,
+            } => {
+                let backend_name = match backend {
+                    BackendType::Loadable => "Loadable (dynamic library loading)",
+                    BackendType::Grpc => "Grpc (gRPC client)",
+                    BackendType::Http => "Http (HTTP client)",
+                    _ => "Unknown",
+                };
+                write!(
+                    f,
+                    "Backend type '{}' is not implemented for processor '{}'. {} is not yet supported.",
+                    format!("{:?}", backend),
+                    processor_id,
+                    backend_name
+                )
+            }
+            ProcessorMapError::ProcessorCreationFailed {
+                processor_id,
+                backend,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Failed to create {:?} processor '{}': {}",
+                    backend, processor_id, reason
+                )
+            }
+        }
+    }
+}
+
+impl Error for ProcessorMapError {}

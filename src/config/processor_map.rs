@@ -1,6 +1,7 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
+use crate::errors::ProcessorMapError;
 use crate::traits::Processor;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -84,37 +85,45 @@ impl ProcessorMap {
     }
 
     /// Create a ProcessorMap from configuration, resolving all processors
-    pub fn from_config(cfg: &crate::config::Config) -> Result<Self, String> {
+    pub fn from_config(cfg: &crate::config::Config) -> Result<Self, ProcessorMapError> {
         let mut registry = HashMap::new();
 
         for p in &cfg.processors {
             let processor: Arc<dyn Processor> = match p.backend {
                 crate::config::BackendType::Local => {
                     crate::backends::local::LocalProcessorFactory::create_processor(p).map_err(
-                        |e| format!("Failed to create local processor '{}': {}", p.id, e),
+                        |e| ProcessorMapError::ProcessorCreationFailed {
+                            processor_id: p.id.clone(),
+                            backend: crate::config::BackendType::Local,
+                            reason: e,
+                        },
                     )?
                 }
                 crate::config::BackendType::Loadable => {
-                    return Err(format!(
-                        "Backend type 'Loadable' is not implemented for processor '{}'. Dynamic library loading is not yet supported.",
-                        p.id
-                    ));
+                    return Err(ProcessorMapError::BackendNotImplemented {
+                        processor_id: p.id.clone(),
+                        backend: crate::config::BackendType::Loadable,
+                    });
                 }
                 crate::config::BackendType::Grpc => {
-                    return Err(format!(
-                        "Backend type 'Grpc' is not implemented for processor '{}'. gRPC client support is not yet supported.",
-                        p.id
-                    ));
+                    return Err(ProcessorMapError::BackendNotImplemented {
+                        processor_id: p.id.clone(),
+                        backend: crate::config::BackendType::Grpc,
+                    });
                 }
                 crate::config::BackendType::Http => {
-                    return Err(format!(
-                        "Backend type 'Http' is not implemented for processor '{}'. HTTP client support is not yet supported.",
-                        p.id
-                    ));
+                    return Err(ProcessorMapError::BackendNotImplemented {
+                        processor_id: p.id.clone(),
+                        backend: crate::config::BackendType::Http,
+                    });
                 }
                 crate::config::BackendType::Wasm => Arc::new(
                     crate::backends::wasm::WasmProcessor::from_config(p).map_err(|e| {
-                        format!("Failed to create WASM processor '{}': {}", p.id, e)
+                        ProcessorMapError::ProcessorCreationFailed {
+                            processor_id: p.id.clone(),
+                            backend: crate::config::BackendType::Wasm,
+                            reason: e.to_string(),
+                        }
                     })?,
                 ),
             };
@@ -478,22 +487,23 @@ mod tests {
                 format!("{:?}", backend_type)
             );
 
-            // Verify error messages for unimplemented backends
+            // Verify error types for unimplemented backends
             if let Err(err) = processor_map_result {
                 match backend_type {
-                    BackendType::Loadable => {
-                        assert!(err.contains("not implemented"));
-                        assert!(err.contains("Loadable"));
+                    BackendType::Loadable | BackendType::Grpc | BackendType::Http => {
+                        assert!(
+                            matches!(err, ProcessorMapError::BackendNotImplemented { .. }),
+                            "Expected BackendNotImplemented error for {:?}",
+                            backend_type
+                        );
                     }
-                    BackendType::Grpc => {
-                        assert!(err.contains("not implemented"));
-                        assert!(err.contains("Grpc"));
+                    BackendType::Local | BackendType::Wasm => {
+                        assert!(
+                            matches!(err, ProcessorMapError::ProcessorCreationFailed { .. }),
+                            "Expected ProcessorCreationFailed error for {:?}",
+                            backend_type
+                        );
                     }
-                    BackendType::Http => {
-                        assert!(err.contains("not implemented"));
-                        assert!(err.contains("Http"));
-                    }
-                    _ => {} // Local and WASM have different error messages
                 }
             }
         }
@@ -533,7 +543,15 @@ mod tests {
         let result = ProcessorMap::from_config(&config);
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(err.contains("not implemented"));
-        assert!(err.contains("Grpc"));
+        assert!(
+            matches!(
+                err,
+                ProcessorMapError::BackendNotImplemented {
+                    backend: BackendType::Grpc,
+                    ..
+                }
+            ),
+            "Expected BackendNotImplemented error for Grpc"
+        );
     }
 }

@@ -49,7 +49,7 @@ impl RuntimeBuilder {
     pub fn from_config(
         cfg: &Config,
     ) -> Result<(ProcessorMap, Box<dyn DagExecutor>, FailureStrategy), String> {
-        let processors = ProcessorMap::from_config(cfg)?;
+        let processors = ProcessorMap::from_config(cfg).map_err(|e| e.to_string())?;
         let executor = ExecutorFactory::from_config(cfg);
         Ok((processors, executor, cfg.failure_strategy))
     }

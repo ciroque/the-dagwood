@@ -270,7 +270,7 @@ impl WasmProcessor {
             } else if let Some(num) = fuel_value.as_i64() {
                 if num < 0 {
                     return Err(crate::backends::wasm::WasmError::ValidationError(
-                        "fuel_level must be a positive number".to_string(),
+                        "fuel_level cannot be negative".to_string(),
                     ));
                 }
                 num as u64

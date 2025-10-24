@@ -206,6 +206,8 @@ impl FuelConfig {
     pub fn validate_and_clamp(&self, requested: u64) -> u64 {
         let min = self.get_minimum();
         let max = self.get_maximum();
+
+        // TODO(steve): warn if requested is out of bounds
         requested.clamp(min, max)
     }
 }

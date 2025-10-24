@@ -20,7 +20,7 @@ use std::sync::Arc;
 /// # Examples
 ///
 /// ## Creating and populating a processor map
-/// ```
+/// ```ignore
 /// use std::sync::Arc;
 /// use std::collections::HashMap;
 /// use the_dagwood::config::ProcessorMap;
@@ -41,7 +41,7 @@ use std::sync::Arc;
 /// ```
 ///
 /// ## Creating from a HashMap
-/// ```
+/// ```ignore
 /// use std::sync::Arc;
 /// use std::collections::HashMap;
 /// use the_dagwood::config::ProcessorMap;
@@ -57,7 +57,7 @@ use std::sync::Arc;
 /// ```
 ///
 /// ## Accessing processors during execution
-/// ```
+/// ```ignore
 /// use std::sync::Arc;
 /// use the_dagwood::config::ProcessorMap;
 /// use the_dagwood::backends::stub::StubProcessor;
@@ -95,12 +95,22 @@ impl ProcessorMap {
                     )?
                 }
                 crate::config::BackendType::Loadable => {
-                    // TODO: dynamic library loading
-                    Arc::new(crate::backends::stub::StubProcessor::new(p.id.clone()))
+                    return Err(format!(
+                        "Backend type 'Loadable' is not implemented for processor '{}'. Dynamic library loading is not yet supported.",
+                        p.id
+                    ));
                 }
-                crate::config::BackendType::Grpc | crate::config::BackendType::Http => {
-                    // TODO: build RPC client
-                    Arc::new(crate::backends::stub::StubProcessor::new(p.id.clone()))
+                crate::config::BackendType::Grpc => {
+                    return Err(format!(
+                        "Backend type 'Grpc' is not implemented for processor '{}'. gRPC client support is not yet supported.",
+                        p.id
+                    ));
+                }
+                crate::config::BackendType::Http => {
+                    return Err(format!(
+                        "Backend type 'Http' is not implemented for processor '{}'. HTTP client support is not yet supported.",
+                        p.id
+                    ));
                 }
                 crate::config::BackendType::Wasm => Arc::new(
                     crate::backends::wasm::WasmProcessor::from_config(p).map_err(|e| {
@@ -373,16 +383,20 @@ mod tests {
         for test_case in test_cases {
             let processor_map_result = ProcessorMap::from_config(&test_case.config);
 
-            // If the test case contains WASM processors with non-existent files, expect failure
+            // Check if test case contains unimplemented backends or invalid WASM files
+            let has_unimplemented = test_case.config.processors.iter().any(|p| {
+                matches!(p.backend, BackendType::Loadable | BackendType::Grpc | BackendType::Http)
+            });
+
             let has_invalid_wasm = test_case.config.processors.iter().any(|p| {
                 p.backend == BackendType::Wasm
                     && p.module.as_ref().map_or(false, |m| m.ends_with(".wasm"))
             });
 
-            if has_invalid_wasm {
+            if has_unimplemented || has_invalid_wasm {
                 assert!(
                     processor_map_result.is_err(),
-                    "Test case '{}': Expected error for non-existent WASM file",
+                    "Test case '{}': Expected error for unimplemented backend or non-existent WASM file",
                     test_case.name
                 );
                 continue;
@@ -428,7 +442,7 @@ mod tests {
 
     #[test]
     fn test_from_config_processor_types() {
-        // Test that each backend type creates a processor with the correct behavior
+        // Test that each backend type creates a processor or returns appropriate error
         let backend_types = vec![
             BackendType::Local,
             BackendType::Loadable,
@@ -455,23 +469,31 @@ mod tests {
 
             let processor_map_result = ProcessorMap::from_config(&config);
 
-            // Local and WASM processors with invalid configurations should fail
-            // Other backend types should succeed with stub processors
-            match backend_type {
-                BackendType::Local | BackendType::Wasm => {
-                    assert!(
-                        processor_map_result.is_err(),
-                        "Expected error for invalid {} processor configuration",
-                        format!("{:?}", backend_type)
-                    );
-                }
-                _ => {
-                    let processor_map = processor_map_result.unwrap();
-                    assert_eq!(processor_map.len(), 1);
-                    let processor_id = format!("processor_{}", i);
-                    let processor = processor_map.get(&processor_id).unwrap();
-                    // Non-local processors should be stub
-                    assert_eq!(processor.name(), "stub");
+            // All backend types with invalid configurations should fail
+            // Loadable, Grpc, Http are not implemented
+            // Local and WASM have invalid configurations
+            assert!(
+                processor_map_result.is_err(),
+                "Expected error for {} processor configuration",
+                format!("{:?}", backend_type)
+            );
+
+            // Verify error messages for unimplemented backends
+            if let Err(err) = processor_map_result {
+                match backend_type {
+                    BackendType::Loadable => {
+                        assert!(err.contains("not implemented"));
+                        assert!(err.contains("Loadable"));
+                    }
+                    BackendType::Grpc => {
+                        assert!(err.contains("not implemented"));
+                        assert!(err.contains("Grpc"));
+                    }
+                    BackendType::Http => {
+                        assert!(err.contains("not implemented"));
+                        assert!(err.contains("Http"));
+                    }
+                    _ => {} // Local and WASM have different error messages
                 }
             }
         }
@@ -479,7 +501,8 @@ mod tests {
 
     #[test]
     fn test_from_config_duplicate_ids() {
-        // Test behavior with duplicate processor IDs (last one should win)
+        // Test behavior with duplicate processor IDs
+        // Since Grpc is not implemented, this should fail
         let config = Config {
             strategy: Strategy::WorkQueue,
             failure_strategy: FailureStrategy::FailFast,
@@ -506,11 +529,11 @@ mod tests {
             ],
         };
 
-        let processor_map = ProcessorMap::from_config(&config).unwrap();
-        assert_eq!(processor_map.len(), 1);
-        assert!(processor_map.contains_key("duplicate"));
-        // The second processor (Grpc) should win, so it should be a stub
-        let processor = processor_map.get("duplicate").unwrap();
-        assert_eq!(processor.name(), "stub");
+        // Should fail because Grpc backend is not implemented
+        let result = ProcessorMap::from_config(&config);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("not implemented"));
+        assert!(err.contains("Grpc"));
     }
 }

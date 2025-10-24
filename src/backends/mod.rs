@@ -23,12 +23,13 @@
 //! - **Security**: Full sandboxing with configurable WASI capabilities
 //! - **Use Case**: Untrusted code, polyglot processors, plugin systems
 //!
-//! ## Stub Backend
-//! Testing utilities for executor development:
+//! ## Stub Backend (Test-Only)
+//! Testing utilities for executor development (only available in test builds):
 //! - **StubProcessor**: No-op processor for DAG structure testing
 //! - **FailingProcessor**: Simulates failures for error handling tests
 //! - **NoOutcomeProcessor**: Tests invalid response scenarios
 //! - **Use Case**: Unit testing, integration testing, benchmarking
+//! - **Note**: NOT available in production builds
 //!
 //! # Architecture
 //!
@@ -76,5 +77,6 @@
 //! ```
 
 pub mod local;
+#[cfg(test)]
 pub mod stub;
 pub mod wasm;

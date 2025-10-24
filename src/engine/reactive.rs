@@ -44,7 +44,7 @@
 //! # Examples
 //!
 //! ## Basic reactive execution
-//! ```rust
+//! ```ignore
 //! use std::collections::HashMap;
 //! use std::sync::Arc;
 //! use the_dagwood::engine::reactive::ReactiveExecutor;
@@ -96,7 +96,7 @@
 //! ```
 //!
 //! ## Diamond dependency with parallel execution
-//! ```rust
+//! ```ignore
 //! use std::collections::HashMap;
 //! use std::sync::Arc;
 //! use the_dagwood::engine::reactive::ReactiveExecutor;

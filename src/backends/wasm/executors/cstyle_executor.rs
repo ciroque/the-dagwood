@@ -1,6 +1,48 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
+//! C-Style WASM executor for classic core modules with manual memory management.
+//!
+//! This executor implements the `ProcessingNodeExecutor` trait for classic WASM modules
+//! that follow the C-style calling convention with explicit memory management functions.
+//!
+//! # Memory Management Convention
+//!
+//! C-Style modules must export three functions:
+//! - **`process(input_ptr: i32, input_len: i32, output_len_ptr: i32) -> i32`**
+//!   - Main processing function
+//!   - Returns pointer to output data
+//! - **`allocate(size: i32) -> i32`**
+//!   - Allocates memory in WASM linear memory
+//!   - Returns pointer to allocated memory
+//! - **`deallocate(ptr: i32, size: i32)`**
+//!   - Frees previously allocated memory
+//!
+//! # Execution Flow
+//!
+//! 1. Allocate input buffer in WASM memory
+//! 2. Write input data to allocated buffer
+//! 3. Allocate output length buffer (4 bytes for i32)
+//! 4. Call `process()` with input pointer, length, and output length pointer
+//! 5. Read output length from output length buffer
+//! 6. Read output data from returned pointer
+//! 7. Deallocate all buffers
+//!
+//! # Safety & Error Handling
+//!
+//! The executor performs comprehensive validation:
+//! - Null pointer checks after each allocation
+//! - Memory bounds validation
+//! - Cleanup on error paths
+//! - Fuel limits to prevent infinite loops
+//!
+//! # Use Cases
+//!
+//! - Legacy WASM modules compiled from C/C++/Rust
+//! - Modules requiring maximum control over memory
+//! - Simple processors without WASI dependencies
+//! - Performance-critical code with minimal overhead
+
 use std::sync::Arc;
 
 use super::super::processing_node::{
@@ -8,12 +50,30 @@ use super::super::processing_node::{
 };
 use wasmtime::*;
 
+/// Executor for C-Style WASM modules with manual memory management.
+///
+/// This executor handles classic WASM modules that export `process`, `allocate`,
+/// and `deallocate` functions following C-style calling conventions.
+///
+/// # Thread Safety
+/// - Uses `Arc` for shared ownership across threads
+/// - Stateless execution (creates new Store per call)
+/// - Safe for concurrent use
 pub struct CStyleNodeExecutor {
     module: Arc<Module>,
     engine: Arc<Engine>,
 }
 
 impl CStyleNodeExecutor {
+    /// Create a new C-Style executor from a compiled module and engine.
+    ///
+    /// # Arguments
+    /// * `module` - Compiled WASM module
+    /// * `engine` - Configured Wasmtime engine
+    ///
+    /// # Returns
+    /// * `Ok(CStyleNodeExecutor)` - Ready-to-use executor
+    /// * `Err(ProcessingNodeError)` - If initialization fails
     pub fn new(module: Module, engine: Engine) -> Result<Self, ProcessingNodeError> {
         Ok(Self {
             module: Arc::new(module),
@@ -50,15 +110,33 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
 
     fn execution_metadata(&self) -> ExecutionMetadata {
         ExecutionMetadata {
-            module_path: "".to_string(), // Path no longer stored in executor
+            module_path: "".to_string(),
             artifact_type: self.artifact_type().to_string(),
-            import_count: 0, // Import tracking removed (will be added back via factory if needed)
+            import_count: 0,
             capabilities: self.capabilities(),
         }
     }
 }
 
 impl CStyleNodeExecutor {
+    /// Execute the C-Style process function with manual memory management.
+    ///
+    /// This internal method handles the complete memory management lifecycle:
+    /// 1. Validates required exports (memory, process, allocate, deallocate)
+    /// 2. Allocates input buffer and writes input data
+    /// 3. Allocates output length buffer
+    /// 4. Calls process function
+    /// 5. Reads output data
+    /// 6. Deallocates all buffers
+    ///
+    /// # Arguments
+    /// * `store` - Wasmtime store with fuel configured
+    /// * `instance` - Instantiated WASM module
+    /// * `input` - Input data bytes
+    ///
+    /// # Returns
+    /// * `Ok(Vec<u8>)` - Processed output data
+    /// * `Err(ProcessingNodeError)` - If validation, allocation, or execution fails
     fn execute_c_style_process(
         &self,
         store: &mut Store<()>,
@@ -91,10 +169,7 @@ impl CStyleNodeExecutor {
                 )
             })?;
 
-        // Use input bytes directly - no string conversion needed
         let input_bytes = input;
-
-        // Allocate memory in WASM for input
         let input_ptr = allocate_func
             .call(&mut *store, input_bytes.len() as i32)
             .map_err(|e| {
@@ -109,7 +184,6 @@ impl CStyleNodeExecutor {
             ));
         }
 
-        // Write input to WASM memory
         memory
             .write(&mut *store, input_ptr as usize, input_bytes)
             .map_err(|e| {
@@ -119,35 +193,30 @@ impl CStyleNodeExecutor {
                 ))
             })?;
 
-        // Allocate memory for output length
         let output_len_ptr = allocate_func.call(&mut *store, 4).map_err(|e| {
             ProcessingNodeError::RuntimeError(format!(
                 "Failed to allocate output length memory: {}",
                 e
             ))
-        })?; // 4 bytes for i32
+        })?;
         if output_len_ptr == 0 {
-            // Clean up input memory
             let _ = deallocate_func.call(&mut *store, (input_ptr, input_bytes.len() as i32));
             return Err(ProcessingNodeError::RuntimeError(
                 "Failed to allocate output length memory".to_string(),
             ));
         }
 
-        // Call the process function
         let result_ptr = process_func
             .call(
                 &mut *store,
                 (input_ptr, input_bytes.len() as i32, output_len_ptr),
             )
             .map_err(|e| {
-                // Clean up allocated memory
                 let _ = deallocate_func.call(&mut *store, (input_ptr, input_bytes.len() as i32));
                 let _ = deallocate_func.call(&mut *store, (output_len_ptr, 4));
                 ProcessingNodeError::RuntimeError(format!("Failed to call process function: {}", e))
             })?;
 
-        // Clean up input memory
         deallocate_func
             .call(&mut *store, (input_ptr, input_bytes.len() as i32))
             .map_err(|e| {
@@ -158,14 +227,12 @@ impl CStyleNodeExecutor {
             })?;
 
         if result_ptr == 0 {
-            // Clean up output length memory
             let _ = deallocate_func.call(&mut *store, (output_len_ptr, 4));
             return Err(ProcessingNodeError::RuntimeError(
                 "WASM process function returned null pointer".to_string(),
             ));
         }
 
-        // Read output length
         let mut output_len_bytes = [0u8; 4];
         memory
             .read(&mut *store, output_len_ptr as usize, &mut output_len_bytes)
@@ -174,7 +241,6 @@ impl CStyleNodeExecutor {
             })?;
         let output_len = i32::from_le_bytes(output_len_bytes) as usize;
 
-        // Clean up output length memory
         deallocate_func
             .call(&mut *store, (output_len_ptr, 4))
             .map_err(|e| {
@@ -185,12 +251,10 @@ impl CStyleNodeExecutor {
             })?;
 
         if output_len == 0 {
-            // Clean up result memory
-            let _ = deallocate_func.call(&mut *store, (result_ptr, 1)); // Minimal cleanup
+            let _ = deallocate_func.call(&mut *store, (result_ptr, 1));
             return Ok(Vec::new());
         }
 
-        // Read output data
         let mut output_bytes = vec![0u8; output_len];
         memory
             .read(&mut *store, result_ptr as usize, &mut output_bytes)
@@ -198,7 +262,6 @@ impl CStyleNodeExecutor {
                 ProcessingNodeError::RuntimeError(format!("Failed to read output data: {}", e))
             })?;
 
-        // Clean up result memory
         deallocate_func
             .call(&mut *store, (result_ptr, output_len as i32))
             .map_err(|e| {
@@ -208,50 +271,41 @@ impl CStyleNodeExecutor {
                 ))
             })?;
 
-        // Return the raw output bytes - let the caller handle any necessary conversion
         Ok(output_bytes)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
     use crate::backends::wasm::create_executor;
+    use std::path::Path;
 
     #[test]
     fn test_cstyle_executor_with_wasm_appender() {
-        // Path to the built wasm_appender component
         let wasm_path = Path::new("wasm_components/wasm_appender.wasm");
 
-        // Skip test if the WASM file doesn't exist
         if !wasm_path.exists() {
             println!("Skipping test: wasm_appender.wasm not found. Run 'cd wasm_components/wasm_appender && ./build.sh' to build it.");
             return;
         }
 
-        // Load the WASM module using the new ADR-17 flow
         use crate::backends::wasm::{load_wasm_bytes, wasm_encoding};
 
         let bytes = load_wasm_bytes(wasm_path).expect("Failed to load wasm_appender module");
         let encoding = wasm_encoding(&bytes).expect("Failed to detect encoding");
-        let executor = create_executor(&bytes, encoding)
-            .expect("Failed to create CStyleNodeExecutor");
+        let executor =
+            create_executor(&bytes, encoding).expect("Failed to create CStyleNodeExecutor");
 
-        // Test input
         let input = b"hello";
 
-        // Execute the module (synchronously)
         let result = executor
             .execute(input)
             .expect("Failed to execute WASM module");
 
-        // Convert result back to string for verification
         let output = String::from_utf8(result).expect("Output is not valid UTF-8");
 
-        // The wasm_appender should append "::WASM" to the input
         assert_eq!(output, "hello::WASM");
 
-        // Verify metadata
         let metadata = executor.execution_metadata();
         assert_eq!(metadata.artifact_type, "C-Style");
         assert!(metadata.capabilities.contains(&"c-style".to_string()));

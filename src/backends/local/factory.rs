@@ -1,13 +1,111 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
+//! Factory for creating local processor instances from configuration.
+//!
+//! This module implements the factory pattern for instantiating local processors based on
+//! configuration. It handles processor type resolution, option parsing, and instance creation
+//! with proper error handling.
+//!
+//! # Architecture
+//!
+//! The factory uses a simple string-based dispatch mechanism:
+//! ```text
+//! ProcessorConfig.processor → match impl_name → Processor Instance
+//! ```
+//!
+//! ## Design Principles
+//! - **Configuration-Driven**: All processor creation driven by YAML configuration
+//! - **Type Safety**: Returns `Arc<dyn Processor>` for executor compatibility
+//! - **Error Handling**: Descriptive errors for missing fields and unknown implementations
+//! - **Extensibility**: Easy to add new processor types
+//!
+//! # Supported Processors
+//!
+//! ## Text Case Processors
+//! - `change_text_case_upper` - UPPERCASE conversion
+//! - `change_text_case_lower` - lowercase conversion
+//! - `change_text_case_proper` - Proper Case conversion
+//! - `change_text_case_title` - Title Case conversion
+//!
+//! ## Text Manipulation
+//! - `reverse_text` - Reverse character order
+//! - `prefix_suffix_adder` - Add prefix/suffix (requires options)
+//!
+//! ## Text Analysis
+//! - `token_counter` - Count characters, words, lines
+//! - `word_frequency_analyzer` - Word frequency distribution
+//!
+//! # Examples
+//!
+//! ## Creating a Simple Processor
+//! ```rust,no_run
+//! use the_dagwood::backends::local::LocalProcessorFactory;
+//! use the_dagwood::config::{ProcessorConfig, BackendType};
+//! use std::collections::HashMap;
+//!
+//! let config = ProcessorConfig {
+//!     id: "uppercase".to_string(),
+//!     backend: BackendType::Local,
+//!     processor: Some("change_text_case_upper".to_string()),
+//!     endpoint: None,
+//!     module: None,
+//!     depends_on: vec![],
+//!     options: HashMap::new(),
+//! };
+//!
+//! let processor = LocalProcessorFactory::create_processor(&config)?;
+//! assert_eq!(processor.name(), "change_text_case");
+//! # Ok::<(), String>(())
+//! ```
+//!
+//! ## Creating a Configurable Processor
+//! ```rust,no_run
+//! use the_dagwood::backends::local::LocalProcessorFactory;
+//! use the_dagwood::config::{ProcessorConfig, BackendType};
+//! use std::collections::HashMap;
+//! use serde_yaml::Value;
+//!
+//! let mut options = HashMap::new();
+//! options.insert("prefix".to_string(), Value::String("<<".to_string()));
+//! options.insert("suffix".to_string(), Value::String(">>".to_string()));
+//!
+//! let config = ProcessorConfig {
+//!     id: "wrapper".to_string(),
+//!     backend: BackendType::Local,
+//!     processor: Some("prefix_suffix_adder".to_string()),
+//!     endpoint: None,
+//!     module: None,
+//!     depends_on: vec![],
+//!     options,
+//! };
+//!
+//! let processor = LocalProcessorFactory::create_processor(&config)?;
+//! # Ok::<(), String>(())
+//! ```
+
 use std::sync::Arc;
 
 use super::processors::*;
 use crate::config::ProcessorConfig;
 use crate::traits::Processor;
 
-/// Factory for creating local (in-process) processor instances
+/// Factory for creating local (in-process) processor instances from configuration.
+///
+/// This factory implements a configuration-driven approach to processor instantiation,
+/// handling type resolution, option parsing, and error reporting.
+///
+/// ## Responsibilities
+/// - Parse processor type from configuration
+/// - Extract and validate processor-specific options
+/// - Instantiate appropriate processor implementation
+/// - Return type-erased `Arc<dyn Processor>` for executor use
+///
+/// ## Error Handling
+/// Returns descriptive `String` errors for:
+/// - Missing `processor` field in configuration
+/// - Unknown processor implementation names
+/// - Invalid or missing required options
 pub struct LocalProcessorFactory;
 
 impl LocalProcessorFactory {

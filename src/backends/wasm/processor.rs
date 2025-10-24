@@ -1,9 +1,111 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
+//! High-level WASM processor implementation with automatic strategy selection.
+//!
+//! This module provides `WasmProcessor`, the main entry point for WASM-based processors
+//! in The DAGwood system. It implements the `Processor` trait and automatically selects
+//! the appropriate execution strategy based on WASM binary encoding.
+//!
+//! # Architecture
+//!
+//! `WasmProcessor` orchestrates the ADR-17 three-step flow:
+//! ```text
+//! Configuration → WasmProcessor::new() → Processor Instance
+//!                          ↓
+//!                  load_wasm_bytes()
+//!                          ↓
+//!                  wasm_encoding()
+//!                          ↓
+//!                  create_executor()
+//!                          ↓
+//!                  ProcessingNodeExecutor
+//! ```
+//!
+//! ## Key Features
+//! - **Automatic Strategy Selection**: Detects Component Model vs Classic WASM
+//! - **Intent Support**: Configurable Transform vs Analyze processor intent
+//! - **Metadata Collection**: Comprehensive execution metadata
+//! - **Error Handling**: Converts WASM errors to processor responses
+//!
+//! # Processor Intent
+//!
+//! WASM processors support both Transform and Analyze intents:
+//! - **Transform** (default): Can modify payloads
+//! - **Analyze**: Only contributes metadata
+//!
+//! Intent is configured via the `intent` option in processor configuration:
+//! ```yaml
+//! processors:
+//!   - id: analyzer
+//!     backend: wasm
+//!     module: analyzer.wasm
+//!     options:
+//!       intent: analyze  # or "transform"
+//! ```
+//!
+//! # Examples
+//!
+//! ## Creating from Path
+//! ```rust,no_run
+//! use the_dagwood::backends::wasm::WasmProcessor;
+//!
+//! let processor = WasmProcessor::new(
+//!     "text_processor".to_string(),
+//!     "processors/transform.wasm".to_string(),
+//! )?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! ## Creating from Configuration
+//! ```rust,no_run
+//! use the_dagwood::backends::wasm::WasmProcessor;
+//! use the_dagwood::config::{ProcessorConfig, BackendType};
+//! use std::collections::HashMap;
+//! use serde_yaml::Value;
+//!
+//! let mut options = HashMap::new();
+//! options.insert("intent".to_string(), Value::String("analyze".to_string()));
+//!
+//! let config = ProcessorConfig {
+//!     id: "analyzer".to_string(),
+//!     backend: BackendType::Wasm,
+//!     processor: None,
+//!     endpoint: None,
+//!     module: Some("analyzer.wasm".to_string()),
+//!     depends_on: vec![],
+//!     options,
+//! };
+//!
+//! let processor = WasmProcessor::from_config(&config)?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! ## Using with Executor
+//! ```rust,no_run
+//! use the_dagwood::backends::wasm::WasmProcessor;
+//! use the_dagwood::traits::Processor;
+//! use the_dagwood::proto::processor_v1::ProcessorRequest;
+//!
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let processor = WasmProcessor::new(
+//!     "processor".to_string(),
+//!     "module.wasm".to_string(),
+//! )?;
+//!
+//! let request = ProcessorRequest {
+//!     payload: b"input data".to_vec(),
+//! };
+//!
+//! let response = processor.process(request).await;
+//! # Ok(())
+//! # }
+//! ```
+
+use crate::backends::wasm::detector::wasm_encoding;
 use crate::backends::wasm::error::WasmResult;
 use crate::backends::wasm::factory::create_executor;
-use crate::backends::wasm::detector::wasm_encoding;
 use crate::backends::wasm::loader::load_wasm_bytes;
 use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
 use crate::proto::processor_v1::{
@@ -15,6 +117,21 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// High-level WASM processor with automatic strategy selection.
+///
+/// This is the main entry point for WASM-based processors in The DAGwood system.
+/// It implements the `Processor` trait and automatically selects the appropriate
+/// execution strategy based on WASM binary encoding.
+///
+/// # Fields
+/// - **processor_id**: Unique identifier for this processor instance
+/// - **module_path**: Path to the WASM module file
+/// - **executor**: Strategy-specific executor (WIT or C-Style)
+/// - **intent**: Processor intent (Transform or Analyze)
+///
+/// # Thread Safety
+/// - Uses `Arc<dyn ProcessingNodeExecutor>` for shared executor access
+/// - Safe for concurrent use across async tasks
 pub struct WasmProcessor {
     /// Unique identifier for this processor instance
     processor_id: String,
@@ -27,8 +144,34 @@ pub struct WasmProcessor {
 }
 
 impl WasmProcessor {
+    /// Create a new WASM processor from a module path.
+    ///
+    /// This method performs the complete ADR-17 flow:
+    /// 1. Load WASM bytes from disk
+    /// 2. Detect encoding type
+    /// 3. Create appropriate executor
+    ///
+    /// The processor defaults to `Transform` intent.
+    ///
+    /// # Arguments
+    /// * `processor_id` - Unique identifier for this processor
+    /// * `module_path` - Path to the WASM file
+    ///
+    /// # Returns
+    /// * `Ok(WasmProcessor)` - Ready-to-use processor
+    /// * `Err(WasmError)` - If loading, detection, or executor creation fails
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// use the_dagwood::backends::wasm::WasmProcessor;
+    ///
+    /// let processor = WasmProcessor::new(
+    ///     "text_processor".to_string(),
+    ///     "processors/transform.wasm".to_string(),
+    /// )?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn new(processor_id: String, module_path: String) -> WasmResult<Self> {
-        // ADR-17: New clean 3-step flow
         let bytes = load_wasm_bytes(&module_path)?;
         let encoding = wasm_encoding(&bytes)
             .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
@@ -42,6 +185,46 @@ impl WasmProcessor {
         })
     }
 
+    /// Create a new WASM processor from configuration.
+    ///
+    /// This method creates a processor from a `ProcessorConfig` struct, supporting
+    /// configuration-driven processor instantiation. It extracts the module path
+    /// and optional intent from the configuration.
+    ///
+    /// # Configuration Options
+    /// - **module** (required): Path to the WASM file
+    /// - **intent** (optional): "transform" or "analyze" (defaults to "transform")
+    ///
+    /// # Arguments
+    /// * `config` - Processor configuration
+    ///
+    /// # Returns
+    /// * `Ok(WasmProcessor)` - Ready-to-use processor
+    /// * `Err(WasmError)` - If configuration is invalid or loading fails
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// use the_dagwood::backends::wasm::WasmProcessor;
+    /// use the_dagwood::config::{ProcessorConfig, BackendType};
+    /// use std::collections::HashMap;
+    /// use serde_yaml::Value;
+    ///
+    /// let mut options = HashMap::new();
+    /// options.insert("intent".to_string(), Value::String("analyze".to_string()));
+    ///
+    /// let config = ProcessorConfig {
+    ///     id: "analyzer".to_string(),
+    ///     backend: BackendType::Wasm,
+    ///     processor: None,
+    ///     endpoint: None,
+    ///     module: Some("analyzer.wasm".to_string()),
+    ///     depends_on: vec![],
+    ///     options,
+    /// };
+    ///
+    /// let processor = WasmProcessor::from_config(&config)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn from_config(config: &crate::config::ProcessorConfig) -> WasmResult<Self> {
         let module_path = config.module.as_ref().ok_or_else(|| {
             crate::backends::wasm::WasmError::ValidationError(
@@ -70,7 +253,6 @@ impl WasmProcessor {
             ProcessorIntent::Transform
         };
 
-        // ADR-17: New clean 3-step flow
         let bytes = load_wasm_bytes(module_path)?;
         let encoding = wasm_encoding(&bytes)
             .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
@@ -84,6 +266,17 @@ impl WasmProcessor {
         })
     }
 
+    /// Execute WASM module synchronously.
+    ///
+    /// Internal method that calls the executor and handles error conversion.
+    /// This bridges the synchronous WASM execution with the async processor interface.
+    ///
+    /// # Arguments
+    /// * `input` - Input data bytes
+    ///
+    /// # Returns
+    /// * `Ok(Vec<u8>)` - Processed output data
+    /// * `Err(Box<dyn Error>)` - If execution fails
     fn execute_wasm(
         &self,
         input: &[u8],
@@ -94,7 +287,6 @@ impl WasmProcessor {
             self.executor.artifact_type()
         );
 
-        // Execute using the ProcessingNodeExecutor
         match self.executor.execute(input) {
             Ok(output) => {
                 tracing::debug!(
@@ -130,10 +322,8 @@ impl Processor for WasmProcessor {
     async fn process(&self, request: ProcessorRequest) -> ProcessorResponse {
         let input = request.payload;
 
-        // Execute WASM module using orchestrated components
         match self.execute_wasm(&input) {
             Ok(output) => {
-                // Create successful response with metadata
                 let mut processor_metadata_map = HashMap::new();
                 processor_metadata_map
                     .insert("processor_id".to_string(), self.processor_id.clone());

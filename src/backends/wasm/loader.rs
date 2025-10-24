@@ -14,14 +14,14 @@ use std::path::Path;
 const MAX_WASM_SIZE: usize = 16 * 1024 * 1024;
 
 /// Loads WASM bytes from a file and validates the size
-/// 
+///
 /// This function reads the entire WASM binary into memory and checks that it
 /// doesn't exceed the maximum allowed size. It does not parse or validate the
 /// WASM format itself - use `wasm_encoding()` for that.
-/// 
+///
 /// # Arguments
 /// * `path` - Path to the WASM file
-/// 
+///
 /// # Returns
 /// * `Ok(Vec<u8>)` - The WASM binary bytes
 /// * `Err(WasmError)` - If file cannot be read or size exceeds limit
@@ -86,7 +86,6 @@ mod tests {
         assert!(result.is_err());
 
         if let Err(WasmError::IoError(_)) = result {
-            // Expected
         } else {
             panic!("Expected IoError for nonexistent file");
         }

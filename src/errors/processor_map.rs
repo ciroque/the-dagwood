@@ -31,19 +31,19 @@ impl fmt::Display for ProcessorMapError {
                 processor_id,
                 backend,
             } => {
-                let backend_name = match backend {
-                    BackendType::Local => "Local (native Rust)",
-                    BackendType::Loadable => "Loadable (dynamic library loading)",
-                    BackendType::Grpc => "Grpc (gRPC client)",
-                    BackendType::Http => "Http (HTTP client)",
-                    BackendType::Wasm => "Wasm (WebAssembly)",
+                let description = match backend {
+                    BackendType::Local => "native Rust",
+                    BackendType::Loadable => "dynamic library loading",
+                    BackendType::Grpc => "gRPC client",
+                    BackendType::Http => "HTTP client",
+                    BackendType::Wasm => "WebAssembly",
                 };
                 write!(
                     f,
-                    "Backend type '{}' is not implemented for processor '{}'. {} is not yet supported.",
-                    format!("{:?}", backend),
+                    "Backend type '{:?}' is not implemented for processor '{}'. {} is not yet supported.",
+                    backend,
                     processor_id,
-                    backend_name
+                    description
                 )
             }
             ProcessorMapError::ProcessorCreationFailed {

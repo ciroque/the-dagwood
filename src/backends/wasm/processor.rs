@@ -103,9 +103,9 @@
 //! # }
 //! ```
 
+use crate::backends::wasm::detector::wasm_encoding;
 use crate::backends::wasm::error::WasmResult;
 use crate::backends::wasm::factory::create_executor;
-use crate::backends::wasm::detector::wasm_encoding;
 use crate::backends::wasm::loader::load_wasm_bytes;
 use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
 use crate::proto::processor_v1::{

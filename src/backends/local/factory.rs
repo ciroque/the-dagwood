@@ -68,7 +68,7 @@
 //!
 //! let mut options = HashMap::new();
 //! options.insert("prefix".to_string(), Value::String("<<".to_string()));
-//! options.insert("suffix".to_string(), Value::String(">>".to_string())); 
+//! options.insert("suffix".to_string(), Value::String(">>".to_string()));
 //!
 //! let config = ProcessorConfig {
 //!     id: "wrapper".to_string(),

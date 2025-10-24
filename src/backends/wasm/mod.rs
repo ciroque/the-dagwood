@@ -146,10 +146,10 @@
 pub mod bindings;
 pub mod capability_manager;
 pub mod detector;
-pub mod factory;
-pub mod loader;
 mod error;
 pub mod executors;
+pub mod factory;
+pub mod loader;
 pub mod processing_node;
 pub mod processor;
 

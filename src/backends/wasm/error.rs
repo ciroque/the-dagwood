@@ -15,7 +15,8 @@ use thiserror::Error;
 /// Legacy Preview 1 components (version 1 with "component" custom section) are
 /// not supported. Users should upgrade to modern Component Model (version 2+)
 /// or use classic core WASM modules.
-pub const WASM_UNSUPPORTED_ENCODING: &str = "Unsupported WASM binary: Legacy Preview 1 Component Model detected. \
+pub const WASM_UNSUPPORTED_ENCODING: &str =
+    "Unsupported WASM binary: Legacy Preview 1 Component Model detected. \
 Please upgrade to modern Component Model (binary version 2+) or use classic WASM.";
 
 /// Comprehensive error type for all WASM backend operations.

@@ -277,13 +277,12 @@ impl CStyleNodeExecutor {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
     use crate::backends::wasm::create_executor;
+    use std::path::Path;
 
     #[test]
     fn test_cstyle_executor_with_wasm_appender() {
         let wasm_path = Path::new("wasm_components/wasm_appender.wasm");
-
 
         if !wasm_path.exists() {
             println!("Skipping test: wasm_appender.wasm not found. Run 'cd wasm_components/wasm_appender && ./build.sh' to build it.");
@@ -294,8 +293,8 @@ mod tests {
 
         let bytes = load_wasm_bytes(wasm_path).expect("Failed to load wasm_appender module");
         let encoding = wasm_encoding(&bytes).expect("Failed to detect encoding");
-        let executor = create_executor(&bytes, encoding)
-            .expect("Failed to create CStyleNodeExecutor");
+        let executor =
+            create_executor(&bytes, encoding).expect("Failed to create CStyleNodeExecutor");
 
         let input = b"hello";
 

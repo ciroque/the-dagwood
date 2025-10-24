@@ -11,10 +11,10 @@ use crate::backends::wasm::error::{WasmError, WASM_UNSUPPORTED_ENCODING};
 use wasmparser::{Encoding, Parser, Payload};
 
 /// Represents supported WebAssembly binary encodings
-/// 
+///
 /// - `ComponentModel`: Modern Component Model (binary version 2+)
 /// - `Classic`: Core WebAssembly modules (version 1, no component indicators)
-/// 
+///
 /// Note: Legacy Preview 1 components (version 1 + "component" custom section) are
 /// not represented here as they are unsupported and rejected with an error.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -41,16 +41,16 @@ impl WasmEncoding {
 
 /// Determines the encoding of a WebAssembly binary by inspecting its version header
 /// and (for version 1) custom sections.
-/// 
+///
 /// This function uses `wasmparser` to perform a spec-compliant parse, returning
 /// `WasmEncoding::ComponentModel` or `WasmEncoding::Classic`. It **rejects** legacy
 /// Preview 1 components with an error, as they are unsupported.
-/// 
+///
 /// # Errors
 /// Returns an error if:
 /// - The input is empty, truncated, or otherwise invalid per the WASM spec
 /// - A legacy Preview 1 component is detected (unsupported)
-/// 
+///
 pub fn wasm_encoding(bytes: &[u8]) -> Result<WasmEncoding, WasmError> {
     let parser = Parser::new(0);
     let mut encoding = None;
@@ -69,13 +69,14 @@ pub fn wasm_encoding(bytes: &[u8]) -> Result<WasmEncoding, WasmError> {
         }
     }
 
-    let encoding = encoding.ok_or_else(|| {
-        WasmError::InvalidWasmBinary("Invalid WASM binary".to_string())
-    })?;
+    let encoding =
+        encoding.ok_or_else(|| WasmError::InvalidWasmBinary("Invalid WASM binary".to_string()))?;
 
     match encoding {
         Encoding::Component => Ok(WasmEncoding::ComponentModel),
-        Encoding::Module if has_component_section => Err(WasmError::UnsupportedEncoding(WASM_UNSUPPORTED_ENCODING.to_string())),
+        Encoding::Module if has_component_section => Err(WasmError::UnsupportedEncoding(
+            WASM_UNSUPPORTED_ENCODING.to_string(),
+        )),
         Encoding::Module => Ok(WasmEncoding::Classic),
     }
 }
@@ -102,7 +103,7 @@ mod tests {
     fn test_encoding_helper_methods() {
         assert!(WasmEncoding::ComponentModel.is_component_model());
         assert!(!WasmEncoding::ComponentModel.is_classic());
-        
+
         assert!(WasmEncoding::Classic.is_classic());
         assert!(!WasmEncoding::Classic.is_component_model());
     }

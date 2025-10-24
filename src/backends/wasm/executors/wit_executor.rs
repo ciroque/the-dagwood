@@ -46,7 +46,9 @@
 
 use super::super::{
     bindings::DagwoodComponent,
-    processing_node::{ComponentExecutionError, ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor},
+    processing_node::{
+        ComponentExecutionError, ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor,
+    },
 };
 use std::sync::Arc;
 use wasmtime::component::{Component, Linker};
@@ -117,44 +119,33 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
         let mut store = Store::new(&self.engine, store_data);
 
         let mut linker = Linker::<Ctx>::new(&self.engine);
-        
-        wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
-            .map_err(|e| ProcessingNodeError::ComponentError(
-                ComponentExecutionError::InstantiationFailed(format!(
-                    "Failed to add WASI to linker: {}",
-                    e
-                ))
-            ))?;
+
+        wasmtime_wasi::p2::add_to_linker_sync(&mut linker).map_err(|e| {
+            ProcessingNodeError::ComponentError(ComponentExecutionError::InstantiationFailed(
+                format!("Failed to add WASI to linker: {}", e),
+            ))
+        })?;
 
         let bindings = DagwoodComponent::instantiate(&mut store, &self.component, &linker)
             .map_err(|e| {
-                ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::InstantiationFailed(format!(
-                        "Failed to instantiate component: {}",
-                        e
-                    )),
-                )
+                ProcessingNodeError::ComponentError(ComponentExecutionError::InstantiationFailed(
+                    format!("Failed to instantiate component: {}", e),
+                ))
             })?;
 
         let result = bindings
             .dagwood_component_processing_node()
             .call_process(&mut store, input)
             .map_err(|e| {
-                ProcessingNodeError::ComponentError(
-                    ComponentExecutionError::FunctionCallFailed(format!(
-                        "Component instantiation/call failed: {}",
-                        e
-                    )),
-                )
+                ProcessingNodeError::ComponentError(ComponentExecutionError::FunctionCallFailed(
+                    format!("Component instantiation/call failed: {}", e),
+                ))
             })?;
 
         let output = result.map_err(|processing_error| {
-            ProcessingNodeError::ComponentError(
-                ComponentExecutionError::FunctionCallFailed(format!(
-                    "Component process() returned error: {:?}",
-                    processing_error
-                )),
-            )
+            ProcessingNodeError::ComponentError(ComponentExecutionError::FunctionCallFailed(
+                format!("Component process() returned error: {:?}", processing_error),
+            ))
         })?;
 
         Ok(output)

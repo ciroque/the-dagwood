@@ -12,24 +12,24 @@ use crate::backends::wasm::error::{WasmError, WasmResult};
 use wasmtime::*;
 
 /// Creates a Wasmtime engine configured for the given WASM encoding type
-/// 
+///
 /// Each encoding type gets its own specific configuration:
-/// 
+///
 /// **Component Model engines:**
 /// - Minimal config: just `wasm_component_model(true)`
 /// - WASI Preview 2 handles everything else automatically
-/// 
+///
 /// **Classic module engines:**
 /// - Security-focused configuration with sandboxing features
 /// - Fuel consumption for execution limits
-/// 
+///
 /// # Arguments
 /// * `encoding` - The WASM encoding type detected by `wasm_encoding()`
-/// 
+///
 /// # Returns
 /// * `Ok(Engine)` - Configured Wasmtime engine
 /// * `Err(WasmError)` - If engine creation fails, or encoding is unsupported
-/// 
+///
 /// # Future
 /// This function will be extended to support security configurations for
 /// WASI import validation and per-component capability restrictions.

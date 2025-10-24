@@ -32,10 +32,11 @@ impl fmt::Display for ProcessorMapError {
                 backend,
             } => {
                 let backend_name = match backend {
+                    BackendType::Local => "Local (native Rust)",
                     BackendType::Loadable => "Loadable (dynamic library loading)",
                     BackendType::Grpc => "Grpc (gRPC client)",
                     BackendType::Http => "Http (HTTP client)",
-                    _ => "Unknown",
+                    BackendType::Wasm => "Wasm (WebAssembly)",
                 };
                 write!(
                     f,

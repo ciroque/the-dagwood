@@ -1,6 +1,7 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
+use crate::config::BackendType;
 use crate::errors::ProcessorMapError;
 use crate::traits::Processor;
 use std::collections::HashMap;
@@ -90,38 +91,38 @@ impl ProcessorMap {
 
         for p in &cfg.processors {
             let processor: Arc<dyn Processor> = match p.backend {
-                crate::config::BackendType::Local => {
+                BackendType::Local => {
                     crate::backends::local::LocalProcessorFactory::create_processor(p).map_err(
                         |e| ProcessorMapError::ProcessorCreationFailed {
                             processor_id: p.id.clone(),
-                            backend: crate::config::BackendType::Local,
+                            backend: BackendType::Local,
                             reason: e,
                         },
                     )?
                 }
-                crate::config::BackendType::Loadable => {
+                BackendType::Loadable => {
                     return Err(ProcessorMapError::BackendNotImplemented {
                         processor_id: p.id.clone(),
-                        backend: crate::config::BackendType::Loadable,
+                        backend: BackendType::Loadable,
                     });
                 }
-                crate::config::BackendType::Grpc => {
+                BackendType::Grpc => {
                     return Err(ProcessorMapError::BackendNotImplemented {
                         processor_id: p.id.clone(),
-                        backend: crate::config::BackendType::Grpc,
+                        backend: BackendType::Grpc,
                     });
                 }
-                crate::config::BackendType::Http => {
+                BackendType::Http => {
                     return Err(ProcessorMapError::BackendNotImplemented {
                         processor_id: p.id.clone(),
-                        backend: crate::config::BackendType::Http,
+                        backend: BackendType::Http,
                     });
                 }
-                crate::config::BackendType::Wasm => Arc::new(
+                BackendType::Wasm => Arc::new(
                     crate::backends::wasm::WasmProcessor::from_config(p).map_err(|e| {
                         ProcessorMapError::ProcessorCreationFailed {
                             processor_id: p.id.clone(),
-                            backend: crate::config::BackendType::Wasm,
+                            backend: BackendType::Wasm,
                             reason: e.to_string(),
                         }
                     })?,

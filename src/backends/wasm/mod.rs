@@ -69,22 +69,22 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! ## Step 2: Detect Encoding
+//! ## Step 2: Detect Component Type
 //! ```rust,no_run
-//! use the_dagwood::backends::wasm::{load_wasm_bytes, wasm_encoding};
+//! use the_dagwood::backends::wasm::{load_wasm_bytes, detect_component_type};
 //!
 //! let bytes = load_wasm_bytes("processor.wasm")?;
-//! let encoding = wasm_encoding(&bytes)?;
+//! let component_type = detect_component_type(&bytes)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
 //! ## Step 3: Create Executor
 //! ```rust,no_run
-//! use the_dagwood::backends::wasm::{load_wasm_bytes, wasm_encoding, create_executor};
+//! use the_dagwood::backends::wasm::{load_wasm_bytes, detect_component_type, create_executor};
 //!
 //! let bytes = load_wasm_bytes("processor.wasm")?;
-//! let encoding = wasm_encoding(&bytes)?;
-//! let executor = create_executor(&bytes, encoding)?;
+//! let component_type = detect_component_type(&bytes)?;
+//! let executor = create_executor(&bytes, component_type)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -129,13 +129,13 @@
 //!
 //! ## Low-Level Executor Usage
 //! ```rust,no_run
-//! use the_dagwood::backends::wasm::{load_wasm_bytes, wasm_encoding, create_executor};
+//! use the_dagwood::backends::wasm::{load_wasm_bytes, detect_component_type, create_executor};
 //! use the_dagwood::backends::wasm::ProcessingNodeExecutor;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let bytes = load_wasm_bytes("processor.wasm")?;
-//! let encoding = wasm_encoding(&bytes)?;
-//! let executor = create_executor(&bytes, encoding)?;
+//! let component_type = detect_component_type(&bytes)?;
+//! let executor = create_executor(&bytes, component_type)?;
 //!
 //! let input = b"test input";
 //! let output = executor.execute(input)?;
@@ -155,7 +155,7 @@ pub mod processor;
 
 pub use error::{WasmError, WasmResult};
 
-pub use detector::{wasm_encoding, WasmEncoding};
+pub use detector::{detect_component_type, ComponentType};
 pub use factory::create_executor;
 pub use loader::load_wasm_bytes;
 

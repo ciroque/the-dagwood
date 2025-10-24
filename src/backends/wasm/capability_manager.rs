@@ -7,41 +7,41 @@
 //! different WASM encoding types. It also provides a foundation for future
 //! WASI import validation and security policy enforcement.
 
-use crate::backends::wasm::detector::WasmEncoding;
+use crate::backends::wasm::detector::ComponentType;
 use crate::backends::wasm::error::{WasmError, WasmResult};
 use wasmtime::*;
 
-/// Creates a Wasmtime engine configured for the given WASM encoding type
+/// Creates a Wasmtime engine configured for the given WASM component type
 ///
-/// Each encoding type gets its own specific configuration:
+/// Each component type gets its own specific configuration:
 ///
-/// **Component Model engines:**
+/// **WIT Component Model engines:**
 /// - Minimal config: just `wasm_component_model(true)`
 /// - WASI Preview 2 handles everything else automatically
 ///
-/// **Classic module engines:**
+/// **C-Style module engines:**
 /// - Security-focused configuration with sandboxing features
 /// - Fuel consumption for execution limits
 ///
 /// # Arguments
-/// * `encoding` - The WASM encoding type detected by `wasm_encoding()`
+/// * `component_type` - The WASM component type detected by `detect_component_type()`
 ///
 /// # Returns
 /// * `Ok(Engine)` - Configured Wasmtime engine
-/// * `Err(WasmError)` - If engine creation fails, or encoding is unsupported
+/// * `Err(WasmError)` - If engine creation fails, or component type is unsupported
 ///
 /// # Future
 /// This function will be extended to support security configurations for
 /// WASI import validation and per-component capability restrictions.
-pub fn create_engine(encoding: WasmEncoding) -> WasmResult<Engine> {
-    match encoding {
-        WasmEncoding::ComponentModel => {
+pub fn create_engine(component_type: ComponentType) -> WasmResult<Engine> {
+    match component_type {
+        ComponentType::Wit => {
             tracing::debug!("Creating engine with Component Model support");
             let mut config = Config::new();
             config.wasm_component_model(true);
             Engine::new(&config).map_err(|e| WasmError::EngineError(e.to_string()))
         }
-        WasmEncoding::Classic => {
+        ComponentType::CStyle => {
             tracing::debug!("Creating engine for classic WASM module");
             let mut config = Config::new();
             config.wasm_component_model(false);
@@ -57,20 +57,20 @@ mod tests {
 
     #[test]
     fn test_create_component_engine() {
-        let engine = create_engine(WasmEncoding::ComponentModel);
+        let engine = create_engine(ComponentType::Wit);
         assert!(engine.is_ok(), "Should create Component Model engine");
     }
 
     #[test]
     fn test_create_classic_engine() {
-        let engine = create_engine(WasmEncoding::Classic);
+        let engine = create_engine(ComponentType::CStyle);
         assert!(engine.is_ok(), "Should create classic module engine");
     }
 
     #[test]
     fn test_engines_are_different_configs() {
-        let component_engine = create_engine(WasmEncoding::ComponentModel).unwrap();
-        let classic_engine = create_engine(WasmEncoding::Classic).unwrap();
+        let component_engine = create_engine(ComponentType::Wit).unwrap();
+        let classic_engine = create_engine(ComponentType::CStyle).unwrap();
 
         assert!(
             std::ptr::addr_of!(component_engine) != std::ptr::addr_of!(classic_engine),

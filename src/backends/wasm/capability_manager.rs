@@ -28,7 +28,7 @@ use wasmtime::*;
 /// 
 /// # Returns
 /// * `Ok(Engine)` - Configured Wasmtime engine
-/// * `Err(WasmError)` - If engine creation fails or encoding is unsupported
+/// * `Err(WasmError)` - If engine creation fails, or encoding is unsupported
 /// 
 /// # Future
 /// This function will be extended to support security configurations for

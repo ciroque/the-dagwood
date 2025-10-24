@@ -1,6 +1,48 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
+//! C-Style WASM executor for classic core modules with manual memory management.
+//!
+//! This executor implements the `ProcessingNodeExecutor` trait for classic WASM modules
+//! that follow the C-style calling convention with explicit memory management functions.
+//!
+//! # Memory Management Convention
+//!
+//! C-Style modules must export three functions:
+//! - **`process(input_ptr: i32, input_len: i32, output_len_ptr: i32) -> i32`**
+//!   - Main processing function
+//!   - Returns pointer to output data
+//! - **`allocate(size: i32) -> i32`**
+//!   - Allocates memory in WASM linear memory
+//!   - Returns pointer to allocated memory
+//! - **`deallocate(ptr: i32, size: i32)`**
+//!   - Frees previously allocated memory
+//!
+//! # Execution Flow
+//!
+//! 1. Allocate input buffer in WASM memory
+//! 2. Write input data to allocated buffer
+//! 3. Allocate output length buffer (4 bytes for i32)
+//! 4. Call `process()` with input pointer, length, and output length pointer
+//! 5. Read output length from output length buffer
+//! 6. Read output data from returned pointer
+//! 7. Deallocate all buffers
+//!
+//! # Safety & Error Handling
+//!
+//! The executor performs comprehensive validation:
+//! - Null pointer checks after each allocation
+//! - Memory bounds validation
+//! - Cleanup on error paths
+//! - Fuel limits to prevent infinite loops
+//!
+//! # Use Cases
+//!
+//! - Legacy WASM modules compiled from C/C++/Rust
+//! - Modules requiring maximum control over memory
+//! - Simple processors without WASI dependencies
+//! - Performance-critical code with minimal overhead
+
 use std::sync::Arc;
 
 use super::super::processing_node::{
@@ -8,12 +50,30 @@ use super::super::processing_node::{
 };
 use wasmtime::*;
 
+/// Executor for C-Style WASM modules with manual memory management.
+///
+/// This executor handles classic WASM modules that export `process`, `allocate`,
+/// and `deallocate` functions following C-style calling conventions.
+///
+/// # Thread Safety
+/// - Uses `Arc` for shared ownership across threads
+/// - Stateless execution (creates new Store per call)
+/// - Safe for concurrent use
 pub struct CStyleNodeExecutor {
     module: Arc<Module>,
     engine: Arc<Engine>,
 }
 
 impl CStyleNodeExecutor {
+    /// Create a new C-Style executor from a compiled module and engine.
+    ///
+    /// # Arguments
+    /// * `module` - Compiled WASM module
+    /// * `engine` - Configured Wasmtime engine
+    ///
+    /// # Returns
+    /// * `Ok(CStyleNodeExecutor)` - Ready-to-use executor
+    /// * `Err(ProcessingNodeError)` - If initialization fails
     pub fn new(module: Module, engine: Engine) -> Result<Self, ProcessingNodeError> {
         Ok(Self {
             module: Arc::new(module),
@@ -59,6 +119,24 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
 }
 
 impl CStyleNodeExecutor {
+    /// Execute the C-Style process function with manual memory management.
+    ///
+    /// This internal method handles the complete memory management lifecycle:
+    /// 1. Validates required exports (memory, process, allocate, deallocate)
+    /// 2. Allocates input buffer and writes input data
+    /// 3. Allocates output length buffer
+    /// 4. Calls process function
+    /// 5. Reads output data
+    /// 6. Deallocates all buffers
+    ///
+    /// # Arguments
+    /// * `store` - Wasmtime store with fuel configured
+    /// * `instance` - Instantiated WASM module
+    /// * `input` - Input data bytes
+    ///
+    /// # Returns
+    /// * `Ok(Vec<u8>)` - Processed output data
+    /// * `Err(ProcessingNodeError)` - If validation, allocation, or execution fails
     fn execute_c_style_process(
         &self,
         store: &mut Store<()>,

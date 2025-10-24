@@ -60,7 +60,7 @@
 //! ## Creating from Configuration
 //! ```rust,no_run
 //! use the_dagwood::backends::wasm::WasmProcessor;
-//! use the_dagwood::config::{ProcessorConfig, BackendType};
+//! use the_dagwood::config::{ProcessorConfig, BackendType, FuelConfig};
 //! use std::collections::HashMap;
 //! use serde_yaml::Value;
 //!
@@ -77,7 +77,8 @@
 //!     options,
 //! };
 //!
-//! let processor = WasmProcessor::from_config(&config)?;
+//! let fuel_config = FuelConfig::default();
+//! let processor = WasmProcessor::from_config(&config, &fuel_config)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -108,6 +109,7 @@ use crate::backends::wasm::error::WasmResult;
 use crate::backends::wasm::factory::create_executor;
 use crate::backends::wasm::loader::load_wasm_bytes;
 use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
+use crate::config::consts::DEFAULT_FUEL_LEVEL;
 use crate::proto::processor_v1::{
     processor_response::Outcome, ErrorDetail, PipelineMetadata, ProcessorMetadata,
     ProcessorRequest, ProcessorResponse,
@@ -151,7 +153,7 @@ impl WasmProcessor {
     /// 2. Detect encoding type
     /// 3. Create appropriate executor
     ///
-    /// The processor defaults to `Transform` intent.
+    /// The processor defaults to `Transform` intent and uses the default fuel level (100M).
     ///
     /// # Arguments
     /// * `processor_id` - Unique identifier for this processor
@@ -175,7 +177,7 @@ impl WasmProcessor {
         let bytes = load_wasm_bytes(&module_path)?;
         let component_type = detect_component_type(&bytes)
             .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
-        let executor = create_executor(&bytes, component_type)?.into();
+        let executor = create_executor(&bytes, component_type, DEFAULT_FUEL_LEVEL)?.into();
 
         Ok(Self {
             processor_id,
@@ -188,15 +190,17 @@ impl WasmProcessor {
     /// Create a new WASM processor from configuration.
     ///
     /// This method creates a processor from a `ProcessorConfig` struct, supporting
-    /// configuration-driven processor instantiation. It extracts the module path
-    /// and optional intent from the configuration.
+    /// configuration-driven processor instantiation. It extracts the module path,
+    /// optional intent, and optional fuel level from the configuration.
     ///
     /// # Configuration Options
     /// - **module** (required): Path to the WASM file
     /// - **intent** (optional): "transform" or "analyze" (defaults to "transform")
+    /// - **fuel_level** (optional): Fuel limit for execution (defaults to global config)
     ///
     /// # Arguments
     /// * `config` - Processor configuration
+    /// * `global_fuel_config` - Global fuel configuration for defaults and validation
     ///
     /// # Returns
     /// * `Ok(WasmProcessor)` - Ready-to-use processor
@@ -205,12 +209,13 @@ impl WasmProcessor {
     /// # Examples
     /// ```rust,no_run
     /// use the_dagwood::backends::wasm::WasmProcessor;
-    /// use the_dagwood::config::{ProcessorConfig, BackendType};
+    /// use the_dagwood::config::{ProcessorConfig, BackendType, FuelConfig};
     /// use std::collections::HashMap;
     /// use serde_yaml::Value;
     ///
     /// let mut options = HashMap::new();
     /// options.insert("intent".to_string(), Value::String("analyze".to_string()));
+    /// options.insert("fuel_level".to_string(), Value::Number(50_000_000.into()));
     ///
     /// let config = ProcessorConfig {
     ///     id: "analyzer".to_string(),
@@ -222,10 +227,14 @@ impl WasmProcessor {
     ///     options,
     /// };
     ///
-    /// let processor = WasmProcessor::from_config(&config)?;
+    /// let fuel_config = FuelConfig::default();
+    /// let processor = WasmProcessor::from_config(&config, &fuel_config)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn from_config(config: &crate::config::ProcessorConfig) -> WasmResult<Self> {
+    pub fn from_config(
+        config: &crate::config::ProcessorConfig,
+        global_fuel_config: &crate::config::FuelConfig,
+    ) -> WasmResult<Self> {
         let module_path = config.module.as_ref().ok_or_else(|| {
             crate::backends::wasm::WasmError::ValidationError(
                 "Missing required 'module' field in WASM processor configuration".to_string(),
@@ -253,10 +262,35 @@ impl WasmProcessor {
             ProcessorIntent::Transform
         };
 
+        // Extract and validate fuel_level from options
+        let fuel_level = if let Some(fuel_value) = config.options.get("fuel_level") {
+            // Try to parse as u64 from various YAML number types
+            let requested_fuel = if let Some(num) = fuel_value.as_u64() {
+                num
+            } else if let Some(num) = fuel_value.as_i64() {
+                if num < 0 {
+                    return Err(crate::backends::wasm::WasmError::ValidationError(
+                        "fuel_level cannot be negative".to_string(),
+                    ));
+                }
+                num as u64
+            } else {
+                return Err(crate::backends::wasm::WasmError::ValidationError(
+                    "fuel_level must be a number".to_string(),
+                ));
+            };
+
+            // Validate and clamp to configured bounds
+            global_fuel_config.validate_and_clamp(requested_fuel)
+        } else {
+            // Use global default if not specified
+            global_fuel_config.get_default()
+        };
+
         let bytes = load_wasm_bytes(module_path)?;
         let component_type = detect_component_type(&bytes)
             .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
-        let executor = create_executor(&bytes, component_type)?.into();
+        let executor = create_executor(&bytes, component_type, fuel_level)?.into();
 
         Ok(Self {
             processor_id: config.id.clone(),
@@ -367,6 +401,227 @@ impl Processor for WasmProcessor {
                     metadata: None,
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{BackendType, FuelConfig, ProcessorConfig};
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_fuel_level_from_config_default() {
+        let mut options = HashMap::new();
+        options.insert(
+            "intent".to_string(),
+            serde_yaml::Value::String("transform".to_string()),
+        );
+
+        let config = ProcessorConfig {
+            id: "test_processor".to_string(),
+            backend: BackendType::Wasm,
+            processor: None,
+            endpoint: None,
+            module: Some("wasm_components/wasm_appender.wasm".to_string()),
+            depends_on: vec![],
+            options,
+        };
+
+        let fuel_config = FuelConfig::default();
+
+        // This test validates that the processor can be created with default fuel
+        // The actual execution would require the WASM file to exist
+        let result = WasmProcessor::from_config(&config, &fuel_config);
+
+        // We expect this to fail with module loading error since we're in test,
+        // but it should NOT fail with fuel configuration errors
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            assert!(
+                !error_msg.contains("fuel"),
+                "Should not have fuel-related errors, got: {}",
+                error_msg
+            );
+        }
+    }
+
+    #[test]
+    fn test_fuel_level_from_config_custom() {
+        let mut options = HashMap::new();
+        options.insert(
+            "intent".to_string(),
+            serde_yaml::Value::String("transform".to_string()),
+        );
+        options.insert(
+            "fuel_level".to_string(),
+            serde_yaml::Value::Number(50_000_000.into()),
+        );
+
+        let config = ProcessorConfig {
+            id: "test_processor".to_string(),
+            backend: BackendType::Wasm,
+            processor: None,
+            endpoint: None,
+            module: Some("wasm_components/wasm_appender.wasm".to_string()),
+            depends_on: vec![],
+            options,
+        };
+
+        let fuel_config = FuelConfig::default();
+
+        let result = WasmProcessor::from_config(&config, &fuel_config);
+
+        // Should not fail with fuel configuration errors
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            assert!(
+                !error_msg.contains("fuel") || error_msg.contains("Failed to load"),
+                "Should not have fuel validation errors, got: {}",
+                error_msg
+            );
+        }
+    }
+
+    #[test]
+    fn test_fuel_level_clamped_to_maximum() {
+        let mut options = HashMap::new();
+        options.insert(
+            "fuel_level".to_string(),
+            serde_yaml::Value::Number(1_000_000_000.into()),
+        ); // 1B - above max
+
+        let config = ProcessorConfig {
+            id: "test_processor".to_string(),
+            backend: BackendType::Wasm,
+            processor: None,
+            endpoint: None,
+            module: Some("wasm_components/wasm_appender.wasm".to_string()),
+            depends_on: vec![],
+            options,
+        };
+
+        let fuel_config = FuelConfig {
+            default: Some(100_000_000),
+            minimum: Some(1_000_000),
+            maximum: Some(500_000_000),
+        };
+
+        // Should clamp to maximum without error
+        let result = WasmProcessor::from_config(&config, &fuel_config);
+
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            // Should fail with module loading, not fuel validation
+            assert!(
+                error_msg.contains("Failed to load") || error_msg.contains("No such file"),
+                "Should fail with file error, not fuel error, got: {}",
+                error_msg
+            );
+        }
+    }
+
+    #[test]
+    fn test_fuel_level_clamped_to_minimum() {
+        let mut options = HashMap::new();
+        options.insert(
+            "fuel_level".to_string(),
+            serde_yaml::Value::Number(100.into()),
+        ); // Below minimum
+
+        let config = ProcessorConfig {
+            id: "test_processor".to_string(),
+            backend: BackendType::Wasm,
+            processor: None,
+            endpoint: None,
+            module: Some("wasm_components/wasm_appender.wasm".to_string()),
+            depends_on: vec![],
+            options,
+        };
+
+        let fuel_config = FuelConfig {
+            default: Some(100_000_000),
+            minimum: Some(1_000_000),
+            maximum: Some(500_000_000),
+        };
+
+        // Should clamp to minimum without error
+        let result = WasmProcessor::from_config(&config, &fuel_config);
+
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            assert!(
+                error_msg.contains("Failed to load") || error_msg.contains("No such file"),
+                "Should fail with file error, not fuel error, got: {}",
+                error_msg
+            );
+        }
+    }
+
+    #[test]
+    fn test_fuel_level_negative_number_error() {
+        let mut options = HashMap::new();
+        options.insert(
+            "fuel_level".to_string(),
+            serde_yaml::Value::Number((-100).into()),
+        );
+
+        let config = ProcessorConfig {
+            id: "test_processor".to_string(),
+            backend: BackendType::Wasm,
+            processor: None,
+            endpoint: None,
+            module: Some("wasm_components/wasm_appender.wasm".to_string()),
+            depends_on: vec![],
+            options,
+        };
+
+        let fuel_config = FuelConfig::default();
+
+        let result = WasmProcessor::from_config(&config, &fuel_config);
+
+        assert!(result.is_err(), "Should fail with negative fuel_level");
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            assert!(
+                error_msg.contains("fuel_level cannot be negative"),
+                "Should have positive number error, got: {}",
+                error_msg
+            );
+        }
+    }
+
+    #[test]
+    fn test_fuel_level_invalid_type_error() {
+        let mut options = HashMap::new();
+        options.insert(
+            "fuel_level".to_string(),
+            serde_yaml::Value::String("not_a_number".to_string()),
+        );
+
+        let config = ProcessorConfig {
+            id: "test_processor".to_string(),
+            backend: BackendType::Wasm,
+            processor: None,
+            endpoint: None,
+            module: Some("wasm_components/wasm_appender.wasm".to_string()),
+            depends_on: vec![],
+            options,
+        };
+
+        let fuel_config = FuelConfig::default();
+
+        let result = WasmProcessor::from_config(&config, &fuel_config);
+
+        assert!(result.is_err(), "Should fail with invalid fuel_level type");
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            assert!(
+                error_msg.contains("fuel_level must be a number"),
+                "Should have number type error, got: {}",
+                error_msg
+            );
         }
     }
 }

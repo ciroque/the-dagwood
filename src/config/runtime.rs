@@ -23,6 +23,7 @@ use crate::traits::DagExecutor;
 /// #     strategy: the_dagwood::config::Strategy::WorkQueue,
 /// #     failure_strategy: the_dagwood::errors::FailureStrategy::FailFast,
 /// #     executor_options: the_dagwood::config::ExecutorOptions::default(),
+/// #     wasm: the_dagwood::config::WasmConfig::default(),
 /// #     processors: vec![],
 /// # };
 ///

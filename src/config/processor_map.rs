@@ -119,13 +119,13 @@ impl ProcessorMap {
                     });
                 }
                 BackendType::Wasm => Arc::new(
-                    crate::backends::wasm::WasmProcessor::from_config(p).map_err(|e| {
-                        ProcessorMapError::ProcessorCreationFailed {
+                    crate::backends::wasm::WasmProcessor::from_config(p, &cfg.wasm.fuel).map_err(
+                        |e| ProcessorMapError::ProcessorCreationFailed {
                             processor_id: p.id.clone(),
                             backend: BackendType::Wasm,
                             reason: e.to_string(),
-                        }
-                    })?,
+                        },
+                    )?,
                 ),
             };
 
@@ -190,7 +190,9 @@ impl From<ProcessorMap> for HashMap<String, Arc<dyn Processor>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{BackendType, Config, ExecutorOptions, ProcessorConfig, Strategy};
+    use crate::config::{
+        BackendType, Config, ExecutorOptions, ProcessorConfig, Strategy, WasmConfig,
+    };
     use crate::errors::FailureStrategy;
     use std::collections::HashMap;
 
@@ -210,6 +212,7 @@ mod tests {
                     strategy: Strategy::WorkQueue,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![],
                 },
                 expected_processor_count: 0,
@@ -221,6 +224,7 @@ mod tests {
                     strategy: Strategy::WorkQueue,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![ProcessorConfig {
                         id: "local_proc".to_string(),
                         backend: BackendType::Local,
@@ -240,6 +244,7 @@ mod tests {
                     strategy: Strategy::Level,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![ProcessorConfig {
                         id: "loadable_proc".to_string(),
                         backend: BackendType::Loadable,
@@ -259,6 +264,7 @@ mod tests {
                     strategy: Strategy::Reactive,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![ProcessorConfig {
                         id: "grpc_proc".to_string(),
                         backend: BackendType::Grpc,
@@ -278,6 +284,7 @@ mod tests {
                     strategy: Strategy::Hybrid,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![ProcessorConfig {
                         id: "http_proc".to_string(),
                         backend: BackendType::Http,
@@ -297,6 +304,7 @@ mod tests {
                     strategy: Strategy::WorkQueue,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![ProcessorConfig {
                         id: "wasm_proc".to_string(),
                         backend: BackendType::Wasm,
@@ -316,6 +324,7 @@ mod tests {
                     strategy: Strategy::WorkQueue,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![
                         ProcessorConfig {
                             id: "local1".to_string(),
@@ -355,6 +364,7 @@ mod tests {
                     strategy: Strategy::Level,
                     failure_strategy: FailureStrategy::FailFast,
                     executor_options: ExecutorOptions::default(),
+                    wasm: WasmConfig::default(),
                     processors: vec![
                         ProcessorConfig {
                             id: "input".to_string(),
@@ -395,7 +405,10 @@ mod tests {
 
             // Check if test case contains unimplemented backends or invalid WASM files
             let has_unimplemented = test_case.config.processors.iter().any(|p| {
-                matches!(p.backend, BackendType::Loadable | BackendType::Grpc | BackendType::Http)
+                matches!(
+                    p.backend,
+                    BackendType::Loadable | BackendType::Grpc | BackendType::Http
+                )
             });
 
             let has_invalid_wasm = test_case.config.processors.iter().any(|p| {
@@ -466,6 +479,7 @@ mod tests {
                 strategy: Strategy::WorkQueue,
                 failure_strategy: FailureStrategy::FailFast,
                 executor_options: ExecutorOptions::default(),
+                wasm: WasmConfig::default(),
                 processors: vec![ProcessorConfig {
                     id: format!("processor_{}", i),
                     backend: backend_type.clone(),
@@ -518,6 +532,7 @@ mod tests {
             strategy: Strategy::WorkQueue,
             failure_strategy: FailureStrategy::FailFast,
             executor_options: ExecutorOptions::default(),
+            wasm: WasmConfig::default(),
             processors: vec![
                 ProcessorConfig {
                     id: "duplicate".to_string(),

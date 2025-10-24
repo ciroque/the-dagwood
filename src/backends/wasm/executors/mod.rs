@@ -77,7 +77,7 @@
 //! let bytes = std::fs::read("component.wasm")?;
 //! let component = Component::new(&engine, &bytes)?;
 //!
-//! let executor = WitNodeExecutor::new(component, engine)?;
+//! let executor = WitNodeExecutor::new(component, engine, 100_000_000)?;
 //! let output = executor.execute(b"input data")?;
 //! # Ok(())
 //! # }
@@ -94,7 +94,7 @@
 //! let bytes = std::fs::read("module.wasm")?;
 //! let module = Module::new(&engine, &bytes)?;
 //!
-//! let executor = CStyleNodeExecutor::new(module, engine)?;
+//! let executor = CStyleNodeExecutor::new(module, engine, 100_000_000)?;
 //! let output = executor.execute(b"input data")?;
 //! # Ok(())
 //! # }

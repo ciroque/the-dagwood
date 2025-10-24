@@ -39,6 +39,7 @@ pub fn create_engine(component_type: ComponentType) -> WasmResult<Engine> {
             tracing::debug!("Creating engine with Component Model support");
             let mut config = Config::new();
             config.wasm_component_model(true);
+            config.consume_fuel(true);
             Engine::new(&config).map_err(|e| WasmError::EngineError(e.to_string()))
         }
         ComponentType::CStyle => {

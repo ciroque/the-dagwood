@@ -1,0 +1,38 @@
+strategy: work_queue
+failure_strategy: fail_fast
+
+# Global WASM fuel configuration
+wasm:
+  fuel:
+    default: 100000000    # 100M instructions (default)
+    minimum: 1000000      # 1M instructions (security minimum)
+    maximum: 500000000    # 500M instructions (security maximum)
+
+processors:
+  - id: input
+    type: local
+    processor: change_text_case_upper
+    
+  - id: wasm_light
+    type: wasm
+    module: wasm_components/wasm_appender.wasm
+    depends_on: [input]
+    options:
+      intent: transform
+      fuel_level: 10000000  # 10M instructions - light workload
+      
+  - id: wasm_heavy
+    type: wasm
+    module: wasm_components/wasm_appender.wasm
+    depends_on: [wasm_light]
+    options:
+      intent: transform
+      fuel_level: 200000000  # 200M instructions - heavy workload
+      
+  - id: wasm_default
+    type: wasm
+    module: wasm_components/wasm_appender.wasm
+    depends_on: [wasm_heavy]
+    options:
+      intent: transform
+      # No fuel_level specified - uses global default (100M)

@@ -67,6 +67,7 @@ use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 pub struct WitNodeExecutor {
     component: Arc<Component>,
     engine: Arc<Engine>,
+    fuel_level: u64,
 }
 
 impl WitNodeExecutor {
@@ -75,14 +76,20 @@ impl WitNodeExecutor {
     /// # Arguments
     /// * `component` - Compiled Component Model component
     /// * `engine` - Configured Wasmtime engine with component model support
+    /// * `fuel_level` - Maximum fuel (instruction count) for execution
     ///
     /// # Returns
     /// * `Ok(WitNodeExecutor)` - Ready-to-use executor
     /// * `Err(ProcessingNodeError)` - If initialization fails
-    pub fn new(component: Component, engine: Engine) -> Result<Self, ProcessingNodeError> {
+    pub fn new(
+        component: Component,
+        engine: Engine,
+        fuel_level: u64,
+    ) -> Result<Self, ProcessingNodeError> {
         Ok(Self {
             component: Arc::new(component),
             engine: Arc::new(engine),
+            fuel_level,
         })
     }
 }
@@ -117,6 +124,10 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
             table: wasmtime::component::ResourceTable::new(),
         };
         let mut store = Store::new(&self.engine, store_data);
+
+        store
+            .set_fuel(self.fuel_level)
+            .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
 
         let mut linker = Linker::<Ctx>::new(&self.engine);
 

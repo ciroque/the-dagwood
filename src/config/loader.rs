@@ -451,7 +451,7 @@ processors:
 "#;
 
         let cfg: Config = serde_yaml::from_str(yaml).unwrap();
-        
+
         // Should use built-in defaults
         assert_eq!(cfg.wasm.fuel.get_default(), 100_000_000);
         assert_eq!(cfg.wasm.fuel.get_minimum(), 1_000_000);
@@ -474,7 +474,7 @@ processors:
 "#;
 
         let cfg: Config = serde_yaml::from_str(yaml).unwrap();
-        
+
         assert_eq!(cfg.wasm.fuel.get_default(), 200_000_000);
         assert_eq!(cfg.wasm.fuel.get_minimum(), 5_000_000);
         assert_eq!(cfg.wasm.fuel.get_maximum(), 300_000_000);
@@ -494,7 +494,7 @@ processors:
 "#;
 
         let cfg: Config = serde_yaml::from_str(yaml).unwrap();
-        
+
         // Custom default, built-in min/max
         assert_eq!(cfg.wasm.fuel.get_default(), 150_000_000);
         assert_eq!(cfg.wasm.fuel.get_minimum(), 1_000_000);
@@ -511,13 +511,13 @@ processors:
 
         // Within bounds - no change
         assert_eq!(config.validate_and_clamp(50_000_000), 50_000_000);
-        
+
         // Below minimum - clamped to minimum
         assert_eq!(config.validate_and_clamp(1_000_000), 10_000_000);
-        
+
         // Above maximum - clamped to maximum
         assert_eq!(config.validate_and_clamp(1_000_000_000), 200_000_000);
-        
+
         // Exactly at bounds
         assert_eq!(config.validate_and_clamp(10_000_000), 10_000_000);
         assert_eq!(config.validate_and_clamp(200_000_000), 200_000_000);

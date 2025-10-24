@@ -413,7 +413,10 @@ mod tests {
     #[test]
     fn test_fuel_level_from_config_default() {
         let mut options = HashMap::new();
-        options.insert("intent".to_string(), serde_yaml::Value::String("transform".to_string()));
+        options.insert(
+            "intent".to_string(),
+            serde_yaml::Value::String("transform".to_string()),
+        );
 
         let config = ProcessorConfig {
             id: "test_processor".to_string(),
@@ -426,11 +429,11 @@ mod tests {
         };
 
         let fuel_config = FuelConfig::default();
-        
+
         // This test validates that the processor can be created with default fuel
         // The actual execution would require the WASM file to exist
         let result = WasmProcessor::from_config(&config, &fuel_config);
-        
+
         // We expect this to fail with module loading error since we're in test,
         // but it should NOT fail with fuel configuration errors
         if let Err(e) = result {
@@ -446,8 +449,14 @@ mod tests {
     #[test]
     fn test_fuel_level_from_config_custom() {
         let mut options = HashMap::new();
-        options.insert("intent".to_string(), serde_yaml::Value::String("transform".to_string()));
-        options.insert("fuel_level".to_string(), serde_yaml::Value::Number(50_000_000.into()));
+        options.insert(
+            "intent".to_string(),
+            serde_yaml::Value::String("transform".to_string()),
+        );
+        options.insert(
+            "fuel_level".to_string(),
+            serde_yaml::Value::Number(50_000_000.into()),
+        );
 
         let config = ProcessorConfig {
             id: "test_processor".to_string(),
@@ -460,9 +469,9 @@ mod tests {
         };
 
         let fuel_config = FuelConfig::default();
-        
+
         let result = WasmProcessor::from_config(&config, &fuel_config);
-        
+
         // Should not fail with fuel configuration errors
         if let Err(e) = result {
             let error_msg = e.to_string();
@@ -477,7 +486,10 @@ mod tests {
     #[test]
     fn test_fuel_level_clamped_to_maximum() {
         let mut options = HashMap::new();
-        options.insert("fuel_level".to_string(), serde_yaml::Value::Number(1_000_000_000.into())); // 1B - above max
+        options.insert(
+            "fuel_level".to_string(),
+            serde_yaml::Value::Number(1_000_000_000.into()),
+        ); // 1B - above max
 
         let config = ProcessorConfig {
             id: "test_processor".to_string(),
@@ -494,10 +506,10 @@ mod tests {
             minimum: Some(1_000_000),
             maximum: Some(500_000_000),
         };
-        
+
         // Should clamp to maximum without error
         let result = WasmProcessor::from_config(&config, &fuel_config);
-        
+
         if let Err(e) = result {
             let error_msg = e.to_string();
             // Should fail with module loading, not fuel validation
@@ -512,7 +524,10 @@ mod tests {
     #[test]
     fn test_fuel_level_clamped_to_minimum() {
         let mut options = HashMap::new();
-        options.insert("fuel_level".to_string(), serde_yaml::Value::Number(100.into())); // Below minimum
+        options.insert(
+            "fuel_level".to_string(),
+            serde_yaml::Value::Number(100.into()),
+        ); // Below minimum
 
         let config = ProcessorConfig {
             id: "test_processor".to_string(),
@@ -529,10 +544,10 @@ mod tests {
             minimum: Some(1_000_000),
             maximum: Some(500_000_000),
         };
-        
+
         // Should clamp to minimum without error
         let result = WasmProcessor::from_config(&config, &fuel_config);
-        
+
         if let Err(e) = result {
             let error_msg = e.to_string();
             assert!(
@@ -546,7 +561,10 @@ mod tests {
     #[test]
     fn test_fuel_level_negative_number_error() {
         let mut options = HashMap::new();
-        options.insert("fuel_level".to_string(), serde_yaml::Value::Number((-100).into()));
+        options.insert(
+            "fuel_level".to_string(),
+            serde_yaml::Value::Number((-100).into()),
+        );
 
         let config = ProcessorConfig {
             id: "test_processor".to_string(),
@@ -559,9 +577,9 @@ mod tests {
         };
 
         let fuel_config = FuelConfig::default();
-        
+
         let result = WasmProcessor::from_config(&config, &fuel_config);
-        
+
         assert!(result.is_err(), "Should fail with negative fuel_level");
         if let Err(e) = result {
             let error_msg = e.to_string();
@@ -576,7 +594,10 @@ mod tests {
     #[test]
     fn test_fuel_level_invalid_type_error() {
         let mut options = HashMap::new();
-        options.insert("fuel_level".to_string(), serde_yaml::Value::String("not_a_number".to_string()));
+        options.insert(
+            "fuel_level".to_string(),
+            serde_yaml::Value::String("not_a_number".to_string()),
+        );
 
         let config = ProcessorConfig {
             id: "test_processor".to_string(),
@@ -589,9 +610,9 @@ mod tests {
         };
 
         let fuel_config = FuelConfig::default();
-        
+
         let result = WasmProcessor::from_config(&config, &fuel_config);
-        
+
         assert!(result.is_err(), "Should fail with invalid fuel_level type");
         if let Err(e) = result {
             let error_msg = e.to_string();

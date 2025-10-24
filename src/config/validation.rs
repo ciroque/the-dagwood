@@ -117,7 +117,7 @@
 //! }
 //! ```
 
-use crate::config::{Config};
+use crate::config::Config;
 use crate::errors::ValidationError;
 use std::collections::{HashMap, HashSet};
 

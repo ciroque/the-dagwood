@@ -81,7 +81,11 @@ impl WitNodeExecutor {
     /// # Returns
     /// * `Ok(WitNodeExecutor)` - Ready-to-use executor
     /// * `Err(ProcessingNodeError)` - If initialization fails
-    pub fn new(component: Component, engine: Engine, fuel_level: u64) -> Result<Self, ProcessingNodeError> {
+    pub fn new(
+        component: Component,
+        engine: Engine,
+        fuel_level: u64,
+    ) -> Result<Self, ProcessingNodeError> {
         Ok(Self {
             component: Arc::new(component),
             engine: Arc::new(engine),

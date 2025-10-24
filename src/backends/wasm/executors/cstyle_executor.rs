@@ -76,7 +76,11 @@ impl CStyleNodeExecutor {
     /// # Returns
     /// * `Ok(CStyleNodeExecutor)` - Ready-to-use executor
     /// * `Err(ProcessingNodeError)` - If initialization fails
-    pub fn new(module: Module, engine: Engine, fuel_level: u64) -> Result<Self, ProcessingNodeError> {
+    pub fn new(
+        module: Module,
+        engine: Engine,
+        fuel_level: u64,
+    ) -> Result<Self, ProcessingNodeError> {
         Ok(Self {
             module: Arc::new(module),
             engine: Arc::new(engine),
@@ -297,8 +301,8 @@ mod tests {
         let bytes = load_wasm_bytes(wasm_path).expect("Failed to load wasm_appender module");
         let component_type =
             detect_component_type(&bytes).expect("Failed to detect component type");
-        let executor =
-            create_executor(&bytes, component_type, 100_000_000).expect("Failed to create CStyleNodeExecutor");
+        let executor = create_executor(&bytes, component_type, 100_000_000)
+            .expect("Failed to create CStyleNodeExecutor");
 
         let input = b"hello";
 

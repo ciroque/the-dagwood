@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
-use crate::config::{BackendType};
+use crate::config::BackendType;
 use crate::errors::ProcessorMapError;
 use crate::traits::Processor;
 use std::collections::HashMap;
@@ -119,13 +119,13 @@ impl ProcessorMap {
                     });
                 }
                 BackendType::Wasm => Arc::new(
-                    crate::backends::wasm::WasmProcessor::from_config(p, &cfg.wasm.fuel).map_err(|e| {
-                        ProcessorMapError::ProcessorCreationFailed {
+                    crate::backends::wasm::WasmProcessor::from_config(p, &cfg.wasm.fuel).map_err(
+                        |e| ProcessorMapError::ProcessorCreationFailed {
                             processor_id: p.id.clone(),
                             backend: BackendType::Wasm,
                             reason: e.to_string(),
-                        }
-                    })?,
+                        },
+                    )?,
                 ),
             };
 
@@ -403,7 +403,10 @@ mod tests {
 
             // Check if test case contains unimplemented backends or invalid WASM files
             let has_unimplemented = test_case.config.processors.iter().any(|p| {
-                matches!(p.backend, BackendType::Loadable | BackendType::Grpc | BackendType::Http)
+                matches!(
+                    p.backend,
+                    BackendType::Loadable | BackendType::Grpc | BackendType::Http
+                )
             });
 
             let has_invalid_wasm = test_case.config.processors.iter().any(|p| {

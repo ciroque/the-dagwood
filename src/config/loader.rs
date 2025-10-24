@@ -1,13 +1,12 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
+use crate::config::consts::{DEFAULT_FUEL_LEVEL, MAX_FUEL_LEVEL, MIN_FUEL_LEVEL};
 use crate::errors::FailureStrategy;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use crate::config::consts::{DEFAULT_FUEL_LEVEL, MIN_FUEL_LEVEL, MAX_FUEL_LEVEL};
-
 
 /// Main configuration structure for the DAG execution engine.
 ///

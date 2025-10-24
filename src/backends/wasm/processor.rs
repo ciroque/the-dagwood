@@ -177,7 +177,7 @@ impl WasmProcessor {
         let bytes = load_wasm_bytes(&module_path)?;
         let component_type = detect_component_type(&bytes)
             .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
-        let executor = create_executor(&bytes, component_type, DEFAULT_FUEL_LEVEL )?.into();
+        let executor = create_executor(&bytes, component_type, DEFAULT_FUEL_LEVEL)?.into();
 
         Ok(Self {
             processor_id,

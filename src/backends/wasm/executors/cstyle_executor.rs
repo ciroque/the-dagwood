@@ -289,10 +289,11 @@ mod tests {
             return;
         }
 
-        use crate::backends::wasm::{load_wasm_bytes, detect_component_type};
+        use crate::backends::wasm::{detect_component_type, load_wasm_bytes};
 
         let bytes = load_wasm_bytes(wasm_path).expect("Failed to load wasm_appender module");
-        let component_type = detect_component_type(&bytes).expect("Failed to detect component type");
+        let component_type =
+            detect_component_type(&bytes).expect("Failed to detect component type");
         let executor =
             create_executor(&bytes, component_type).expect("Failed to create CStyleNodeExecutor");
 

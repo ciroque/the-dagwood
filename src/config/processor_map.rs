@@ -119,7 +119,7 @@ impl ProcessorMap {
                     });
                 }
                 BackendType::Wasm => Arc::new(
-                    crate::backends::wasm::WasmProcessor::from_config(p).map_err(|e| {
+                    crate::backends::wasm::WasmProcessor::from_config(p, &cfg.wasm.fuel).map_err(|e| {
                         ProcessorMapError::ProcessorCreationFailed {
                             processor_id: p.id.clone(),
                             backend: BackendType::Wasm,

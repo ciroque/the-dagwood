@@ -62,6 +62,7 @@ use wasmtime::*;
 pub struct CStyleNodeExecutor {
     module: Arc<Module>,
     engine: Arc<Engine>,
+    fuel_level: u64,
 }
 
 impl CStyleNodeExecutor {
@@ -70,14 +71,16 @@ impl CStyleNodeExecutor {
     /// # Arguments
     /// * `module` - Compiled WASM module
     /// * `engine` - Configured Wasmtime engine
+    /// * `fuel_level` - Maximum fuel (instruction count) for execution
     ///
     /// # Returns
     /// * `Ok(CStyleNodeExecutor)` - Ready-to-use executor
     /// * `Err(ProcessingNodeError)` - If initialization fails
-    pub fn new(module: Module, engine: Engine) -> Result<Self, ProcessingNodeError> {
+    pub fn new(module: Module, engine: Engine, fuel_level: u64) -> Result<Self, ProcessingNodeError> {
         Ok(Self {
             module: Arc::new(module),
             engine: Arc::new(engine),
+            fuel_level,
         })
     }
 }
@@ -87,7 +90,7 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
         let mut store = Store::new(&self.engine, ());
 
         store
-            .set_fuel(100_000_000)
+            .set_fuel(self.fuel_level)
             .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
 
         let instance = Instance::new(&mut store, &self.module, &[])
@@ -295,7 +298,7 @@ mod tests {
         let component_type =
             detect_component_type(&bytes).expect("Failed to detect component type");
         let executor =
-            create_executor(&bytes, component_type).expect("Failed to create CStyleNodeExecutor");
+            create_executor(&bytes, component_type, 100_000_000).expect("Failed to create CStyleNodeExecutor");
 
         let input = b"hello";
 

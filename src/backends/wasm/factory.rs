@@ -25,6 +25,7 @@ use wasmtime::Module;
 /// # Arguments
 /// * `bytes` - The WASM binary bytes (from `load_wasm_bytes()`)
 /// * `component_type` - The detected component type (from `detect_component_type()`)
+/// * `fuel_level` - Maximum fuel (instruction count) for execution
 ///
 /// # Returns
 /// * `Ok(Box<dyn ProcessingNodeExecutor>)` - Executor ready for use
@@ -37,27 +38,34 @@ use wasmtime::Module;
 pub fn create_executor(
     bytes: &[u8],
     component_type: ComponentType,
+    fuel_level: u64,
 ) -> WasmResult<Box<dyn ProcessingNodeExecutor>> {
     let engine = create_engine(component_type)?;
     match component_type {
         ComponentType::Wit => {
-            tracing::debug!("Creating WitNodeExecutor for Component Model component");
+            tracing::debug!(
+                "Creating WitNodeExecutor for Component Model component with fuel_level={}",
+                fuel_level
+            );
 
             let component = Component::new(&engine, bytes).map_err(|e| {
                 WasmError::ModuleError(format!("Failed to parse Component Model component: {}", e))
             })?;
 
-            let executor = WitNodeExecutor::new(component, engine)?;
+            let executor = WitNodeExecutor::new(component, engine, fuel_level)?;
             Ok(Box::new(executor))
         }
         ComponentType::CStyle => {
-            tracing::debug!("Creating CStyleNodeExecutor for classic WASM module");
+            tracing::debug!(
+                "Creating CStyleNodeExecutor for classic WASM module with fuel_level={}",
+                fuel_level
+            );
 
             let module = Module::new(&engine, bytes).map_err(|e| {
                 WasmError::ModuleError(format!("Failed to parse classic WASM module: {}", e))
             })?;
 
-            let executor = CStyleNodeExecutor::new(module, engine)?;
+            let executor = CStyleNodeExecutor::new(module, engine, fuel_level)?;
             Ok(Box::new(executor))
         }
     }
@@ -84,7 +92,7 @@ mod tests {
     #[test]
     fn test_create_classic_executor() {
         let wasm_bytes = create_minimal_wasm_module();
-        let result = create_executor(&wasm_bytes, ComponentType::CStyle);
+        let result = create_executor(&wasm_bytes, ComponentType::CStyle, 100_000_000);
 
         assert!(
             result.is_ok(),
@@ -95,7 +103,7 @@ mod tests {
     #[test]
     fn test_invalid_wasm_bytes() {
         let invalid_bytes = b"not a valid wasm module";
-        let result = create_executor(invalid_bytes, ComponentType::CStyle);
+        let result = create_executor(invalid_bytes, ComponentType::CStyle, 100_000_000);
 
         assert!(result.is_err(), "Should fail with invalid WASM bytes");
 

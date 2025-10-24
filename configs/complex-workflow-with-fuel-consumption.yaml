@@ -1,0 +1,75 @@
+# Demo 5: Complex Workflow - Multi-type Pipeline
+# This demonstrates advanced DAG with multiple types and execution strategies
+
+strategy: level  # Use level-by-level execution for comparison
+failure_strategy: best_effort
+
+executor_options:
+  max_concurrency: 6
+
+# WASM fuel configuration for resource control
+wasm:
+  fuel:
+    default: 100000000    # 100M instructions (default)
+    minimum: 1000000      # 1M instructions (security floor)
+    maximum: 500000000    # 500M instructions (security ceiling)
+
+processors:
+  # Entry points: multiple input processors
+  - id: to-upper-case
+    type: local
+    processor: change_text_case_upper
+    depends_on: []
+    options: {}
+
+  - id: to-lower-case
+    type: local
+    processor: change_text_case_lower
+    depends_on: []
+    options: {}
+
+  # Processing layer: mix of local and WASM
+  - id: reverse-text
+    type: local
+    processor: reverse_text
+    depends_on: [to-upper-case]
+    options: {}
+
+  - id: append-wasm
+    type: wasm
+    module: wasm_components/wasm_appender.wasm
+    depends_on: [to-lower-case]
+    options:
+      intent: transform
+      fuel_level: 1000000
+
+  # Analysis layer: parallel analysis of both paths
+  - id: count-tokens
+    type: local
+    processor: token_counter
+    depends_on: [reverse-text]
+    options:
+      count_type: "characters"
+
+  - id: analyze-word-frequencies
+    type: local
+    processor: word_frequency_analyzer
+    depends_on: [append-wasm]
+    options: {}
+
+  - id: run-length-encode-Rust
+    type: wasm
+    module: ./wasm_components/rle_rust.wasm
+    depends_on: [analyze-word-frequencies]
+    options:
+      intent: transform
+      fuel_level: 150000000  # 150M - WIT component, encoding algorithm needs more fuel
+
+  # Convergence: combine all results
+  - id: final_merge
+    type: local
+    processor: prefix_suffix_adder
+    depends_on: [run-length-encode-Rust]
+    options:
+      prefix: "🔄 Multi-type Result: "
+      suffix: " [COMPLETE]"

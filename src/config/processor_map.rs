@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
-use crate::config::{BackendType, WasmConfig};
+use crate::config::{BackendType};
 use crate::errors::ProcessorMapError;
 use crate::traits::Processor;
 use std::collections::HashMap;

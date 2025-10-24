@@ -6,13 +6,8 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use crate::config::consts::{DEFAULT_FUEL_LEVEL, MIN_FUEL_LEVEL, MAX_FUEL_LEVEL};
 
-/// Default fuel level for WASM execution (100 million instructions)
-const DEFAULT_FUEL_LEVEL: u64 = 100_000_000;
-/// Minimum allowed fuel level (1 million instructions)
-const MIN_FUEL_LEVEL: u64 = 1_000_000;
-/// Maximum allowed fuel level (500 million instructions) - security limit
-const MAX_FUEL_LEVEL: u64 = 500_000_000;
 
 /// Main configuration structure for the DAG execution engine.
 ///

@@ -41,7 +41,7 @@ processors:
     depends_on: [to-lower-case]
     options:
       intent: transform
-      fuel_level: 1000000
+      fuel_level: 2000000
 
   # Analysis layer: parallel analysis of both paths
   - id: count-tokens

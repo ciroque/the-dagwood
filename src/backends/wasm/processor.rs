@@ -60,7 +60,7 @@
 //! ## Creating from Configuration
 //! ```rust,no_run
 //! use the_dagwood::backends::wasm::WasmProcessor;
-//! use the_dagwood::config::{ProcessorConfig, BackendType};
+//! use the_dagwood::config::{ProcessorConfig, BackendType, FuelConfig};
 //! use std::collections::HashMap;
 //! use serde_yaml::Value;
 //!
@@ -77,7 +77,8 @@
 //!     options,
 //! };
 //!
-//! let processor = WasmProcessor::from_config(&config)?;
+//! let fuel_config = FuelConfig::default();
+//! let processor = WasmProcessor::from_config(&config, &fuel_config)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -108,6 +109,7 @@ use crate::backends::wasm::error::WasmResult;
 use crate::backends::wasm::factory::create_executor;
 use crate::backends::wasm::loader::load_wasm_bytes;
 use crate::backends::wasm::processing_node::ProcessingNodeExecutor;
+use crate::config::consts::DEFAULT_FUEL_LEVEL;
 use crate::proto::processor_v1::{
     processor_response::Outcome, ErrorDetail, PipelineMetadata, ProcessorMetadata,
     ProcessorRequest, ProcessorResponse,
@@ -175,8 +177,7 @@ impl WasmProcessor {
         let bytes = load_wasm_bytes(&module_path)?;
         let component_type = detect_component_type(&bytes)
             .map_err(|e| crate::backends::wasm::WasmError::ValidationError(e.to_string()))?;
-        // Use default fuel level (100M) for direct instantiation
-        let executor = create_executor(&bytes, component_type, 100_000_000)?.into();
+        let executor = create_executor(&bytes, component_type, DEFAULT_FUEL_LEVEL )?.into();
 
         Ok(Self {
             processor_id,

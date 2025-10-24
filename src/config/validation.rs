@@ -38,7 +38,7 @@
 //!
 //! ## Basic validation usage
 //! ```rust
-//! use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions};
+//! use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions, WasmConfig};
 //! use the_dagwood::errors::FailureStrategy;
 //! use std::collections::HashMap;
 //!
@@ -47,6 +47,7 @@
 //!     strategy: Strategy::WorkQueue,
 //!     failure_strategy: FailureStrategy::FailFast,
 //!     executor_options: ExecutorOptions::default(),
+//!     wasm: WasmConfig::default(),
 //!     processors: vec![
 //!         ProcessorConfig {
 //!             id: "processor1".to_string(),
@@ -73,7 +74,7 @@
 //!
 //! ## Handling specific validation errors
 //! ```rust
-//! use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions};
+//! use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions, WasmConfig};
 //! use the_dagwood::errors::{ValidationError, FailureStrategy};
 //! use std::collections::HashMap;
 //!
@@ -82,6 +83,7 @@
 //!     strategy: Strategy::WorkQueue,
 //!     failure_strategy: FailureStrategy::FailFast,
 //!     executor_options: ExecutorOptions::default(),
+//!     wasm: WasmConfig::default(),
 //!     processors: vec![
 //!         ProcessorConfig {
 //!             id: "processor1".to_string(),
@@ -145,7 +147,7 @@ use std::collections::{HashMap, HashSet};
 /// # Examples
 ///
 /// ```rust
-/// use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions};
+/// use the_dagwood::config::{validate_dependency_graph, Config, Strategy, ProcessorConfig, BackendType, ExecutorOptions, WasmConfig};
 /// use the_dagwood::errors::FailureStrategy;
 /// use std::collections::HashMap;
 ///
@@ -154,6 +156,7 @@ use std::collections::{HashMap, HashSet};
 ///     strategy: Strategy::WorkQueue,
 ///     failure_strategy: FailureStrategy::FailFast,
 ///     executor_options: ExecutorOptions::default(),
+///     wasm: WasmConfig::default(),
 ///     processors: vec![
 ///         ProcessorConfig {
 ///             id: "input".to_string(),
@@ -661,7 +664,7 @@ fn has_path_between(from: &str, to: &str, graph: &HashMap<&String, Vec<&String>>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{BackendType, ProcessorConfig, Strategy};
+    use crate::config::{BackendType, ProcessorConfig, Strategy, WasmConfig};
 
     fn create_test_processor(id: &str, depends_on: Vec<&str>) -> ProcessorConfig {
         ProcessorConfig {

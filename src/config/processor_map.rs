@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Steve Wagner (ciroque@live.com)
 // SPDX-License-Identifier: MIT
 
-use crate::config::BackendType;
+use crate::config::{BackendType};
 use crate::errors::ProcessorMapError;
 use crate::traits::Processor;
 use std::collections::HashMap;
@@ -190,7 +190,7 @@ impl From<ProcessorMap> for HashMap<String, Arc<dyn Processor>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{BackendType, Config, ExecutorOptions, ProcessorConfig, Strategy};
+    use crate::config::{BackendType, Config, ExecutorOptions, ProcessorConfig, Strategy, WasmConfig};
     use crate::errors::FailureStrategy;
     use std::collections::HashMap;
 

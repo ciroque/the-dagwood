@@ -84,7 +84,7 @@
 //!
 //! let bytes = load_wasm_bytes("processor.wasm")?;
 //! let component_type = detect_component_type(&bytes)?;
-//! let executor = create_executor(&bytes, component_type)?;
+//! let executor = create_executor(&bytes, component_type, 100_000_000)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -135,7 +135,7 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let bytes = load_wasm_bytes("processor.wasm")?;
 //! let component_type = detect_component_type(&bytes)?;
-//! let executor = create_executor(&bytes, component_type)?;
+//! let executor = create_executor(&bytes, component_type, 100_000_000)?;
 //!
 //! let input = b"test input";
 //! let output = executor.execute(input)?;

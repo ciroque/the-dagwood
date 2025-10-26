@@ -50,7 +50,9 @@ use super::super::{
         ComponentExecutionError, ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor,
     },
 };
+use crate::observability::messages::{wasm::*, StructuredLog};
 use std::sync::Arc;
+use std::time::Instant;
 use wasmtime::component::{Component, Linker};
 use wasmtime::{Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
@@ -114,6 +116,18 @@ impl WasiView for Ctx {
 
 impl ProcessingNodeExecutor for WitNodeExecutor {
     fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
+        let start_msg = ExecutionStarted {
+            module_path: "<wit-component>",
+            executor_type: "WitNodeExecutor",
+            input_size: input.len(),
+        };
+
+        let span = start_msg.span("wasm_execution");
+        let _guard = span.enter();
+        start_msg.log();
+
+        let start_time = Instant::now();
+
         let wasi_ctx = WasiCtxBuilder::new()
             .inherit_stdio()
             .args(&["dagwood-component"])
@@ -157,9 +171,32 @@ impl ProcessingNodeExecutor for WitNodeExecutor {
             ProcessingNodeError::ComponentError(ComponentExecutionError::FunctionCallFailed(
                 format!("Component process() returned error: {:?}", processing_error),
             ))
-        })?;
+        });
 
-        Ok(output)
+        let duration = start_time.elapsed();
+
+        match &output {
+            Ok(out) => {
+                ExecutionCompleted {
+                    module_path: "<wit-component>",
+                    executor_type: "WitNodeExecutor",
+                    input_size: input.len(),
+                    output_size: out.len(),
+                    duration,
+                }
+                .log();
+            }
+            Err(e) => {
+                ExecutionFailed {
+                    module_path: "<wit-component>",
+                    executor_type: "WitNodeExecutor",
+                    error: e,
+                }
+                .log();
+            }
+        }
+
+        output
     }
 
     fn artifact_type(&self) -> &'static str {

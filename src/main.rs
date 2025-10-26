@@ -8,6 +8,7 @@ use std::time::Instant;
 use the_dagwood::config::{load_and_validate_config, DependencyGraph, EntryPoints, RuntimeBuilder};
 use the_dagwood::proto::processor_v1::processor_response::Outcome;
 use the_dagwood::proto::processor_v1::ProcessorRequest;
+use tracing_subscriber::EnvFilter;
 
 /// Get the default concurrency level based on system capabilities
 ///
@@ -39,6 +40,18 @@ fn wait_for_keypress(prompt: &str) {
 
 #[tokio::main]
 async fn main() {
+    // Initialize tracing subscriber for structured logging
+    // Default to INFO level, override with RUST_LOG environment variable
+    // Example: RUST_LOG=debug cargo run
+    tracing_subscriber::fmt()
+        .with_target(true)  // Show module path
+        .with_level(true)   // Show log level
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("info"))
+        )
+        .init();
+
     let args: Vec<String> = env::args().collect();
 
     // Check for demo mode

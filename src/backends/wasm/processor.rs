@@ -315,27 +315,43 @@ impl WasmProcessor {
         &self,
         input: &[u8],
     ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-        tracing::debug!(
-            "Executing WASM module '{}' using {} executor",
-            self.module_path,
-            self.executor.artifact_type()
+        use crate::observability::messages::wasm::{ExecutionStarted, ExecutionCompleted, ExecutionFailed};
+        use std::time::Instant;
+        
+        let start = Instant::now();
+        
+        tracing::info!(
+            "{}",
+            ExecutionStarted {
+                module_path: &self.module_path,
+                executor_type: self.executor.artifact_type(),
+                input_size: input.len(),
+            }
         );
 
         match self.executor.execute(input) {
             Ok(output) => {
-                tracing::debug!(
-                    "WASM execution successful: input_size={}, output_size={}, artifact_type={}",
-                    input.len(),
-                    output.len(),
-                    self.executor.artifact_type()
+                let duration = start.elapsed();
+                tracing::info!(
+                    "{}",
+                    ExecutionCompleted {
+                        module_path: &self.module_path,
+                        executor_type: self.executor.artifact_type(),
+                        input_size: input.len(),
+                        output_size: output.len(),
+                        duration,
+                    }
                 );
                 Ok(output)
             }
             Err(error) => {
                 tracing::error!(
-                    "WASM execution failed for {}: {}",
-                    self.executor.artifact_type(),
-                    error
+                    "{}",
+                    ExecutionFailed {
+                        module_path: &self.module_path,
+                        executor_type: self.executor.artifact_type(),
+                        error: &error,
+                    }
                 );
                 Err(Box::new(error))
             }

@@ -3,7 +3,9 @@
 
 use async_trait::async_trait;
 use std::collections::HashMap;
+use std::time::Instant;
 
+use crate::observability::messages::{processor::*, StructuredLog};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::{
     ErrorDetail, PipelineMetadata, ProcessorMetadata, ProcessorRequest, ProcessorResponse,
@@ -22,9 +24,27 @@ impl WordFrequencyAnalyzerProcessor {
 #[async_trait]
 impl Processor for WordFrequencyAnalyzerProcessor {
     async fn process(&self, req: ProcessorRequest) -> ProcessorResponse {
+        let start_msg = ProcessorExecutionStarted {
+            processor_id: self.name(),
+            input_size: req.payload.len(),
+        };
+
+        let span = start_msg.span("processor_execution");
+        let _guard = span.enter();
+        start_msg.log();
+
+        let start_time = Instant::now();
+
         let input = match String::from_utf8(req.payload.clone()) {
             Ok(text) => text,
             Err(e) => {
+                let error = std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid UTF-8 input: {}", e));
+                ProcessorExecutionFailed {
+                    processor_id: self.name(),
+                    error: &error,
+                }
+                .log();
+
                 return ProcessorResponse {
                     outcome: Some(Outcome::Error(ErrorDetail {
                         code: 400,
@@ -70,6 +90,16 @@ impl Processor for WordFrequencyAnalyzerProcessor {
                 metadata: analysis_metadata,
             },
         );
+
+        let duration = start_time.elapsed();
+
+        ProcessorExecutionCompleted {
+            processor_id: self.name(),
+            input_size: start_msg.input_size,
+            output_size: 0, // Analyze processor - no output payload
+            duration,
+        }
+        .log();
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(vec![])), // Analyze processors: return empty payload (executor ignores it)

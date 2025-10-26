@@ -19,7 +19,8 @@ const MAX_WASM_SIZE: usize = 16 * 1024 * 1024;
 /// doesn't exceed the maximum allowed size. It does not parse or validate the
 /// WASM format itself - use `wasm_encoding()` for that.
 ///
-/// * `path` - Path to the WASM file
+/// # Arguments
+/// * `path` - Path to the WASM file to load
 ///
 /// # Returns
 /// * `Ok(Vec<u8>)` - The WASM binary bytes

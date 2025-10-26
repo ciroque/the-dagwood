@@ -10,7 +10,9 @@
 //! * Duplicate processor ID detection
 //! * Diamond pattern warnings
 
+use crate::observability::messages::StructuredLog;
 use std::fmt::{Display, Formatter};
+use tracing::Span;
 
 /// Cyclic dependency detected in configuration.
 ///
@@ -35,6 +37,26 @@ pub struct CyclicDependencyDetected<'a> {
 impl Display for CyclicDependencyDetected<'_> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "Cyclic dependency detected: {}", self.cycle.join(" -> "))
+    }
+}
+
+impl StructuredLog for CyclicDependencyDetected<'_> {
+    fn log(&self) {
+        tracing::error!(
+            cycle = self.cycle.join(" -> "),
+            cycle_length = self.cycle.len(),
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::ERROR,
+            "span_name",
+            name = name,
+            cycle = self.cycle.join(" -> "),
+            cycle_length = self.cycle.len(),
+        )
     }
 }
 
@@ -69,6 +91,26 @@ impl Display for UnresolvedDependency<'_> {
     }
 }
 
+impl StructuredLog for UnresolvedDependency<'_> {
+    fn log(&self) {
+        tracing::error!(
+            processor_id = self.processor_id,
+            missing_dependency = self.missing_dependency,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::ERROR,
+            "span_name",
+            name = name,
+            processor_id = self.processor_id,
+            missing_dependency = self.missing_dependency,
+        )
+    }
+}
+
 /// Duplicate processor ID detected in configuration.
 ///
 /// # Log Level
@@ -91,6 +133,24 @@ pub struct DuplicateProcessorId<'a> {
 impl Display for DuplicateProcessorId<'_> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "Duplicate processor ID: '{}'", self.processor_id)
+    }
+}
+
+impl StructuredLog for DuplicateProcessorId<'_> {
+    fn log(&self) {
+        tracing::error!(
+            processor_id = self.processor_id,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::ERROR,
+            "span_name",
+            name = name,
+            processor_id = self.processor_id,
+        )
     }
 }
 
@@ -129,6 +189,26 @@ impl Display for DiamondPatternDetected<'_> {
     }
 }
 
+impl StructuredLog for DiamondPatternDetected<'_> {
+    fn log(&self) {
+        tracing::warn!(
+            convergence_processor = self.convergence_processor,
+            parallel_path_count = self.parallel_path_count,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::WARN,
+            "span_name",
+            name = name,
+            convergence_processor = self.convergence_processor,
+            parallel_path_count = self.parallel_path_count,
+        )
+    }
+}
+
 /// Configuration validation started.
 ///
 /// # Log Level
@@ -154,6 +234,24 @@ impl Display for ValidationStarted {
             f,
             "Starting configuration validation for {} processors",
             self.processor_count
+        )
+    }
+}
+
+impl StructuredLog for ValidationStarted {
+    fn log(&self) {
+        tracing::info!(
+            processor_count = self.processor_count,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            processor_count = self.processor_count,
         )
     }
 }
@@ -197,6 +295,28 @@ impl Display for ValidationCompleted {
     }
 }
 
+impl StructuredLog for ValidationCompleted {
+    fn log(&self) {
+        tracing::info!(
+            processor_count = self.processor_count,
+            warning_count = self.warning_count,
+            has_warnings = self.warning_count > 0,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            processor_count = self.processor_count,
+            warning_count = self.warning_count,
+            has_warnings = self.warning_count > 0,
+        )
+    }
+}
+
 /// Configuration validation failed.
 ///
 /// # Log Level
@@ -222,6 +342,24 @@ impl Display for ValidationFailed {
             f,
             "Configuration validation failed with {} errors",
             self.error_count
+        )
+    }
+}
+
+impl StructuredLog for ValidationFailed {
+    fn log(&self) {
+        tracing::error!(
+            error_count = self.error_count,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::ERROR,
+            "span_name",
+            name = name,
+            error_count = self.error_count,
         )
     }
 }

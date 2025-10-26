@@ -9,7 +9,9 @@
 //! * WASM executor creation and configuration
 //! * WASM execution lifecycle and performance
 
+use crate::observability::messages::StructuredLog;
 use std::fmt::{Display, Formatter};
+use tracing::Span;
 
 /// WASM module loaded successfully.
 ///
@@ -38,6 +40,26 @@ impl Display for ModuleLoaded<'_> {
             f,
             "Loaded WASM module: {} ({} bytes)",
             self.module_path, self.size_bytes
+        )
+    }
+}
+
+impl StructuredLog for ModuleLoaded<'_> {
+    fn log(&self) {
+        tracing::info!(
+            module_path = self.module_path,
+            size_bytes = self.size_bytes,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            module_path = self.module_path,
+            size_bytes = self.size_bytes,
         )
     }
 }
@@ -74,6 +96,26 @@ impl Display for ModuleLoadFailed<'_> {
     }
 }
 
+impl StructuredLog for ModuleLoadFailed<'_> {
+    fn log(&self) {
+        tracing::error!(
+            module_path = self.module_path,
+            error = %self.error,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::ERROR,
+            "span_name",
+            name = name,
+            module_path = self.module_path,
+            error = %self.error,
+        )
+    }
+}
+
 /// WASM component type detected.
 ///
 /// # Log Level
@@ -101,6 +143,26 @@ impl Display for ComponentTypeDetected<'_> {
             f,
             "Detected {} component type for module: {}",
             self.component_type, self.module_path
+        )
+    }
+}
+
+impl StructuredLog for ComponentTypeDetected<'_> {
+    fn log(&self) {
+        tracing::info!(
+            module_path = self.module_path,
+            component_type = self.component_type,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            module_path = self.module_path,
+            component_type = self.component_type,
         )
     }
 }
@@ -136,6 +198,26 @@ impl Display for ExecutorCreated<'_> {
     }
 }
 
+impl StructuredLog for ExecutorCreated<'_> {
+    fn log(&self) {
+        tracing::info!(
+            executor_type = self.executor_type,
+            fuel_level = self.fuel_level,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            executor_type = self.executor_type,
+            fuel_level = self.fuel_level,
+        )
+    }
+}
+
 /// WASM execution started.
 ///
 /// # Log Level
@@ -165,6 +247,28 @@ impl Display for ExecutionStarted<'_> {
             f,
             "Executing WASM module '{}' using {} executor: input_size={} bytes",
             self.module_path, self.executor_type, self.input_size
+        )
+    }
+}
+
+impl StructuredLog for ExecutionStarted<'_> {
+    fn log(&self) {
+        tracing::info!(
+            module_path = self.module_path,
+            executor_type = self.executor_type,
+            input_size = self.input_size,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            module_path = self.module_path,
+            executor_type = self.executor_type,
+            input_size = self.input_size,
         )
     }
 }
@@ -207,6 +311,33 @@ impl Display for ExecutionCompleted<'_> {
     }
 }
 
+impl StructuredLog for ExecutionCompleted<'_> {
+    fn log(&self) {
+        tracing::info!(
+            module_path = self.module_path,
+            executor_type = self.executor_type,
+            input_size = self.input_size,
+            output_size = self.output_size,
+            duration_ms = self.duration.as_millis() as u64,
+            duration_us = self.duration.as_micros() as u64,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            module_path = self.module_path,
+            executor_type = self.executor_type,
+            input_size = self.input_size,
+            output_size = self.output_size,
+            duration_ms = self.duration.as_millis() as u64,
+        )
+    }
+}
+
 /// WASM execution failed.
 ///
 /// # Log Level
@@ -241,6 +372,28 @@ impl Display for ExecutionFailed<'_> {
     }
 }
 
+impl StructuredLog for ExecutionFailed<'_> {
+    fn log(&self) {
+        tracing::error!(
+            module_path = self.module_path,
+            executor_type = self.executor_type,
+            error = %self.error,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::ERROR,
+            "span_name",
+            name = name,
+            module_path = self.module_path,
+            executor_type = self.executor_type,
+            error = %self.error,
+        )
+    }
+}
+
 /// WASM engine creation started.
 ///
 /// # Log Level
@@ -266,6 +419,24 @@ impl Display for EngineCreationStarted<'_> {
             f,
             "Creating WASM engine for {} component type",
             self.component_type
+        )
+    }
+}
+
+impl StructuredLog for EngineCreationStarted<'_> {
+    fn log(&self) {
+        tracing::info!(
+            component_type = self.component_type,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            component_type = self.component_type,
         )
     }
 }

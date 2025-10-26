@@ -9,7 +9,9 @@
 //! * Execution strategy selection
 //! * Concurrency and resource management
 
+use crate::observability::messages::StructuredLog;
 use std::fmt::{Display, Formatter};
+use tracing::Span;
 
 /// Execution started with specified strategy and configuration.
 ///
@@ -40,6 +42,28 @@ impl Display for ExecutionStarted<'_> {
             f,
             "Starting DAG execution with {} strategy: {} processors, max_concurrency={}",
             self.strategy, self.processor_count, self.max_concurrency
+        )
+    }
+}
+
+impl StructuredLog for ExecutionStarted<'_> {
+    fn log(&self) {
+        tracing::info!(
+            strategy = self.strategy,
+            processor_count = self.processor_count,
+            max_concurrency = self.max_concurrency,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            strategy = self.strategy,
+            processor_count = self.processor_count,
+            max_concurrency = self.max_concurrency,
         )
     }
 }
@@ -78,6 +102,29 @@ impl Display for ExecutionCompleted<'_> {
     }
 }
 
+impl StructuredLog for ExecutionCompleted<'_> {
+    fn log(&self) {
+        tracing::info!(
+            strategy = self.strategy,
+            processor_count = self.processor_count,
+            duration_ms = self.duration.as_millis() as u64,
+            duration_us = self.duration.as_micros() as u64,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            strategy = self.strategy,
+            processor_count = self.processor_count,
+            duration_ms = self.duration.as_millis() as u64,
+        )
+    }
+}
+
 /// Execution failed with error.
 ///
 /// # Log Level
@@ -106,6 +153,26 @@ impl Display for ExecutionFailed<'_> {
             f,
             "DAG execution failed with {} strategy: {}",
             self.strategy, self.error
+        )
+    }
+}
+
+impl StructuredLog for ExecutionFailed<'_> {
+    fn log(&self) {
+        tracing::error!(
+            strategy = self.strategy,
+            error = %self.error,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::ERROR,
+            "span_name",
+            name = name,
+            strategy = self.strategy,
+            error = %self.error,
         )
     }
 }
@@ -141,6 +208,26 @@ impl Display for LevelComputationCompleted {
     }
 }
 
+impl StructuredLog for LevelComputationCompleted {
+    fn log(&self) {
+        tracing::info!(
+            level_count = self.level_count,
+            processor_count = self.processor_count,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            level_count = self.level_count,
+            processor_count = self.processor_count,
+        )
+    }
+}
+
 /// Topological sort failed (cyclic dependency detected).
 ///
 /// # Log Level
@@ -163,5 +250,23 @@ pub struct TopologicalSortFailed<'a> {
 impl Display for TopologicalSortFailed<'_> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "Topological sort failed: {}", self.reason)
+    }
+}
+
+impl StructuredLog for TopologicalSortFailed<'_> {
+    fn log(&self) {
+        tracing::error!(
+            reason = self.reason,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::ERROR,
+            "span_name",
+            name = name,
+            reason = self.reason,
+        )
     }
 }

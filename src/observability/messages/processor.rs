@@ -9,7 +9,9 @@
 //! * Processor input/output handling
 //! * Processor metadata collection
 
+use crate::observability::messages::StructuredLog;
 use std::fmt::{Display, Formatter};
+use tracing::Span;
 
 /// Processor execution started.
 ///
@@ -38,6 +40,26 @@ impl Display for ProcessorExecutionStarted<'_> {
             f,
             "Processor '{}' execution started: input_size={} bytes",
             self.processor_id, self.input_size
+        )
+    }
+}
+
+impl StructuredLog for ProcessorExecutionStarted<'_> {
+    fn log(&self) {
+        tracing::info!(
+            processor_id = self.processor_id,
+            input_size = self.input_size,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            processor_id = self.processor_id,
+            input_size = self.input_size,
         )
     }
 }
@@ -78,6 +100,31 @@ impl Display for ProcessorExecutionCompleted<'_> {
     }
 }
 
+impl StructuredLog for ProcessorExecutionCompleted<'_> {
+    fn log(&self) {
+        tracing::info!(
+            processor_id = self.processor_id,
+            input_size = self.input_size,
+            output_size = self.output_size,
+            duration_ms = self.duration.as_millis() as u64,
+            duration_us = self.duration.as_micros() as u64,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::INFO,
+            "span_name",
+            name = name,
+            processor_id = self.processor_id,
+            input_size = self.input_size,
+            output_size = self.output_size,
+            duration_ms = self.duration.as_millis() as u64,
+        )
+    }
+}
+
 /// Processor execution failed.
 ///
 /// # Log Level
@@ -106,6 +153,26 @@ impl Display for ProcessorExecutionFailed<'_> {
             f,
             "Processor '{}' execution failed: {}",
             self.processor_id, self.error
+        )
+    }
+}
+
+impl StructuredLog for ProcessorExecutionFailed<'_> {
+    fn log(&self) {
+        tracing::error!(
+            processor_id = self.processor_id,
+            error = %self.error,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::ERROR,
+            "span_name",
+            name = name,
+            processor_id = self.processor_id,
+            error = %self.error,
         )
     }
 }
@@ -143,6 +210,28 @@ impl Display for ProcessorInstantiationFailed<'_> {
     }
 }
 
+impl StructuredLog for ProcessorInstantiationFailed<'_> {
+    fn log(&self) {
+        tracing::error!(
+            processor_id = self.processor_id,
+            backend = self.backend,
+            reason = self.reason,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::ERROR,
+            "span_name",
+            name = name,
+            processor_id = self.processor_id,
+            backend = self.backend,
+            reason = self.reason,
+        )
+    }
+}
+
 /// Processor fallback to stub implementation.
 ///
 /// # Log Level
@@ -170,6 +259,26 @@ impl Display for ProcessorFallbackToStub<'_> {
             f,
             "Processor '{}' falling back to stub implementation: {}",
             self.processor_id, self.reason
+        )
+    }
+}
+
+impl StructuredLog for ProcessorFallbackToStub<'_> {
+    fn log(&self) {
+        tracing::warn!(
+            processor_id = self.processor_id,
+            reason = self.reason,
+            "{}", self
+        );
+    }
+
+    fn span(&self, name: &str) -> Span {
+        tracing::span!(
+            tracing::Level::WARN,
+            "span_name",
+            name = name,
+            processor_id = self.processor_id,
+            reason = self.reason,
         )
     }
 }

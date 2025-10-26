@@ -57,10 +57,9 @@ impl StructuredLog for ExecutionStarted<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "execution",
+            span_name = name,
             strategy = self.strategy,
             processor_count = self.processor_count,
             max_concurrency = self.max_concurrency,
@@ -108,25 +107,22 @@ impl StructuredLog for ExecutionCompleted<'_> {
             strategy = self.strategy,
             processor_count = self.processor_count,
             duration_ms = self.duration.as_millis() as u64,
-            duration_us = self.duration.as_micros() as u64,
             "{}", self
         );
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "execution_completed",
+            span_name = name,
             strategy = self.strategy,
             processor_count = self.processor_count,
-            duration_ms = self.duration.as_millis() as u64,
+            duration = ?self.duration,
         )
     }
 }
 
 /// Execution failed with error.
-///
 /// # Log Level
 /// `error!` - Failure requiring attention
 ///
@@ -167,10 +163,9 @@ impl StructuredLog for ExecutionFailed<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::ERROR,
-            "span_name",
-            name = name,
+        tracing::error_span!(
+            "execution_failed",
+            span_name = name,
             strategy = self.strategy,
             error = %self.error,
         )
@@ -218,10 +213,9 @@ impl StructuredLog for LevelComputationCompleted {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "level_computation",
+            span_name = name,
             level_count = self.level_count,
             processor_count = self.processor_count,
         )
@@ -262,10 +256,9 @@ impl StructuredLog for TopologicalSortFailed<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::ERROR,
-            "span_name",
-            name = name,
+        tracing::error_span!(
+            "topological_sort_failed",
+            span_name = name,
             reason = self.reason,
         )
     }

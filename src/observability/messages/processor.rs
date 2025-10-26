@@ -54,10 +54,9 @@ impl StructuredLog for ProcessorExecutionStarted<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "processor_execution_started",
+            span_name = name,
             processor_id = self.processor_id,
             input_size = self.input_size,
         )
@@ -107,20 +106,18 @@ impl StructuredLog for ProcessorExecutionCompleted<'_> {
             input_size = self.input_size,
             output_size = self.output_size,
             duration_ms = self.duration.as_millis() as u64,
-            duration_us = self.duration.as_micros() as u64,
             "{}", self
         );
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "processor_execution_completed",
+            span_name = name,
             processor_id = self.processor_id,
             input_size = self.input_size,
             output_size = self.output_size,
-            duration_ms = self.duration.as_millis() as u64,
+            duration = ?self.duration,
         )
     }
 }
@@ -136,11 +133,9 @@ impl StructuredLog for ProcessorExecutionCompleted<'_> {
 ///
 /// let error = std::io::Error::new(std::io::ErrorKind::Other, "test error");
 /// let msg = ProcessorExecutionFailed {
-///     processor_id: "uppercase_processor",
+///     processor_id: "reverse_text",
 ///     error: &error,
 /// };
-///
-/// tracing::error!("{}", msg);
 /// ```
 pub struct ProcessorExecutionFailed<'a> {
     pub processor_id: &'a str,
@@ -148,7 +143,7 @@ pub struct ProcessorExecutionFailed<'a> {
 }
 
 impl Display for ProcessorExecutionFailed<'_> {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "Processor '{}' execution failed: {}",
@@ -167,10 +162,9 @@ impl StructuredLog for ProcessorExecutionFailed<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::ERROR,
-            "span_name",
-            name = name,
+        tracing::error_span!(
+            "processor_execution_failed",
+            span_name = name,
             processor_id = self.processor_id,
             error = %self.error,
         )
@@ -186,26 +180,25 @@ impl StructuredLog for ProcessorExecutionFailed<'_> {
 /// ```
 /// use the_dagwood::observability::messages::processor::ProcessorInstantiationFailed;
 ///
+/// let error = std::io::Error::new(std::io::ErrorKind::Other, "test error");
 /// let msg = ProcessorInstantiationFailed {
-///     processor_id: "unknown_processor",
-///     backend: "local",
-///     reason: "Unknown processor implementation",
+///     processor_id: "wasm_processor",
+///     backend: "wasm",
+///     error: &error,
 /// };
-///
-/// tracing::error!("{}", msg);
 /// ```
 pub struct ProcessorInstantiationFailed<'a> {
     pub processor_id: &'a str,
     pub backend: &'a str,
-    pub reason: &'a str,
+    pub error: &'a dyn std::error::Error,
 }
 
 impl Display for ProcessorInstantiationFailed<'_> {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Failed to instantiate processor '{}' with backend '{}': {}",
-            self.processor_id, self.backend, self.reason
+            "Failed to instantiate processor '{}' (backend: {}): {}",
+            self.processor_id, self.backend, self.error
         )
     }
 }
@@ -215,25 +208,23 @@ impl StructuredLog for ProcessorInstantiationFailed<'_> {
         tracing::error!(
             processor_id = self.processor_id,
             backend = self.backend,
-            reason = self.reason,
+            error = %self.error,
             "{}", self
         );
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::ERROR,
-            "span_name",
-            name = name,
+        tracing::error_span!(
+            "processor_instantiation_failed",
+            span_name = name,
             processor_id = self.processor_id,
             backend = self.backend,
-            reason = self.reason,
+            error = %self.error,
         )
     }
 }
 
 /// Processor fallback to stub implementation.
-///
 /// # Log Level
 /// `warn!` - Potential issue or degraded behavior
 ///
@@ -273,10 +264,9 @@ impl StructuredLog for ProcessorFallbackToStub<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::WARN,
-            "span_name",
-            name = name,
+        tracing::warn_span!(
+            "processor_fallback",
+            span_name = name,
             processor_id = self.processor_id,
             reason = self.reason,
         )

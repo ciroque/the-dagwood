@@ -50,10 +50,9 @@ impl StructuredLog for CyclicDependencyDetected<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::ERROR,
-            "span_name",
-            name = name,
+        tracing::error_span!(
+            "cyclic_dependency",
+            span_name = name,
             cycle = self.cycle.join(" -> "),
             cycle_length = self.cycle.len(),
         )
@@ -101,10 +100,9 @@ impl StructuredLog for UnresolvedDependency<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::ERROR,
-            "span_name",
-            name = name,
+        tracing::error_span!(
+            "unresolved_dependency",
+            span_name = name,
             processor_id = self.processor_id,
             missing_dependency = self.missing_dependency,
         )
@@ -145,10 +143,9 @@ impl StructuredLog for DuplicateProcessorId<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::ERROR,
-            "span_name",
-            name = name,
+        tracing::error_span!(
+            "duplicate_processor_id",
+            span_name = name,
             processor_id = self.processor_id,
         )
     }
@@ -199,10 +196,9 @@ impl StructuredLog for DiamondPatternDetected<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::WARN,
-            "span_name",
-            name = name,
+        tracing::warn_span!(
+            "diamond_pattern",
+            span_name = name,
             convergence_processor = self.convergence_processor,
             parallel_path_count = self.parallel_path_count,
         )
@@ -247,10 +243,9 @@ impl StructuredLog for ValidationStarted {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "validation_started",
+            span_name = name,
             processor_count = self.processor_count,
         )
     }
@@ -306,19 +301,16 @@ impl StructuredLog for ValidationCompleted {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "validation_completed",
+            span_name = name,
             processor_count = self.processor_count,
             warning_count = self.warning_count,
-            has_warnings = self.warning_count > 0,
         )
     }
 }
 
 /// Configuration validation failed.
-///
 /// # Log Level
 /// `error!` - Failure requiring attention
 ///
@@ -355,10 +347,9 @@ impl StructuredLog for ValidationFailed {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::ERROR,
-            "span_name",
-            name = name,
+        tracing::error_span!(
+            "validation_failed",
+            span_name = name,
             error_count = self.error_count,
         )
     }

@@ -54,10 +54,9 @@ impl StructuredLog for ModuleLoaded<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "module_loaded",
+            span_name = name,
             module_path = self.module_path,
             size_bytes = self.size_bytes,
         )
@@ -106,10 +105,9 @@ impl StructuredLog for ModuleLoadFailed<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::ERROR,
-            "span_name",
-            name = name,
+        tracing::error_span!(
+            "module_load_failed",
+            span_name = name,
             module_path = self.module_path,
             error = %self.error,
         )
@@ -157,10 +155,9 @@ impl StructuredLog for ComponentTypeDetected<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "component_type_detected",
+            span_name = name,
             module_path = self.module_path,
             component_type = self.component_type,
         )
@@ -208,10 +205,9 @@ impl StructuredLog for ExecutorCreated<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "executor_created",
+            span_name = name,
             executor_type = self.executor_type,
             fuel_level = self.fuel_level,
         )
@@ -262,10 +258,9 @@ impl StructuredLog for ExecutionStarted<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "wasm_execution_started",
+            span_name = name,
             module_path = self.module_path,
             executor_type = self.executor_type,
             input_size = self.input_size,
@@ -325,15 +320,14 @@ impl StructuredLog for ExecutionCompleted<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "wasm_execution_completed",
+            span_name = name,
             module_path = self.module_path,
             executor_type = self.executor_type,
             input_size = self.input_size,
             output_size = self.output_size,
-            duration_ms = self.duration.as_millis() as u64,
+            duration = ?self.duration,
         )
     }
 }
@@ -383,10 +377,9 @@ impl StructuredLog for ExecutionFailed<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::ERROR,
-            "span_name",
-            name = name,
+        tracing::error_span!(
+            "wasm_execution_failed",
+            span_name = name,
             module_path = self.module_path,
             executor_type = self.executor_type,
             error = %self.error,
@@ -432,10 +425,9 @@ impl StructuredLog for EngineCreationStarted<'_> {
     }
 
     fn span(&self, name: &str) -> Span {
-        tracing::span!(
-            tracing::Level::INFO,
-            "span_name",
-            name = name,
+        tracing::info_span!(
+            "engine_creation_started",
+            span_name = name,
             component_type = self.component_type,
         )
     }

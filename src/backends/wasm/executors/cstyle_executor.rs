@@ -43,7 +43,9 @@
 //! - Simple processors without WASI dependencies
 //! - Performance-critical code with minimal overhead
 
+use crate::observability::messages::{wasm::*, StructuredLog};
 use std::sync::Arc;
+use std::time::Instant;
 
 use super::super::processing_node::{
     ExecutionMetadata, ProcessingNodeError, ProcessingNodeExecutor,
@@ -91,6 +93,18 @@ impl CStyleNodeExecutor {
 
 impl ProcessingNodeExecutor for CStyleNodeExecutor {
     fn execute(&self, input: &[u8]) -> Result<Vec<u8>, ProcessingNodeError> {
+        let start_msg = ExecutionStarted {
+            module_path: "<cstyle-module>",
+            executor_type: "CStyleNodeExecutor",
+            input_size: input.len(),
+        };
+
+        let span = start_msg.span("wasm_execution");
+        let _guard = span.enter();
+        start_msg.log();
+
+        let start_time = Instant::now();
+
         let mut store = Store::new(&self.engine, ());
 
         store
@@ -100,7 +114,31 @@ impl ProcessingNodeExecutor for CStyleNodeExecutor {
         let instance = Instance::new(&mut store, &self.module, &[])
             .map_err(|e| ProcessingNodeError::RuntimeError(e.to_string()))?;
 
-        self.execute_c_style_process(&mut store, &instance, input)
+        let result = self.execute_c_style_process(&mut store, &instance, input);
+        let duration = start_time.elapsed();
+
+        match &result {
+            Ok(output) => {
+                ExecutionCompleted {
+                    module_path: "<cstyle-module>",
+                    executor_type: "CStyleNodeExecutor",
+                    input_size: input.len(),
+                    output_size: output.len(),
+                    duration,
+                }
+                .log();
+            }
+            Err(e) => {
+                ExecutionFailed {
+                    module_path: "<cstyle-module>",
+                    executor_type: "CStyleNodeExecutor",
+                    error: e,
+                }
+                .log();
+            }
+        }
+
+        result
     }
 
     fn artifact_type(&self) -> &'static str {

@@ -174,7 +174,7 @@ use tokio::sync::Mutex;
 
 use crate::config::{DependencyGraph, EntryPoints, ProcessorMap};
 use crate::errors::{ExecutionError, FailureStrategy};
-use crate::observability::messages::engine::{ExecutionStarted, ExecutionCompleted, ExecutionFailed};
+use crate::observability::messages::{engine::*, StructuredLog};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::{PipelineMetadata, ProcessorRequest, ProcessorResponse};
 use crate::traits::executor::DagExecutor;
@@ -395,17 +395,17 @@ impl DagExecutor for WorkQueueExecutor {
         pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
     ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
+        let start_msg = ExecutionStarted {
+            strategy: "WorkQueue",
+            processor_count: processors.len(),
+            max_concurrency: self.max_concurrency,
+        };
+
+        let span = start_msg.span("dag_execution");
+        let _guard = span.enter();
+        start_msg.log();
+
         let execution_start = Instant::now();
-        
-        // Log execution start
-        tracing::info!(
-            "{}",
-            ExecutionStarted {
-                strategy: "WorkQueue",
-                processor_count: processors.len(),
-                max_concurrency: self.max_concurrency,
-            }
-        );
 
         // === PHASE 1: VALIDATION AND SETUP ===
 
@@ -414,13 +414,11 @@ impl DagExecutor for WorkQueueExecutor {
         for processor_id in graph.keys() {
             if !processors.contains_key(processor_id) {
                 let error = ExecutionError::ProcessorNotFound(processor_id.clone());
-                tracing::error!(
-                    "{}",
-                    ExecutionFailed {
-                        strategy: "WorkQueue",
-                        error: &error,
-                    }
-                );
+                ExecutionFailed {
+                    strategy: "WorkQueue",
+                    error: &error,
+                }
+                .log();
                 return Err(error);
             }
         }
@@ -437,13 +435,11 @@ impl DagExecutor for WorkQueueExecutor {
                 let error = ExecutionError::InternalError {
                     message: "Internal consistency error: dependency graph contains cycles (should have been caught during config validation)".into() 
                 };
-                tracing::error!(
-                    "{}",
-                    ExecutionFailed {
-                        strategy: "WorkQueue",
-                        error: &error,
-                    }
-                );
+                ExecutionFailed {
+                    strategy: "WorkQueue",
+                    error: &error,
+                }
+                .log();
                 error
             })?;
 
@@ -824,14 +820,12 @@ impl DagExecutor for WorkQueueExecutor {
         
         // Log successful completion
         let execution_duration = execution_start.elapsed();
-        tracing::info!(
-            "{}",
-            ExecutionCompleted {
-                strategy: "WorkQueue",
-                processor_count: processors.len(),
-                duration: execution_duration,
-            }
-        );
+        ExecutionCompleted {
+            strategy: "WorkQueue",
+            processor_count: processors.len(),
+            duration: execution_duration,
+        }
+        .log();
         
         Ok((final_results.clone(), final_pipeline_metadata.clone()))
     }

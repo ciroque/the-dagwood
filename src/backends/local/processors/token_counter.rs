@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::time::Instant;
 
-use crate::observability::messages::processor::{ProcessorExecutionStarted, ProcessorExecutionCompleted, ProcessorExecutionFailed};
+use crate::observability::messages::{processor::*, StructuredLog};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::{
     ErrorDetail, PipelineMetadata, ProcessorMetadata, ProcessorRequest, ProcessorResponse,
@@ -24,28 +24,27 @@ impl TokenCounterProcessor {
 #[async_trait]
 impl Processor for TokenCounterProcessor {
     async fn process(&self, req: ProcessorRequest) -> ProcessorResponse {
+        let start_msg = ProcessorExecutionStarted {
+            processor_id: self.name(),
+            input_size: req.payload.len(),
+        };
+
+        let span = start_msg.span("processor_execution");
+        let _guard = span.enter();
+        start_msg.log();
+
         let start = Instant::now();
-        let input_size = req.payload.len();
-        
-        tracing::info!(
-            "{}",
-            ProcessorExecutionStarted {
-                processor_id: self.name(),
-                input_size,
-            }
-        );
 
         let input = match String::from_utf8(req.payload.clone()) {
             Ok(text) => text,
             Err(e) => {
                 let error = std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid UTF-8 input: {}", e));
-                tracing::error!(
-                    "{}",
-                    ProcessorExecutionFailed {
-                        processor_id: self.name(),
-                        error: &error,
-                    }
-                );
+                ProcessorExecutionFailed {
+                    processor_id: self.name(),
+                    error: &error,
+                }
+                .log();
+
                 return ProcessorResponse {
                     outcome: Some(Outcome::Error(ErrorDetail {
                         code: 400,
@@ -76,16 +75,14 @@ impl Processor for TokenCounterProcessor {
         );
 
         let duration = start.elapsed();
-        
-        tracing::info!(
-            "{}",
-            ProcessorExecutionCompleted {
-                processor_id: self.name(),
-                input_size,
-                output_size: 0, // Analyze processor - no output payload
-                duration,
-            }
-        );
+
+        ProcessorExecutionCompleted {
+            processor_id: self.name(),
+            input_size: start_msg.input_size,
+            output_size: 0, // Analyze processor - no output payload
+            duration,
+        }
+        .log();
 
         ProcessorResponse {
             outcome: Some(Outcome::NextPayload(vec![])), // Analyze processors: return empty payload (executor ignores it)

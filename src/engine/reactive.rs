@@ -157,7 +157,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::config::{DependencyGraph, EntryPoints, ProcessorMap};
 use crate::errors::{ExecutionError, FailureStrategy};
-use crate::observability::messages::engine::{ExecutionStarted, ExecutionCompleted};
+use crate::observability::messages::{engine::*, StructuredLog};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::{PipelineMetadata, ProcessorRequest, ProcessorResponse};
 use crate::traits::executor::DagExecutor;
@@ -674,18 +674,18 @@ impl DagExecutor for ReactiveExecutor {
         pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
     ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
+        let start_msg = ExecutionStarted {
+            strategy: "Reactive",
+            processor_count: processors.len(),
+            max_concurrency: self.max_concurrency,
+        };
+
+        let span = start_msg.span("dag_execution");
+        let _guard = span.enter();
+        start_msg.log();
+
         let execution_start = Instant::now();
         let processor_count = processors.len();
-        
-        // Log execution start
-        tracing::info!(
-            "{}",
-            ExecutionStarted {
-                strategy: "Reactive",
-                processor_count,
-                max_concurrency: self.max_concurrency,
-            }
-        );
 
         // Validate dependency graph (reuse existing validation)
         let (_dependency_counts, _topological_ranks) = graph.dependency_counts_and_ranks()
@@ -814,14 +814,12 @@ impl DagExecutor for ReactiveExecutor {
 
         // Log successful completion
         let execution_duration = execution_start.elapsed();
-        tracing::info!(
-            "{}",
-            ExecutionCompleted {
-                strategy: "Reactive",
-                processor_count,
-                duration: execution_duration,
-            }
-        );
+        ExecutionCompleted {
+            strategy: "Reactive",
+            processor_count,
+            duration: execution_duration,
+        }
+        .log();
 
         Ok((final_results, final_metadata))
     }

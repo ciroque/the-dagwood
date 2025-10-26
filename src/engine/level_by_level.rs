@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::config::{DependencyGraph, EntryPoints, ProcessorMap};
 use crate::errors::{ExecutionError, FailureStrategy};
-use crate::observability::messages::engine::{ExecutionStarted, ExecutionCompleted, LevelComputationCompleted};
+use crate::observability::messages::{engine::*, StructuredLog};
 use crate::proto::processor_v1::processor_response::Outcome;
 use crate::proto::processor_v1::{PipelineMetadata, ProcessorRequest, ProcessorResponse};
 use crate::traits::executor::DagExecutor;
@@ -392,30 +392,28 @@ impl DagExecutor for LevelByLevelExecutor {
         pipeline_metadata: PipelineMetadata,
         failure_strategy: FailureStrategy,
     ) -> Result<(HashMap<String, ProcessorResponse>, PipelineMetadata), ExecutionError> {
+        let start_msg = ExecutionStarted {
+            strategy: "LevelByLevel",
+            processor_count: processors.len(),
+            max_concurrency: self.max_concurrency,
+        };
+
+        let span = start_msg.span("dag_execution");
+        let _guard = span.enter();
+        start_msg.log();
+
         let execution_start = Instant::now();
-        
-        // Log execution start
-        tracing::info!(
-            "{}",
-            ExecutionStarted {
-                strategy: "LevelByLevel",
-                processor_count: processors.len(),
-                max_concurrency: self.max_concurrency,
-            }
-        );
 
         // Compute topological levels
         let levels = self.compute_topological_levels(&graph, &entrypoints)?;
         
         // Log level computation completion
         let total_processors: usize = levels.iter().map(|level| level.len()).sum();
-        tracing::info!(
-            "{}",
-            LevelComputationCompleted {
-                level_count: levels.len(),
-                processor_count: total_processors,
-            }
-        );
+        LevelComputationCompleted {
+            level_count: levels.len(),
+            processor_count: total_processors,
+        }
+        .log();
 
         // Build reverse dependencies map once for the entire execution
         let reverse_deps = graph.build_reverse_dependencies();
@@ -458,14 +456,12 @@ impl DagExecutor for LevelByLevelExecutor {
         
         // Log successful completion
         let execution_duration = execution_start.elapsed();
-        tracing::info!(
-            "{}",
-            ExecutionCompleted {
-                strategy: "LevelByLevel",
-                processor_count: processors.len(),
-                duration: execution_duration,
-            }
-        );
+        ExecutionCompleted {
+            strategy: "LevelByLevel",
+            processor_count: processors.len(),
+            duration: execution_duration,
+        }
+        .log();
         
         Ok((final_results, final_pipeline_metadata))
     }
